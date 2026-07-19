@@ -102,7 +102,7 @@ const scripts = `
 export const employeesHtml = renderLayout({
   title: 'Employees',
   activePath: '/employees',
-  eyebrow: 'Bohs LMS — Workforce Directory',
+  eyebrowSuffix: 'Workforce Directory',
   heading: 'Employees',
   bodyHtml,
   scripts,
