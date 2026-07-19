@@ -4,16 +4,7 @@
 
 const NAV_ITEMS: Array<{ label: string; path: string }> = [
   { label: 'Dashboard', path: '/' },
-  { label: 'Employees', path: '/employees' },
-  { label: 'Evidence', path: '/modules/evidence' },
   { label: 'Coach', path: '/modules/coach' },
-  { label: 'Risk', path: '/modules/risk' },
-  { label: 'Appraisal', path: '/modules/appraisal' },
-  { label: 'Career', path: '/modules/career' },
-  { label: 'ROI', path: '/modules/roi' },
-  { label: 'Incidents', path: '/modules/incidents' },
-  { label: 'Assessments', path: '/modules/assessments' },
-  { label: 'Compliance', path: '/modules/compliance' },
   { label: 'Admin', path: '/admin' },
 ];
 
