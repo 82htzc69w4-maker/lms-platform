@@ -45,3 +45,17 @@ export type EmployeeSkillsMatrix = {
   statuses: Record<string, CompetencyStatus>; // keyed by competencyId
   links: CompetencyLink[];
 };
+
+export type Employee = {
+  id: string;
+  name: string;
+  department: string;
+};
+
+export type DepartmentRisk = {
+  department: string;
+  level: 'high' | 'medium' | 'low';
+  notCompetentCount: number;
+  needsRefresherCount: number;
+  employeeCount: number;
+};
