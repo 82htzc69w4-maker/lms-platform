@@ -116,6 +116,49 @@ const bodyHtml = `
         <div class="empty-state">Loading users&hellip;</div>
       </div>
     </div>
+
+    <div class="panel" id="edit-user-panel" style="display: none;">
+      <div class="panel-header">
+        <div class="panel-title">Edit User</div>
+        <div class="panel-sub" id="edit-user-subtitle"></div>
+      </div>
+      <div class="panel-body">
+
+        <div class="form-row">
+          <input type="text" id="edit-firstName" placeholder="Name" />
+          <input type="text" id="edit-surname" placeholder="Surname" />
+        </div>
+        <div class="form-row">
+          <input type="password" id="edit-password" placeholder="New password (leave blank to keep current)" />
+        </div>
+
+        <div id="edit-learner-fields" style="display: none;">
+          <div class="stat-label" style="margin-bottom: 8px; margin-top: 8px;">Identity</div>
+          <div class="form-row">
+            <input type="email" id="edit-email" placeholder="Email" />
+            <input type="text" id="edit-mobile" placeholder="Mobile" />
+          </div>
+          <div class="form-row">
+            <input type="text" id="edit-idNumber" placeholder="ID Number" />
+          </div>
+          <div class="form-row">
+            <input type="text" id="edit-currentOccupation" placeholder="Current Occupation" />
+            <input type="text" id="edit-futureOccupations" placeholder="Future Occupation(s)" />
+          </div>
+
+          <div class="stat-label" style="margin-bottom: 8px; margin-top: 16px;">Assignment</div>
+          <div class="form-row">
+            <input type="text" id="edit-languagePreference" placeholder="Language Preference" />
+            <input type="text" id="edit-department" placeholder="Department" />
+          </div>
+        </div>
+
+        <button class="btn" id="save-edit-btn" style="margin-top: 8px;">Save Changes</button>
+        <button class="btn" id="cancel-edit-btn" style="margin-top: 8px; margin-left: 8px; background: var(--panel-alt); color: var(--text-primary);">Cancel</button>
+        <div id="edit-message" style="margin-top: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
+
+      </div>
+    </div>
   </div>
 `;
 
@@ -234,6 +277,7 @@ const scripts = `
             <td>\${u.name}</td>
             <td>\${ROLE_LABELS[u.role] || u.role}</td>
             <td>\${u.department || '—'}</td>
+            <td><button class="btn edit-user-btn" data-username="\${u.username}">Edit</button></td>
           </tr>
         \`).join('');
 
@@ -245,11 +289,16 @@ const scripts = `
                 <th>Name</th>
                 <th>Role</th>
                 <th>Department</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>\${rows}</tbody>
           </table>
         \`;
+
+        document.querySelectorAll('.edit-user-btn').forEach(btn => {
+          btn.addEventListener('click', () => openEditPanel(btn.dataset.username));
+        });
       })
       .catch(() => {
         document.getElementById('user-list-wrap').innerHTML =
@@ -314,6 +363,96 @@ const scripts = `
   });
 
   loadUsers();
+
+  // ---------- Edit User ----------
+  let editingUsername = null;
+
+  function openEditPanel(username) {
+    fetch('/api/users/' + username)
+      .then(r => r.json())
+      .then(data => {
+        editingUsername = username;
+        const user = data.user;
+        const profile = data.learnerProfile;
+
+        document.getElementById('edit-user-subtitle').textContent = 'Editing ' + username + ' (' + (ROLE_LABELS[user.role] || user.role) + ')';
+        document.getElementById('edit-firstName').value = user.firstName || '';
+        document.getElementById('edit-surname').value = user.surname || '';
+        document.getElementById('edit-password').value = '';
+
+        const isLearner = user.role === 'learner';
+        document.getElementById('edit-learner-fields').style.display = isLearner ? 'block' : 'none';
+
+        if (isLearner && profile) {
+          document.getElementById('edit-email').value = profile.email || '';
+          document.getElementById('edit-mobile').value = profile.mobile || '';
+          document.getElementById('edit-idNumber').value = profile.idNumber || '';
+          document.getElementById('edit-currentOccupation').value = profile.currentOccupation || '';
+          document.getElementById('edit-futureOccupations').value = profile.futureOccupations || '';
+          document.getElementById('edit-languagePreference').value = profile.languagePreference || '';
+          document.getElementById('edit-department').value = profile.department || '';
+        }
+
+        document.getElementById('edit-message').textContent = '';
+        document.getElementById('edit-user-panel').style.display = 'block';
+        document.getElementById('edit-user-panel').scrollIntoView({ behavior: 'smooth' });
+      })
+      .catch(() => {
+        alert('Could not load user details.');
+      });
+  }
+
+  document.getElementById('cancel-edit-btn').addEventListener('click', () => {
+    document.getElementById('edit-user-panel').style.display = 'none';
+    editingUsername = null;
+  });
+
+  document.getElementById('save-edit-btn').addEventListener('click', () => {
+    if (!editingUsername) return;
+    const msgEl = document.getElementById('edit-message');
+
+    const payload = {
+      firstName: document.getElementById('edit-firstName').value.trim(),
+      surname: document.getElementById('edit-surname').value.trim(),
+    };
+
+    const password = document.getElementById('edit-password').value;
+    if (password) payload.password = password;
+
+    if (document.getElementById('edit-learner-fields').style.display !== 'none') {
+      payload.email = document.getElementById('edit-email').value.trim();
+      payload.mobile = document.getElementById('edit-mobile').value.trim();
+      payload.idNumber = document.getElementById('edit-idNumber').value.trim();
+      payload.currentOccupation = document.getElementById('edit-currentOccupation').value.trim();
+      payload.futureOccupations = document.getElementById('edit-futureOccupations').value.trim();
+      payload.languagePreference = document.getElementById('edit-languagePreference').value.trim();
+      payload.department = document.getElementById('edit-department').value.trim();
+    }
+
+    fetch('/api/users/' + editingUsername, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'Failed to save changes');
+        return data;
+      })
+      .then(() => {
+        msgEl.textContent = 'Saved.';
+        msgEl.style.color = 'var(--competent)';
+        loadUsers();
+        setTimeout(() => {
+          document.getElementById('edit-user-panel').style.display = 'none';
+          editingUsername = null;
+        }, 800);
+      })
+      .catch((err) => {
+        msgEl.textContent = err.message;
+        msgEl.style.color = 'var(--risk)';
+      });
+  });
 `;
 
 export const adminHtml = renderLayout({
