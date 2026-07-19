@@ -18,6 +18,7 @@ import assessmentBuilder from './modules/assessmentBuilder/routes';
 import compliance from './modules/compliance/routes';
 import settings from './settings/routes';
 import auth from './auth/routes';
+import users from './users/routes';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -40,5 +41,6 @@ app.route('/api/assessment-builder', assessmentBuilder);
 app.route('/api/compliance', compliance);
 app.route('/api/settings', settings);
 app.route('/api/auth', auth);
+app.route('/api/users', users);
 
 export default app;
