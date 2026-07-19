@@ -1,112 +1,135 @@
 import { renderLayout } from './layout';
 
 const bodyHtml = `
-  <div class="panel">
-    <div class="panel-header">
-      <div class="panel-title">Company Branding</div>
-      <div class="panel-sub">Changes here apply across every screen immediately</div>
-    </div>
-    <div class="panel-body">
+  <div class="tabbar">
+    <button class="tab-btn active" data-tab="branding">Branding</button>
+    <button class="tab-btn" data-tab="register">Register User</button>
+    <button class="tab-btn" data-tab="users">Registered Users</button>
+  </div>
 
-      <div style="margin-bottom: 20px;">
-        <div class="stat-label" style="margin-bottom: 8px;">Logo</div>
-        <div style="display: flex; align-items: center; gap: 16px;">
-          <img id="logo-preview" src="" alt="Logo preview"
-               style="height: 56px; max-width: 220px; display: none; background: var(--panel-alt); border: 1px solid var(--grid-line); border-radius: 3px; padding: 6px;" />
-          <div id="logo-empty" class="stat-label" style="text-transform: none; letter-spacing: 0;">No logo uploaded yet</div>
-        </div>
-        <div class="form-row" style="margin-top: 12px;">
-          <input type="file" id="logo-input" accept="image/*" />
-        </div>
+  <div class="tab-panel active" data-tab-panel="branding">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Company Branding</div>
+        <div class="panel-sub">Changes here apply across every screen immediately</div>
       </div>
+      <div class="panel-body">
 
-      <div class="form-row">
-        <input type="text" id="company-name" placeholder="Company name (e.g. Bohs Consultants)" />
-        <input type="text" id="system-name" placeholder="System name (e.g. Bohs LMS)" />
-      </div>
+        <div style="margin-bottom: 20px;">
+          <div class="stat-label" style="margin-bottom: 8px;">Logo</div>
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <img id="logo-preview" src="" alt="Logo preview"
+                 style="height: 56px; max-width: 220px; display: none; background: var(--panel-alt); border: 1px solid var(--grid-line); border-radius: 3px; padding: 6px;" />
+            <div id="logo-empty" class="stat-label" style="text-transform: none; letter-spacing: 0;">No logo uploaded yet</div>
+          </div>
+          <div class="form-row" style="margin-top: 12px;">
+            <input type="file" id="logo-input" accept="image/*" />
+          </div>
+        </div>
 
-      <div style="margin-bottom: 20px;">
-        <div class="stat-label" style="margin-bottom: 8px;">Theme</div>
         <div class="form-row">
-          <select id="theme-select">
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
-            <option value="system">Match System Settings</option>
+          <input type="text" id="company-name" placeholder="Company name (e.g. Bohs Consultants)" />
+          <input type="text" id="system-name" placeholder="System name (e.g. Bohs LMS)" />
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <div class="stat-label" style="margin-bottom: 8px;">Theme</div>
+          <div class="form-row">
+            <select id="theme-select">
+              <option value="dark">Dark</option>
+              <option value="light">Light</option>
+              <option value="system">Match System Settings</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn" id="save-branding-btn">Save Changes</button>
+        <div id="save-message" style="margin-top: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" data-tab-panel="register">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Register User</div>
+        <div class="panel-sub">Learner registrations collect identity and assignment details; other roles just need name, surname, and login</div>
+      </div>
+      <div class="panel-body">
+
+        <div class="form-row">
+          <select id="user-role">
+            <option value="learner">Learner</option>
+            <option value="instructor">Instructor</option>
+            <option value="admin">Admin</option>
+            <option value="administrator">Administrator</option>
           </select>
+          <input type="text" id="user-username" placeholder="Username" />
+          <input type="password" id="user-password" placeholder="Password" />
         </div>
+
+        <div id="non-learner-fields" class="form-row">
+          <input type="text" id="user-firstName" placeholder="Name" />
+          <input type="text" id="user-surname" placeholder="Surname" />
+        </div>
+
+        <div id="learner-fields" style="display: none;">
+          <div class="stat-label" style="margin-bottom: 8px; margin-top: 8px;">Identity</div>
+          <div class="form-row">
+            <input type="text" id="learner-firstName" placeholder="Name" />
+            <input type="text" id="learner-surname" placeholder="Surname" />
+          </div>
+          <div class="form-row">
+            <input type="email" id="learner-email" placeholder="Email" />
+            <input type="text" id="learner-mobile" placeholder="Mobile" />
+          </div>
+          <div class="form-row">
+            <input type="text" id="learner-idNumber" placeholder="ID Number" />
+          </div>
+          <div class="form-row">
+            <input type="text" id="learner-currentOccupation" placeholder="Current Occupation" />
+            <input type="text" id="learner-futureOccupations" placeholder="Future Occupation(s)" />
+          </div>
+
+          <div class="stat-label" style="margin-bottom: 8px; margin-top: 16px;">Assignment</div>
+          <div class="form-row">
+            <input type="text" id="learner-languagePreference" placeholder="Language Preference" />
+            <input type="text" id="learner-department" placeholder="Department" />
+          </div>
+        </div>
+
+        <button class="btn" id="register-user-btn" style="margin-top: 8px;">Register User</button>
+        <div id="register-message" style="margin-top: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
+
       </div>
-
-      <button class="btn" id="save-branding-btn">Save Changes</button>
-      <div id="save-message" style="margin-top: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
-
     </div>
   </div>
 
-  <div class="panel">
-    <div class="panel-header">
-      <div class="panel-title">Register User</div>
-      <div class="panel-sub">Learner registrations collect identity and assignment details; other roles just need an account</div>
-    </div>
-    <div class="panel-body">
-
-      <div class="form-row">
-        <select id="user-role">
-          <option value="learner">Learner</option>
-          <option value="instructor">Instructor</option>
-          <option value="admin">Admin</option>
-          <option value="administrator">Administrator</option>
-        </select>
-        <input type="text" id="user-username" placeholder="Username" />
-        <input type="password" id="user-password" placeholder="Password" />
+  <div class="tab-panel" data-tab-panel="users">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Registered Users</div>
+        <div class="panel-sub">Pulled from /api/users</div>
       </div>
-
-      <div id="non-learner-fields" class="form-row">
-        <input type="text" id="user-name" placeholder="Full name" />
+      <div id="user-list-wrap">
+        <div class="empty-state">Loading users&hellip;</div>
       </div>
-
-      <div id="learner-fields" style="display: none;">
-        <div class="stat-label" style="margin-bottom: 8px; margin-top: 8px;">Identity</div>
-        <div class="form-row">
-          <input type="text" id="learner-firstName" placeholder="Name" />
-          <input type="text" id="learner-surname" placeholder="Surname" />
-        </div>
-        <div class="form-row">
-          <input type="email" id="learner-email" placeholder="Email" />
-          <input type="text" id="learner-mobile" placeholder="Mobile" />
-        </div>
-        <div class="form-row">
-          <input type="text" id="learner-idNumber" placeholder="ID Number" />
-        </div>
-        <div class="form-row">
-          <input type="text" id="learner-currentOccupation" placeholder="Current Occupation" />
-          <input type="text" id="learner-futureOccupations" placeholder="Future Occupation(s)" />
-        </div>
-
-        <div class="stat-label" style="margin-bottom: 8px; margin-top: 16px;">Assignment</div>
-        <div class="form-row">
-          <input type="text" id="learner-languagePreference" placeholder="Language Preference" />
-          <input type="text" id="learner-department" placeholder="Department" />
-        </div>
-      </div>
-
-      <button class="btn" id="register-user-btn" style="margin-top: 8px;">Register User</button>
-      <div id="register-message" style="margin-top: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
-
-    </div>
-  </div>
-
-  <div class="panel">
-    <div class="panel-header">
-      <div class="panel-title">Registered Users</div>
-      <div class="panel-sub">Pulled from /api/users</div>
-    </div>
-    <div id="user-list-wrap">
-      <div class="empty-state">Loading users&hellip;</div>
     </div>
   </div>
 `;
 
 const scripts = `
+  // ---------- Tab switching ----------
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.dataset.tabPanel === tab));
+    });
+  });
+
+  // ---------- Branding ----------
   let pendingLogoDataUrl = null;
 
   function loadSettings() {
@@ -259,7 +282,8 @@ const scripts = `
       payload.languagePreference = document.getElementById('learner-languagePreference').value.trim();
       payload.department = document.getElementById('learner-department').value.trim();
     } else {
-      payload.name = document.getElementById('user-name').value.trim();
+      payload.firstName = document.getElementById('user-firstName').value.trim();
+      payload.surname = document.getElementById('user-surname').value.trim();
     }
 
     fetch('/api/users', {
@@ -277,7 +301,8 @@ const scripts = `
         msgEl.style.color = 'var(--competent)';
         document.getElementById('user-username').value = '';
         document.getElementById('user-password').value = '';
-        document.getElementById('user-name').value = '';
+        document.getElementById('user-firstName').value = '';
+        document.getElementById('user-surname').value = '';
         ['firstName','surname','email','mobile','idNumber','currentOccupation','futureOccupations','languagePreference','department']
           .forEach(f => { document.getElementById('learner-' + f).value = ''; });
         loadUsers();
