@@ -10,6 +10,7 @@ import type {
   DepartmentRisk,
 } from './types';
 import { evaluateCompetency } from './evaluate';
+import { normalizeEmployeeId } from '../../lib/id';
 
 const competency = new Hono<{ Bindings: Env }>();
 
@@ -45,7 +46,7 @@ competency.post('/definitions', async (c) => {
 
 // GET /api/competency/employees/:id/matrix
 competency.get('/employees/:id/matrix', async (c) => {
-  const id = c.req.param('id');
+  const id = normalizeEmployeeId(c.req.param('id'));
   const matrix = await kvGetJSON<EmployeeSkillsMatrix>(c.env, `competency:matrix:${id}`);
   return c.json(matrix ?? { employeeId: id, statuses: {}, links: [] });
 });
@@ -55,7 +56,7 @@ competency.get('/employees/:id/matrix', async (c) => {
 // observation, coaching session, practical task) and re-evaluates that
 // competency's status automatically.
 competency.post('/employees/:id/links', async (c) => {
-  const id = c.req.param('id');
+  const id = normalizeEmployeeId(c.req.param('id'));
   const link = await c.req.json<CompetencyLink>();
 
   if (!link.competencyId || !link.sourceType || !link.result || !link.date) {
@@ -100,7 +101,7 @@ competency.post('/employees/:id/links', async (c) => {
 // POST /api/competency/employees/:id/override
 // Supervisor manually overrides a competency's status, bypassing auto-calculation.
 competency.post('/employees/:id/override', async (c) => {
-  const id = c.req.param('id');
+  const id = normalizeEmployeeId(c.req.param('id'));
   const body = await c.req.json<{
     competencyId: string;
     status: CompetencyStatus['status'];
@@ -139,7 +140,7 @@ competency.post('/employees/:id/override', async (c) => {
 // clearing any manual overrides. Useful for periodic batch re-evaluation
 // (e.g. a nightly job checking for newly expired certifications).
 competency.post('/employees/:id/reevaluate', async (c) => {
-  const id = c.req.param('id');
+  const id = normalizeEmployeeId(c.req.param('id'));
   const matrix: EmployeeSkillsMatrix | null = await kvGetJSON(c.env, `competency:matrix:${id}`);
 
   if (!matrix) {
@@ -179,8 +180,9 @@ competency.post('/employees', async (c) => {
   if (!body.id || !body.name || !body.department) {
     return c.json({ error: 'id, name, and department are required' }, 400);
   }
-  await kvPutJSON(c.env, `competency:employee:${body.id}`, body);
-  return c.json({ ok: true, employee: body });
+  const normalizedEmployee: Employee = { ...body, id: normalizeEmployeeId(body.id) };
+  await kvPutJSON(c.env, `competency:employee:${normalizedEmployee.id}`, normalizedEmployee);
+  return c.json({ ok: true, employee: normalizedEmployee });
 });
 
 // ---------------------------------------------------------------------------
@@ -219,7 +221,7 @@ competency.get('/risk-by-department', async (c) => {
     const matrix = await kvGetJSON<EmployeeSkillsMatrix>(c.env, key.name);
     if (!matrix) continue;
 
-    const emp = employees.find((e) => e.id === matrix.employeeId);
+    const emp = employees.find((e) => e.id === normalizeEmployeeId(matrix.employeeId));
     const department = emp?.department ?? 'Unassigned';
 
     if (!byDept[department]) {
@@ -281,7 +283,7 @@ competency.get('/gaps', async (c) => {
     const matrix = await kvGetJSON<EmployeeSkillsMatrix>(c.env, key.name);
     if (!matrix) continue;
 
-    const emp = employees.find((e) => e.id === matrix.employeeId);
+    const emp = employees.find((e) => e.id === normalizeEmployeeId(matrix.employeeId));
 
     for (const status of Object.values(matrix.statuses)) {
       if (status.status !== 'competent') {
