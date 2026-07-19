@@ -40,17 +40,16 @@ users.post('/', async (c) => {
     username: string;
     password: string;
     role: Role;
-    // Non-learner roles just need a display name.
-    name?: string;
-    // Learner Identity section
+    // Identity fields — used for every role now (learner or not)
     firstName?: string;
     surname?: string;
+    // Learner-only Identity section
     email?: string;
     mobile?: string;
     idNumber?: string;
     currentOccupation?: string;
     futureOccupations?: string;
-    // Learner Assignment section
+    // Learner-only Assignment section
     languagePreference?: string;
     department?: string;
   }>();
@@ -72,7 +71,7 @@ users.post('/', async (c) => {
     return c.json({ error: `Username "${username}" is already taken` }, 409);
   }
 
-  let displayName = body.name?.trim() ?? '';
+  let displayName = '';
 
   if (role === 'learner') {
     const required = [
@@ -110,8 +109,11 @@ users.post('/', async (c) => {
       department: body.department!.trim(),
     };
     await kvPutJSON(c.env, `learner:profile:${username}`, profile);
-  } else if (!displayName) {
-    return c.json({ error: 'name is required for non-learner roles' }, 400);
+  } else {
+    if (!body.firstName?.trim() || !body.surname?.trim()) {
+      return c.json({ error: 'firstName and surname are required' }, 400);
+    }
+    displayName = `${body.firstName} ${body.surname}`.trim();
   }
 
   const passwordHash = await hashPassword(password);
