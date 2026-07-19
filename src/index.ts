@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import type { Env } from './types';
 import { dashboardHtml } from './dashboard';
+import { employeesHtml } from './employees';
+import { renderModulePlaceholder } from './module-placeholder';
 
 import competency from './modules/competency/routes';
 import evidence from './modules/evidence/routes';
@@ -16,6 +18,8 @@ import compliance from './modules/compliance/routes';
 const app = new Hono<{ Bindings: Env }>();
 
 app.get('/', (c) => c.html(dashboardHtml));
+app.get('/employees', (c) => c.html(employeesHtml));
+app.get('/modules/:name', (c) => c.html(renderModulePlaceholder(c.req.param('name'))));
 app.get('/health', (c) => c.json({ status: 'ok', service: 'lms-platform' }));
 
 app.route('/api/competency', competency);
