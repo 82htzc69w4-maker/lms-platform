@@ -22,6 +22,7 @@ settings.post('/', async (c) => {
     companyName: body.companyName?.trim() || current.companyName,
     systemName: body.systemName?.trim() || current.systemName,
     logoDataUrl: body.logoDataUrl !== undefined ? body.logoDataUrl : current.logoDataUrl,
+    theme: body.theme || current.theme,
   };
 
   await kvPutJSON(c.env, 'settings:branding', updated);
