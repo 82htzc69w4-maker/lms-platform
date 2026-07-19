@@ -14,6 +14,7 @@ const NAV_ITEMS: Array<{ label: string; path: string }> = [
   { label: 'Incidents', path: '/modules/incidents' },
   { label: 'Assessments', path: '/modules/assessments' },
   { label: 'Compliance', path: '/modules/compliance' },
+  { label: 'Admin', path: '/admin' },
 ];
 
 const SHARED_STYLES = `
@@ -60,6 +61,9 @@ const SHARED_STYLES = `
   }
 
   .nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-family: 'Big Shoulders Display', sans-serif;
     font-weight: 800;
     font-size: 16px;
@@ -68,6 +72,12 @@ const SHARED_STYLES = `
     color: var(--hazard);
     margin-right: 20px;
     white-space: nowrap;
+  }
+
+  .nav-brand img {
+    height: 22px;
+    width: auto;
+    display: none;
   }
 
   .nav-link {
@@ -240,6 +250,27 @@ const CLOCK_SCRIPT = `
   setInterval(tickClock, 1000);
 `;
 
+const BRANDING_SCRIPT = `
+  fetch('/api/settings')
+    .then(r => r.json())
+    .then(settings => {
+      document.querySelectorAll('#brand-name-text, #eyebrow-brand').forEach(el => {
+        el.textContent = settings.systemName;
+      });
+      const footerEl = document.getElementById('footer-company');
+      if (footerEl) footerEl.textContent = settings.companyName;
+
+      const logoEl = document.getElementById('brand-logo');
+      if (logoEl && settings.logoDataUrl) {
+        logoEl.src = settings.logoDataUrl;
+        logoEl.style.display = 'inline-block';
+      }
+
+      document.title = document.title.replace('Bohs LMS', settings.systemName);
+    })
+    .catch(() => { /* keep static defaults if settings can't be reached */ });
+`;
+
 function renderNav(activePath: string): string {
   const links = NAV_ITEMS.map((item) => {
     const isActive = item.path === activePath;
@@ -248,7 +279,10 @@ function renderNav(activePath: string): string {
 
   return `
     <div class="topnav">
-      <div class="nav-brand">Bohs LMS</div>
+      <div class="nav-brand">
+        <img id="brand-logo" src="" alt="Logo" />
+        <span id="brand-name-text">Bohs LMS</span>
+      </div>
       ${links}
     </div>
   `;
@@ -257,7 +291,7 @@ function renderNav(activePath: string): string {
 export function renderLayout(opts: {
   title: string;
   activePath: string;
-  eyebrow: string;
+  eyebrowSuffix: string;
   heading: string;
   bodyHtml: string;
   scripts?: string;
@@ -278,7 +312,7 @@ export function renderLayout(opts: {
 
     <div class="header">
       <div>
-        <div class="eyebrow">${opts.eyebrow}</div>
+        <div class="eyebrow"><span id="eyebrow-brand">Bohs LMS</span> — ${opts.eyebrowSuffix}</div>
         <h1>${opts.heading}</h1>
       </div>
       <div class="clock-block">
@@ -289,11 +323,12 @@ export function renderLayout(opts: {
 
     ${opts.bodyHtml}
 
-    <footer>Bohs Consultants &mdash; Competence Control build</footer>
+    <footer><span id="footer-company">Bohs Consultants</span> &mdash; Competence Control build</footer>
   </div>
 
 <script>
   ${CLOCK_SCRIPT}
+  ${BRANDING_SCRIPT}
   ${opts.scripts ?? ''}
 </script>
 </body>
