@@ -4,6 +4,8 @@ export type User = {
   username: string;
   passwordHash: string;
   name: string;
+  firstName: string;
+  surname: string;
   role: Role;
 };
 
