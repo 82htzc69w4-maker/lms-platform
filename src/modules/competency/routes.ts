@@ -6,6 +6,8 @@ import type {
   CompetencyLink,
   CompetencyStatus,
   EmployeeSkillsMatrix,
+  Employee,
+  DepartmentRisk,
 } from './types';
 import { evaluateCompetency } from './evaluate';
 
@@ -156,6 +158,103 @@ competency.post('/employees/:id/reevaluate', async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// Employee directory (minimal — id, name, department)
+// ---------------------------------------------------------------------------
+
+// GET /api/competency/employees
+competency.get('/employees', async (c) => {
+  const list = await kvListByPrefix(c.env, 'competency:employee:');
+  const employees: Employee[] = [];
+  for (const key of list.keys) {
+    const emp = await kvGetJSON<Employee>(c.env, key.name);
+    if (emp) employees.push(emp);
+  }
+  return c.json({ employees });
+});
+
+// POST /api/competency/employees
+// Creates or updates an employee directory record
+competency.post('/employees', async (c) => {
+  const body = await c.req.json<Employee>();
+  if (!body.id || !body.name || !body.department) {
+    return c.json({ error: 'id, name, and department are required' }, 400);
+  }
+  await kvPutJSON(c.env, `competency:employee:${body.id}`, body);
+  return c.json({ ok: true, employee: body });
+});
+
+// ---------------------------------------------------------------------------
+// Department risk aggregation
+// ---------------------------------------------------------------------------
+
+// GET /api/competency/risk-by-department
+// Aggregates every employee's gaps by department and computes a risk level:
+//   high   — at least one not_competent or expired competency in the dept
+//   medium — no high-risk items, but at least one needs_refresher
+//   low    — no open gaps at all
+competency.get('/risk-by-department', async (c) => {
+  const empList = await kvListByPrefix(c.env, 'competency:employee:');
+  const employees: Employee[] = [];
+  for (const key of empList.keys) {
+    const emp = await kvGetJSON<Employee>(c.env, key.name);
+    if (emp) employees.push(emp);
+  }
+
+  const byDept: Record<string, DepartmentRisk> = {};
+  for (const emp of employees) {
+    if (!byDept[emp.department]) {
+      byDept[emp.department] = {
+        department: emp.department,
+        level: 'low',
+        notCompetentCount: 0,
+        needsRefresherCount: 0,
+        employeeCount: 0,
+      };
+    }
+    byDept[emp.department].employeeCount += 1;
+  }
+
+  const matrixList = await kvListByPrefix(c.env, 'competency:matrix:');
+  for (const key of matrixList.keys) {
+    const matrix = await kvGetJSON<EmployeeSkillsMatrix>(c.env, key.name);
+    if (!matrix) continue;
+
+    const emp = employees.find((e) => e.id === matrix.employeeId);
+    const department = emp?.department ?? 'Unassigned';
+
+    if (!byDept[department]) {
+      byDept[department] = {
+        department,
+        level: 'low',
+        notCompetentCount: 0,
+        needsRefresherCount: 0,
+        employeeCount: 0,
+      };
+    }
+
+    for (const status of Object.values(matrix.statuses)) {
+      if (status.status === 'not_competent' || status.status === 'expired') {
+        byDept[department].notCompetentCount += 1;
+      } else if (status.status === 'needs_refresher') {
+        byDept[department].needsRefresherCount += 1;
+      }
+    }
+  }
+
+  for (const dept of Object.values(byDept)) {
+    if (dept.notCompetentCount > 0) {
+      dept.level = 'high';
+    } else if (dept.needsRefresherCount > 0) {
+      dept.level = 'medium';
+    } else {
+      dept.level = 'low';
+    }
+  }
+
+  return c.json({ departments: Object.values(byDept) });
+});
+
+// ---------------------------------------------------------------------------
 // Gap detection across the workforce
 // ---------------------------------------------------------------------------
 
@@ -164,8 +263,16 @@ competency.post('/employees/:id/reevaluate', async (c) => {
 // or expired — the raw material for the risk dashboard and career pathing.
 competency.get('/gaps', async (c) => {
   const list = await kvListByPrefix(c.env, 'competency:matrix:');
+  const empList = await kvListByPrefix(c.env, 'competency:employee:');
+  const employees: Employee[] = [];
+  for (const key of empList.keys) {
+    const emp = await kvGetJSON<Employee>(c.env, key.name);
+    if (emp) employees.push(emp);
+  }
+
   const gaps: Array<{
     employeeId: string;
+    department: string;
     competencyId: string;
     status: CompetencyStatus['status'];
   }> = [];
@@ -174,10 +281,13 @@ competency.get('/gaps', async (c) => {
     const matrix = await kvGetJSON<EmployeeSkillsMatrix>(c.env, key.name);
     if (!matrix) continue;
 
+    const emp = employees.find((e) => e.id === matrix.employeeId);
+
     for (const status of Object.values(matrix.statuses)) {
       if (status.status !== 'competent') {
         gaps.push({
           employeeId: matrix.employeeId,
+          department: emp?.department ?? 'Unassigned',
           competencyId: status.competencyId,
           status: status.status,
         });
