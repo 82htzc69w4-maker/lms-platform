@@ -31,7 +31,7 @@ export function renderModulePlaceholder(moduleKey: string): string {
   return renderLayout({
     title: label,
     activePath: `/modules/${moduleKey}`,
-    eyebrow: 'Bohs LMS — Under Construction',
+    eyebrowSuffix: 'Under Construction',
     heading: label,
     bodyHtml,
   });
