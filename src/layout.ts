@@ -17,7 +17,7 @@ const NAV_ITEMS: Array<{ label: string; path: string }> = [
   { label: 'Admin', path: '/admin' },
 ];
 
-const SHARED_STYLES = `
+export const SHARED_STYLES = `
   :root {
     --bg: #14171A;
     --panel: #1B1F23;
@@ -29,6 +29,15 @@ const SHARED_STYLES = `
     --risk: #C1443A;
     --refresher: #D98E2A;
     --competent: #3E9B54;
+  }
+
+  body[data-theme="light"] {
+    --bg: #F1EDE4;
+    --panel: #FFFFFF;
+    --panel-alt: #EAE5D9;
+    --grid-line: #D9D2C3;
+    --text-primary: #14171A;
+    --text-muted: #6B6459;
   }
 
   * { box-sizing: border-box; }
@@ -94,6 +103,41 @@ const SHARED_STYLES = `
     flex-direction: column;
     gap: 2px;
   }
+
+  .user-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 4px;
+    padding: 16px 8px;
+    border-bottom: 1px solid var(--grid-line);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .user-info-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .user-info-role {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .user-info-logout {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--hazard);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+  }
+
+  .user-info-logout:hover { text-decoration: underline; }
 
   .nav-link {
     font-family: 'IBM Plex Mono', monospace;
@@ -288,6 +332,31 @@ const CLOCK_SCRIPT = `
   setInterval(tickClock, 1000);
 `;
 
+export const THEME_ONLY_SCRIPT = `
+  fetch('/api/settings')
+    .then(r => r.json())
+    .then(settings => {
+      let effectiveTheme = settings.theme || 'dark';
+      if (effectiveTheme === 'system') {
+        effectiveTheme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      }
+      if (effectiveTheme === 'light') {
+        document.body.setAttribute('data-theme', 'light');
+      } else {
+        document.body.removeAttribute('data-theme');
+      }
+
+      const logoEl = document.getElementById('login-logo');
+      if (logoEl && settings.logoDataUrl) {
+        logoEl.src = settings.logoDataUrl;
+        logoEl.style.display = 'inline-block';
+      }
+      const nameEl = document.getElementById('login-company-name');
+      if (nameEl) nameEl.textContent = settings.systemName;
+    })
+    .catch(() => { /* keep static defaults if settings can't be reached */ });
+`;
+
 const BRANDING_SCRIPT = `
   fetch('/api/settings')
     .then(r => r.json())
@@ -305,8 +374,42 @@ const BRANDING_SCRIPT = `
       }
 
       document.title = document.title.replace('Bohs LMS', settings.systemName);
+
+      // Apply theme: 'dark' (default, no attribute needed), 'light', or 'system'
+      // (follow the OS preference at load time).
+      let effectiveTheme = settings.theme || 'dark';
+      if (effectiveTheme === 'system') {
+        effectiveTheme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      }
+      if (effectiveTheme === 'light') {
+        document.body.setAttribute('data-theme', 'light');
+      } else {
+        document.body.removeAttribute('data-theme');
+      }
     })
     .catch(() => { /* keep static defaults if settings can't be reached */ });
+`;
+
+const AUTH_SCRIPT = `
+  fetch('/api/auth/me')
+    .then(r => {
+      if (!r.ok) throw new Error('not logged in');
+      return r.json();
+    })
+    .then(data => {
+      const user = data.user;
+      document.getElementById('user-info').style.display = 'flex';
+      document.getElementById('user-info-name').textContent = user.name;
+      document.getElementById('user-info-role').textContent = user.role;
+      document.getElementById('user-info-logout').addEventListener('click', () => {
+        fetch('/api/auth/logout', { method: 'POST' }).then(() => {
+          window.location.href = '/login';
+        });
+      });
+    })
+    .catch(() => {
+      window.location.href = '/login';
+    });
 `;
 
 function renderNav(activePath: string): string {
@@ -320,6 +423,11 @@ function renderNav(activePath: string): string {
       <div class="nav-brand">
         <img id="brand-logo" src="" alt="Logo" />
         <span id="brand-name-text">Bohs LMS</span>
+      </div>
+      <div class="user-info" id="user-info" style="display: none;">
+        <div class="user-info-name" id="user-info-name"></div>
+        <div class="user-info-role" id="user-info-role"></div>
+        <div class="user-info-logout" id="user-info-logout">Log out</div>
       </div>
       <nav class="sidebar-nav">
         ${links}
@@ -371,6 +479,7 @@ export function renderLayout(opts: {
 <script>
   ${CLOCK_SCRIPT}
   ${BRANDING_SCRIPT}
+  ${AUTH_SCRIPT}
   ${opts.scripts ?? ''}
 </script>
 </body>
