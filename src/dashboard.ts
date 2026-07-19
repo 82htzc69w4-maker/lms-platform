@@ -129,7 +129,7 @@ const scripts = `
 export const dashboardHtml = renderLayout({
   title: 'Competence Control',
   activePath: '/',
-  eyebrow: 'Bohs LMS — Workforce Readiness',
+  eyebrowSuffix: 'Workforce Readiness',
   heading: 'Competence Control',
   bodyHtml,
   scripts,
