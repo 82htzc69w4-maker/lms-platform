@@ -30,7 +30,7 @@ auth.post('/login', async (c) => {
   if (existingUsersList.keys.length === 0) {
     // Bootstrap: first login creates the first account, as the top-level
     // Administrator role (full system control, including user management).
-    user = { username, passwordHash, name: username, role: 'administrator' };
+    user = { username, passwordHash, name: username, firstName: username, surname: '', role: 'administrator' };
     await kvPutJSON(c.env, `auth:user:${username}`, user);
   } else {
     const stored = await kvGetJSON<User>(c.env, `auth:user:${username}`);
