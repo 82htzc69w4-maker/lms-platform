@@ -19,6 +19,9 @@ import compliance from './modules/compliance/routes';
 import settings from './settings/routes';
 import auth from './auth/routes';
 import users from './users/routes';
+import courses from './courses/routes';
+import certificates from './certificates/routes';
+import { learnerHtml } from './learner';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -26,6 +29,7 @@ app.get('/', (c) => c.html(dashboardHtml));
 app.get('/employees', (c) => c.html(employeesHtml));
 app.get('/admin', (c) => c.html(adminHtml));
 app.get('/login', (c) => c.html(loginHtml));
+app.get('/learner', (c) => c.html(learnerHtml));
 app.get('/modules/:name', (c) => c.html(renderModulePlaceholder(c.req.param('name'))));
 app.get('/health', (c) => c.json({ status: 'ok', service: 'lms-platform' }));
 
@@ -42,5 +46,7 @@ app.route('/api/compliance', compliance);
 app.route('/api/settings', settings);
 app.route('/api/auth', auth);
 app.route('/api/users', users);
+app.route('/api/courses', courses);
+app.route('/api/certificates', certificates);
 
 export default app;
