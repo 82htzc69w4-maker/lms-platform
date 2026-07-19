@@ -1,9 +1,30 @@
-import { Hono } from 'hono'
+import { Hono } from 'hono';
+import type { Env } from './types';
 
-const app = new Hono()
+import competency from './modules/competency/routes';
+import evidence from './modules/evidence/routes';
+import coach from './modules/coach/routes';
+import riskDashboard from './modules/riskDashboard/routes';
+import appraisal from './modules/appraisal/routes';
+import careerPathing from './modules/careerPathing/routes';
+import roi from './modules/roi/routes';
+import incidents from './modules/incidents/routes';
+import assessmentBuilder from './modules/assessmentBuilder/routes';
+import compliance from './modules/compliance/routes';
 
-app.get('/', (c) => {
-  return c.text('Hello Hono!')
-})
+const app = new Hono<{ Bindings: Env }>();
 
-export default app
+app.get('/', (c) => c.json({ status: 'ok', service: 'lms-platform' }));
+
+app.route('/api/competency', competency);
+app.route('/api/evidence', evidence);
+app.route('/api/coach', coach);
+app.route('/api/risk', riskDashboard);
+app.route('/api/appraisal', appraisal);
+app.route('/api/career', careerPathing);
+app.route('/api/roi', roi);
+app.route('/api/incidents', incidents);
+app.route('/api/assessment-builder', assessmentBuilder);
+app.route('/api/compliance', compliance);
+
+export default app;
