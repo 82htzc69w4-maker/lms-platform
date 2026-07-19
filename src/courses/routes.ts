@@ -24,8 +24,20 @@ courses.post('/', async (c) => {
   if (!body.id || !body.title || !body.description) {
     return c.json({ error: 'id, title, and description are required' }, 400);
   }
-  await kvPutJSON(c.env, `course:def:${body.id}`, body);
-  return c.json({ ok: true, course: body });
+  const course: Course = { ...body, status: body.status ?? 'draft' };
+  await kvPutJSON(c.env, `course:def:${course.id}`, course);
+  return c.json({ ok: true, course });
+});
+
+// POST /api/courses/:id/publish — moves a course from draft to published
+courses.post('/:id/publish', async (c) => {
+  const courseId = c.req.param('id');
+  const course = await kvGetJSON<Course>(c.env, `course:def:${courseId}`);
+  if (!course) return c.json({ error: 'Course not found' }, 404);
+
+  const updated: Course = { ...course, status: 'published' };
+  await kvPutJSON(c.env, `course:def:${courseId}`, updated);
+  return c.json({ ok: true, course: updated });
 });
 
 // GET /api/courses/mine — courses the logged-in learner is registered to
