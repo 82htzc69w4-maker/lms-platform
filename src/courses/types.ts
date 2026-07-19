@@ -3,6 +3,7 @@ export type Course = {
   title: string;
   description: string;
   category?: string;
+  status: 'draft' | 'published';
 };
 
 export type Enrollment = {
