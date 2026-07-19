@@ -252,6 +252,39 @@ export const SHARED_STYLES = `
 
   .empty-state { padding: 40px 20px; text-align: center; color: var(--text-muted); font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
 
+  /* ---------- Tabs ---------- */
+  .tabbar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--grid-line);
+    flex-wrap: wrap;
+  }
+
+  .tab-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    padding: 10px 16px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+
+  .tab-btn:hover { color: var(--text-primary); }
+
+  .tab-btn.active {
+    color: var(--hazard);
+    border-bottom-color: var(--hazard);
+  }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
   /* ---------- Forms ---------- */
   .form-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
   .form-row input, .form-row select {
