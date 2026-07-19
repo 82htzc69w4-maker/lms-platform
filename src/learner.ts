@@ -95,7 +95,7 @@ const scripts = `
     fetch('/api/courses')
       .then(r => r.json())
       .then(data => {
-        const list = data.courses || [];
+        const list = (data.courses || []).filter(course => course.status === 'published');
         const wrap = document.getElementById('catalogue-wrap');
 
         if (list.length === 0) {
