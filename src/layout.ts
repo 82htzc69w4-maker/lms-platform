@@ -66,21 +66,24 @@ const SHARED_STYLES = `
 
   .nav-brand {
     display: flex;
+    flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 12px;
     font-family: 'Big Shoulders Display', sans-serif;
     font-weight: 800;
-    font-size: 20px;
+    font-size: 18px;
     letter-spacing: 0.03em;
     text-transform: uppercase;
     color: var(--hazard);
-    padding: 8px 4px 20px;
+    text-align: center;
+    padding: 20px 8px 24px;
     border-bottom: 1px solid var(--grid-line);
     line-height: 1.15;
   }
 
   .nav-brand img {
-    height: 48px;
+    height: 76px;
     width: auto;
     max-width: 100%;
     display: none;
