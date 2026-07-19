@@ -8,11 +8,12 @@ const bodyHtml = `
     </div>
     <div class="panel-body">
       <div class="form-row">
-        <input type="text" id="emp-id" placeholder="Employee ID (e.g. emp-002)" />
+        <input type="text" id="emp-id" placeholder="Employee ID (e.g. EMP002)" />
         <input type="text" id="emp-name" placeholder="Full name" />
         <input type="text" id="emp-department" placeholder="Department (e.g. Drilling)" />
         <button class="btn" id="add-emp-btn">Add Employee</button>
       </div>
+      <div class="panel-sub" style="margin-bottom: 12px;">IDs are auto-normalized — "emp-001", "EMP-001", and "EMP001" all resolve to the same employee.</div>
       <div id="add-emp-message"></div>
     </div>
   </div>
