@@ -43,21 +43,25 @@ const SHARED_STYLES = `
 
   a { color: inherit; text-decoration: none; }
 
-  .shell {
-    max-width: 1180px;
-    margin: 0 auto;
-    padding: 20px 24px 64px;
+  .app-layout {
+    display: flex;
+    min-height: 100vh;
   }
 
-  /* ---------- Top nav ---------- */
-  .topnav {
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--panel);
+    border-right: 1px solid var(--grid-line);
+    padding: 24px 16px;
     display: flex;
-    align-items: center;
-    gap: 4px;
-    flex-wrap: wrap;
-    padding-bottom: 16px;
-    margin-bottom: 20px;
-    border-bottom: 1px solid var(--grid-line);
+    flex-direction: column;
+    gap: 24px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
   }
 
   .nav-brand {
@@ -70,8 +74,7 @@ const SHARED_STYLES = `
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--hazard);
-    margin-right: 20px;
-    white-space: nowrap;
+    padding: 0 4px;
   }
 
   .nav-brand img {
@@ -80,13 +83,19 @@ const SHARED_STYLES = `
     display: none;
   }
 
+  .sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
   .nav-link {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 12px;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--text-muted);
-    padding: 7px 12px;
+    padding: 9px 12px;
     border-radius: 2px;
     transition: color 0.15s ease, background 0.15s ease;
   }
@@ -96,6 +105,13 @@ const SHARED_STYLES = `
   .nav-link.active {
     color: var(--bg);
     background: var(--hazard);
+  }
+
+  /* ---------- Main content ---------- */
+  .main-content {
+    flex: 1;
+    min-width: 0;
+    padding: 28px 32px 64px;
   }
 
   /* ---------- Header ---------- */
@@ -232,6 +248,22 @@ const SHARED_STYLES = `
     h1 { font-size: 30px; }
   }
 
+  @media (max-width: 860px) {
+    .app-layout { flex-direction: column; }
+    .sidebar {
+      position: static;
+      width: 100%;
+      height: auto;
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+      border-right: none;
+      border-bottom: 1px solid var(--grid-line);
+    }
+    .sidebar-nav { flex-direction: row; flex-wrap: wrap; }
+    .main-content { padding: 20px 20px 48px; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .stat-value { transition: none !important; }
   }
@@ -278,13 +310,15 @@ function renderNav(activePath: string): string {
   }).join('');
 
   return `
-    <div class="topnav">
+    <aside class="sidebar">
       <div class="nav-brand">
         <img id="brand-logo" src="" alt="Logo" />
         <span id="brand-name-text">Bohs LMS</span>
       </div>
-      ${links}
-    </div>
+      <nav class="sidebar-nav">
+        ${links}
+      </nav>
+    </aside>
   `;
 }
 
@@ -307,23 +341,25 @@ export function renderLayout(opts: {
 <style>${SHARED_STYLES}</style>
 </head>
 <body>
-  <div class="shell">
+  <div class="app-layout">
     ${renderNav(opts.activePath)}
 
-    <div class="header">
-      <div>
-        <div class="eyebrow"><span id="eyebrow-brand">Bohs LMS</span> — ${opts.eyebrowSuffix}</div>
-        <h1>${opts.heading}</h1>
+    <main class="main-content">
+      <div class="header">
+        <div>
+          <div class="eyebrow"><span id="eyebrow-brand">Bohs LMS</span> — ${opts.eyebrowSuffix}</div>
+          <h1>${opts.heading}</h1>
+        </div>
+        <div class="clock-block">
+          <div class="clock" id="clock">--:--:--</div>
+          <div class="clock-label" id="clock-date">Loading</div>
+        </div>
       </div>
-      <div class="clock-block">
-        <div class="clock" id="clock">--:--:--</div>
-        <div class="clock-label" id="clock-date">Loading</div>
-      </div>
-    </div>
 
-    ${opts.bodyHtml}
+      ${opts.bodyHtml}
 
-    <footer><span id="footer-company">Bohs Consultants</span> &mdash; Competence Control build</footer>
+      <footer><span id="footer-company">Bohs Consultants</span> &mdash; Competence Control build</footer>
+    </main>
   </div>
 
 <script>
