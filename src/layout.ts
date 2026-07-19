@@ -2,9 +2,10 @@
 // Keeps design tokens (colors, type, hazard-stripe motif) in one place so
 // new module pages can reuse the same shell.
 
-const NAV_ITEMS: Array<{ label: string; path: string }> = [
+const NAV_ITEMS: Array<{ label: string; path: string; roles?: string[] }> = [
   { label: 'Dashboard', path: '/' },
   { label: 'Learner Section', path: '/learner' },
+  { label: 'Course Delivery', path: '/course-delivery', roles: ['instructor', 'administrator'] },
   { label: 'Admin', path: '/admin' },
 ];
 
@@ -430,6 +431,13 @@ const AUTH_SCRIPT = `
           window.location.href = '/login';
         });
       });
+
+      document.querySelectorAll('.nav-link[data-roles]').forEach(link => {
+        const allowed = link.dataset.roles.split(',');
+        if (allowed.includes(user.role)) {
+          link.style.display = '';
+        }
+      });
     })
     .catch(() => {
       window.location.href = '/login';
@@ -439,7 +447,10 @@ const AUTH_SCRIPT = `
 function renderNav(activePath: string): string {
   const links = NAV_ITEMS.map((item) => {
     const isActive = item.path === activePath;
-    return `<a class="nav-link${isActive ? ' active' : ''}" href="${item.path}">${item.label}</a>`;
+    const roleAttr = item.roles
+      ? ` data-roles="${item.roles.join(',')}" style="display:none;"`
+      : '';
+    return `<a class="nav-link${isActive ? ' active' : ''}" href="${item.path}"${roleAttr}>${item.label}</a>`;
   }).join('');
 
   return `
