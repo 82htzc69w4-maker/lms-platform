@@ -1,4 +1,4 @@
-import { SHARED_STYLES, THEME_ONLY_SCRIPT } from './layout';
+import { SHARED_STYLES, THEME_ONLY_SCRIPT, PASSWORD_TOGGLE_SCRIPT } from './layout';
 
 export const loginHtml = `<!DOCTYPE html>
 <html lang="en">
@@ -116,8 +116,11 @@ ${SHARED_STYLES}
 
     <div class="login-form">
       <input type="text" id="login-username" placeholder="Username" autocomplete="username" />
-      <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" />
-      <button class="btn" id="login-btn">Log In</button>
+      <div class="password-wrapper">
+        <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" />
+        <button type="button" class="password-toggle" data-target="login-password" aria-label="Show password"></button>
+      </div>
+      <button class="btn" id="login-btn" style="margin-top: 12px;">Log In</button>
     </div>
 
     <div class="login-message" id="login-message"></div>
@@ -127,6 +130,7 @@ ${SHARED_STYLES}
 
 <script>
   ${THEME_ONLY_SCRIPT}
+  ${PASSWORD_TOGGLE_SCRIPT}
 
   function attemptLogin() {
     const username = document.getElementById('login-username').value.trim();
