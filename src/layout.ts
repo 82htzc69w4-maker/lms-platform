@@ -4,6 +4,7 @@
 
 const NAV_ITEMS: Array<{ label: string; path: string }> = [
   { label: 'Dashboard', path: '/' },
+  { label: 'Learner Section', path: '/learner' },
   { label: 'Admin', path: '/admin' },
 ];
 
