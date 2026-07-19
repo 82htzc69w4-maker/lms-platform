@@ -66,7 +66,10 @@ const bodyHtml = `
             <option value="administrator">Administrator</option>
           </select>
           <input type="text" id="user-username" placeholder="Username" />
-          <input type="password" id="user-password" placeholder="Password" />
+          <div class="password-wrapper">
+            <input type="password" id="user-password" placeholder="Password" />
+            <button type="button" class="password-toggle" data-target="user-password" aria-label="Show password"></button>
+          </div>
         </div>
 
         <div id="non-learner-fields" class="form-row">
@@ -129,7 +132,10 @@ const bodyHtml = `
           <input type="text" id="edit-surname" placeholder="Surname" />
         </div>
         <div class="form-row">
-          <input type="password" id="edit-password" placeholder="New password (leave blank to keep current)" />
+          <div class="password-wrapper">
+            <input type="password" id="edit-password" placeholder="New password (leave blank to keep current)" />
+            <button type="button" class="password-toggle" data-target="edit-password" aria-label="Show password"></button>
+          </div>
         </div>
 
         <div id="edit-learner-fields" style="display: none;">
