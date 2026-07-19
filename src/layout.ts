@@ -309,6 +309,36 @@ export const SHARED_STYLES = `
   }
   .btn:hover { filter: brightness(1.08); }
 
+  /* ---------- Password visibility toggle ---------- */
+  .password-wrapper {
+    position: relative;
+    flex: 1;
+    min-width: 140px;
+    display: flex;
+  }
+
+  .password-wrapper input {
+    width: 100%;
+    padding-right: 38px;
+  }
+
+  .password-toggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+  }
+
+  .password-toggle:hover { color: var(--text-primary); }
+  .password-toggle svg { width: 16px; height: 16px; }
+
   footer {
     text-align: center;
     font-family: 'IBM Plex Mono', monospace;
@@ -342,6 +372,22 @@ export const SHARED_STYLES = `
   @media (prefers-reduced-motion: reduce) {
     .stat-value { transition: none !important; }
   }
+`;
+
+export const PASSWORD_TOGGLE_SCRIPT = `
+  const EYE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+  const EYE_OFF_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 7 11 7a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
+
+  document.querySelectorAll('.password-toggle').forEach(btn => {
+    btn.innerHTML = EYE_SVG;
+    btn.addEventListener('click', () => {
+      const input = document.getElementById(btn.dataset.target);
+      if (!input) return;
+      const showing = input.type === 'text';
+      input.type = showing ? 'password' : 'text';
+      btn.innerHTML = showing ? EYE_SVG : EYE_OFF_SVG;
+    });
+  });
 `;
 
 const CLOCK_SCRIPT = `
@@ -515,6 +561,7 @@ export function renderLayout(opts: {
   ${CLOCK_SCRIPT}
   ${BRANDING_SCRIPT}
   ${AUTH_SCRIPT}
+  ${PASSWORD_TOGGLE_SCRIPT}
   ${opts.scripts ?? ''}
 </script>
 </body>
