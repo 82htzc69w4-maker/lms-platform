@@ -117,10 +117,100 @@ users.post('/', async (c) => {
   }
 
   const passwordHash = await hashPassword(password);
-  const user: User = { username, passwordHash, name: displayName, role };
+  const firstName = body.firstName!.trim();
+  const surname = body.surname!.trim();
+  const user: User = { username, passwordHash, name: displayName, firstName, surname, role };
   await kvPutJSON(c.env, `auth:user:${username}`, user);
 
   return c.json({ ok: true, user: { username, name: displayName, role } });
+});
+
+// GET /api/users/:username — full detail for editing (no passwordHash)
+users.get('/:username', async (c) => {
+  const username = c.req.param('username');
+  const user = await kvGetJSON<User>(c.env, `auth:user:${username}`);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const { passwordHash, ...safeUser } = user;
+
+  let learnerProfile: LearnerProfile | null = null;
+  if (user.role === 'learner') {
+    learnerProfile = await kvGetJSON<LearnerProfile>(c.env, `learner:profile:${username}`);
+  }
+
+  return c.json({ user: safeUser, learnerProfile });
+});
+
+// PUT /api/users/:username — edit an existing user's details.
+// Username and role are fixed at registration and not editable here;
+// password is only updated if a new one is provided.
+users.put('/:username', async (c) => {
+  const username = c.req.param('username');
+  const existing = await kvGetJSON<User>(c.env, `auth:user:${username}`);
+  if (!existing) return c.json({ error: 'User not found' }, 404);
+
+  const body = await c.req.json<{
+    firstName?: string;
+    surname?: string;
+    password?: string;
+    email?: string;
+    mobile?: string;
+    idNumber?: string;
+    currentOccupation?: string;
+    futureOccupations?: string;
+    languagePreference?: string;
+    department?: string;
+  }>();
+
+  const firstName = body.firstName?.trim() || existing.firstName;
+  const surname = body.surname?.trim() || existing.surname;
+
+  const updatedUser: User = {
+    ...existing,
+    firstName,
+    surname,
+    name: `${firstName} ${surname}`.trim(),
+  };
+
+  if (body.password) {
+    updatedUser.passwordHash = await hashPassword(body.password);
+  }
+
+  await kvPutJSON(c.env, `auth:user:${username}`, updatedUser);
+
+  if (existing.role === 'learner') {
+    const currentProfile = (await kvGetJSON<LearnerProfile>(c.env, `learner:profile:${username}`)) ?? {
+      username,
+      firstName,
+      surname,
+      email: '',
+      mobile: '',
+      idNumber: '',
+      currentOccupation: '',
+      futureOccupations: '',
+      languagePreference: '',
+      department: '',
+    };
+
+    const updatedProfile: LearnerProfile = {
+      ...currentProfile,
+      firstName,
+      surname,
+      email: body.email?.trim() || currentProfile.email,
+      mobile: body.mobile?.trim() || currentProfile.mobile,
+      idNumber: body.idNumber?.trim() || currentProfile.idNumber,
+      currentOccupation: body.currentOccupation?.trim() || currentProfile.currentOccupation,
+      futureOccupations:
+        body.futureOccupations !== undefined ? body.futureOccupations.trim() : currentProfile.futureOccupations,
+      languagePreference: body.languagePreference?.trim() || currentProfile.languagePreference,
+      department: body.department?.trim() || currentProfile.department,
+    };
+
+    await kvPutJSON(c.env, `learner:profile:${username}`, updatedProfile);
+  }
+
+  const { passwordHash, ...safeUser } = updatedUser;
+  return c.json({ ok: true, user: safeUser });
 });
 
 export default users;
