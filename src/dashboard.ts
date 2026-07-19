@@ -127,10 +127,10 @@ const scripts = `
 `;
 
 export const dashboardHtml = renderLayout({
-  title: 'Competence Control',
+  title: 'Dashboard',
   activePath: '/',
   eyebrowSuffix: 'Workforce Readiness',
-  heading: 'Competence Control',
+  heading: 'Dashboard',
   bodyHtml,
   scripts,
 });
