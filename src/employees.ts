@@ -1,4 +1,4 @@
-import { renderLayout } from '../layout';
+import { renderLayout } from './layout';
 
 const bodyHtml = `
   <div class="panel">
