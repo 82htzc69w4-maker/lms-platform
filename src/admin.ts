@@ -25,6 +25,17 @@ const bodyHtml = `
         <input type="text" id="system-name" placeholder="System name (e.g. Bohs LMS)" />
       </div>
 
+      <div style="margin-bottom: 20px;">
+        <div class="stat-label" style="margin-bottom: 8px;">Theme</div>
+        <div class="form-row">
+          <select id="theme-select">
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+            <option value="system">Match System Settings</option>
+          </select>
+        </div>
+      </div>
+
       <button class="btn" id="save-branding-btn">Save Changes</button>
       <div id="save-message" style="margin-top: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
 
@@ -41,6 +52,7 @@ const scripts = `
       .then(settings => {
         document.getElementById('company-name').value = settings.companyName || '';
         document.getElementById('system-name').value = settings.systemName || '';
+        document.getElementById('theme-select').value = settings.theme || 'dark';
         if (settings.logoDataUrl) {
           document.getElementById('logo-preview').src = settings.logoDataUrl;
           document.getElementById('logo-preview').style.display = 'inline-block';
@@ -75,6 +87,7 @@ const scripts = `
   document.getElementById('save-branding-btn').addEventListener('click', () => {
     const companyName = document.getElementById('company-name').value.trim();
     const systemName = document.getElementById('system-name').value.trim();
+    const theme = document.getElementById('theme-select').value;
     const msgEl = document.getElementById('save-message');
 
     if (!companyName || !systemName) {
@@ -88,7 +101,8 @@ const scripts = `
       body: JSON.stringify({
         companyName,
         systemName,
-        logoDataUrl: pendingLogoDataUrl
+        logoDataUrl: pendingLogoDataUrl,
+        theme
       })
     })
       .then(r => r.json())
