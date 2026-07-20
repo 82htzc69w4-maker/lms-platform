@@ -1,7 +1,10 @@
 import { renderLayout } from './layout';
 
 const bodyHtml = `
-  <a href="/course-delivery" style="display: inline-block; margin-bottom: 16px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">&larr; Back to Course Delivery</a>
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+    <a href="/course-delivery" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">&larr; Back to Course Delivery</a>
+    <a href="#" id="preview-as-learner-link" target="_blank" class="btn" style="text-decoration: none;">Preview as Learner</a>
+  </div>
 
   <div class="tabbar">
     <button class="tab-btn active" data-tab="information">Course Information</button>
@@ -108,10 +111,10 @@ const bodyHtml = `
         <div class="panel">
           <div class="panel-header">
             <div class="panel-title">Preview</div>
-            <div class="panel-sub">How this block will appear to learners</div>
+            <div class="panel-sub">The whole course so far, in order — updates live as you edit</div>
           </div>
           <div class="panel-body" id="block-preview-wrap">
-            <div class="empty-state">Select a block to preview it.</div>
+            <div class="empty-state">No content added yet. The whole course will build up here as you add blocks.</div>
           </div>
         </div>
       </div>
@@ -149,6 +152,7 @@ const scripts = `
   // ---------- Load course ----------
   const COURSE_ID = window.location.pathname.split('/').pop();
   let currentStatus = 'draft';
+  document.getElementById('preview-as-learner-link').href = '/course-preview/' + COURSE_ID;
 
   function loadCategoryOptions(selected) {
     fetch('/api/lookups/courseCategories')
@@ -271,6 +275,7 @@ const scripts = `
 
     if (blocks.length === 0) {
       wrap.innerHTML = '<div class="empty-state">No content added yet. Use the tools above to start building this course.</div>';
+      renderFullPreview();
       return;
     }
 
@@ -325,15 +330,21 @@ const scripts = `
           .then(data => renderBlocks(data.blocks || []));
       });
     });
+
+    renderFullPreview();
   }
 
   function closeBlockEditor() {
     selectedBlockId = null;
+    pendingPreviewOverride = null;
     document.getElementById('editor-panel-title').textContent = 'Block Editor';
     document.getElementById('editor-panel-sub').textContent = 'Select a block on the left to edit it';
     document.getElementById('block-editor-wrap').innerHTML = '<div class="empty-state">Nothing selected yet.</div>';
-    document.getElementById('block-preview-wrap').innerHTML = '<div class="empty-state">Select a block to preview it.</div>';
+    renderFullPreview();
   }
+
+  const NO_IMAGE_PLACEHOLDER = '<div style="width:120px;height:80px;background:var(--panel-alt);border:1px dashed var(--grid-line);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;flex-shrink:0;">No image</div>';
+  const NO_BANNER_PLACEHOLDER = '<div style="width:100%;height:100px;background:var(--panel-alt);border:1px dashed var(--grid-line);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;margin-bottom:12px;">No banner image</div>';
 
   function escapeHtml(str) {
     const div = document.createElement('div');
@@ -341,37 +352,58 @@ const scripts = `
     return div.innerHTML;
   }
 
-  function renderPreview(type, title, layout, imageDataUrl) {
-    const wrap = document.getElementById('block-preview-wrap');
-    const safeTitle = escapeHtml(title) || 'Untitled';
-    const noImagePlaceholder = '<div style="width:120px;height:80px;background:var(--panel-alt);border:1px dashed var(--grid-line);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;flex-shrink:0;">No image</div>';
-    const noBannerPlaceholder = '<div style="width:100%;height:100px;background:var(--panel-alt);border:1px dashed var(--grid-line);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;margin-bottom:12px;">No banner image</div>';
+  function renderBlockHtml(block) {
+    const safeTitle = escapeHtml(block.title) || 'Untitled';
+    const settings = block.settings || {};
+    const layout = settings.layout || 'textOnly';
+    const imageDataUrl = settings.imageDataUrl;
 
-    if (type === 'heading') {
+    if (block.type === 'heading') {
       if (layout === 'imageLeft') {
-        wrap.innerHTML = \`
-          <div style="display:flex; gap:16px; align-items:center;">
-            \${imageDataUrl ? \`<img src="\${imageDataUrl}" style="width:120px; height:80px; object-fit:cover; border-radius:2px; flex-shrink:0;" />\` : noImagePlaceholder}
-            <h2 style="margin:0; font-family:'Big Shoulders Display',sans-serif; font-size:24px; text-transform:uppercase; color:var(--text-primary);">\${safeTitle}</h2>
-          </div>
-        \`;
-      } else if (layout === 'bannerTop') {
-        wrap.innerHTML = \`
-          \${imageDataUrl ? \`<img src="\${imageDataUrl}" style="width:100%; max-height:140px; object-fit:cover; border-radius:2px; margin-bottom:12px;" />\` : noBannerPlaceholder}
+        return \`<div style="display:flex; gap:16px; align-items:center; margin-bottom:20px;" data-preview-block-id="\${block.id}">
+          \${imageDataUrl ? \`<img src="\${imageDataUrl}" style="width:120px; height:80px; object-fit:cover; border-radius:2px; flex-shrink:0;" />\` : NO_IMAGE_PLACEHOLDER}
           <h2 style="margin:0; font-family:'Big Shoulders Display',sans-serif; font-size:24px; text-transform:uppercase; color:var(--text-primary);">\${safeTitle}</h2>
-        \`;
-      } else {
-        wrap.innerHTML = \`<h2 style="margin:0; font-family:'Big Shoulders Display',sans-serif; font-size:24px; text-transform:uppercase; color:var(--text-primary);">\${safeTitle}</h2>\`;
+        </div>\`;
+      } else if (layout === 'bannerTop') {
+        return \`<div style="margin-bottom:20px;" data-preview-block-id="\${block.id}">
+          \${imageDataUrl ? \`<img src="\${imageDataUrl}" style="width:100%; max-height:140px; object-fit:cover; border-radius:2px; margin-bottom:12px;" />\` : NO_BANNER_PLACEHOLDER}
+          <h2 style="margin:0; font-family:'Big Shoulders Display',sans-serif; font-size:24px; text-transform:uppercase; color:var(--text-primary);">\${safeTitle}</h2>
+        </div>\`;
       }
-    } else if (type === 'subtitle') {
-      wrap.innerHTML = \`<div style="font-family:'Inter',sans-serif; font-size:15px; color:var(--text-muted); font-style:italic;">\${safeTitle}</div>\`;
-    } else {
-      wrap.innerHTML = \`
-        <span class="content-block-type" style="display:inline-block; margin-bottom:8px;">\${BLOCK_TYPE_LABELS[type] || type}</span>
-        <div style="font-family:'Inter',sans-serif; font-size:14px; color: var(--text-primary);">\${safeTitle}</div>
-        <div class="panel-sub" style="margin-top:8px;">Preview not yet available for this block type.</div>
-      \`;
+      return \`<h2 style="margin:0 0 20px; font-family:'Big Shoulders Display',sans-serif; font-size:24px; text-transform:uppercase; color:var(--text-primary);" data-preview-block-id="\${block.id}">\${safeTitle}</h2>\`;
     }
+
+    if (block.type === 'subtitle') {
+      return \`<div style="font-family:'Inter',sans-serif; font-size:15px; color:var(--text-muted); font-style:italic; margin-bottom:20px;" data-preview-block-id="\${block.id}">\${safeTitle}</div>\`;
+    }
+
+    return \`<div style="margin-bottom:20px; padding:12px; border:1px dashed var(--grid-line); border-radius:2px;" data-preview-block-id="\${block.id}">
+      <span class="content-block-type" style="display:inline-block; margin-bottom:6px;">\${BLOCK_TYPE_LABELS[block.type] || block.type}</span>
+      <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary);">\${safeTitle}</div>
+    </div>\`;
+  }
+
+  let pendingPreviewOverride = null;
+
+  function renderFullPreview() {
+    const wrap = document.getElementById('block-preview-wrap');
+
+    if (currentBlocks.length === 0) {
+      wrap.innerHTML = '<div class="empty-state">No content added yet. The whole course will build up here as you add blocks.</div>';
+      return;
+    }
+
+    wrap.innerHTML = currentBlocks.map(b => {
+      let blockToRender = b;
+      if (pendingPreviewOverride && b.id === pendingPreviewOverride.blockId) {
+        blockToRender = {
+          ...b,
+          title: pendingPreviewOverride.title,
+          settings: { layout: pendingPreviewOverride.layout, imageDataUrl: pendingPreviewOverride.imageDataUrl },
+        };
+      }
+      return renderBlockHtml(blockToRender);
+    }).join('');
   }
 
   function openBlockEditor(block) {
@@ -424,19 +456,27 @@ const scripts = `
     let pendingLayout = settings.layout || 'textOnly';
     let pendingImageDataUrl = settings.imageDataUrl || null;
 
-    renderPreview(block.type, block.title, pendingLayout, pendingImageDataUrl);
+    pendingPreviewOverride = {
+      blockId: block.id,
+      title: block.title,
+      layout: pendingLayout,
+      imageDataUrl: pendingImageDataUrl,
+    };
+    renderFullPreview();
 
     document.getElementById('block-title-input').addEventListener('input', (e) => {
-      renderPreview(block.type, e.target.value, pendingLayout, pendingImageDataUrl);
+      pendingPreviewOverride.title = e.target.value;
+      renderFullPreview();
     });
 
     if (isHeading) {
       editorWrap.querySelectorAll('.layout-option').forEach(opt => {
         opt.addEventListener('click', () => {
           pendingLayout = opt.dataset.layout;
+          pendingPreviewOverride.layout = pendingLayout;
           editorWrap.querySelectorAll('.layout-option').forEach(o => o.classList.toggle('selected', o === opt));
           document.getElementById('image-upload-area').style.display = pendingLayout === 'textOnly' ? 'none' : 'block';
-          renderPreview(block.type, document.getElementById('block-title-input').value, pendingLayout, pendingImageDataUrl);
+          renderFullPreview();
         });
       });
 
@@ -450,10 +490,11 @@ const scripts = `
         const reader = new FileReader();
         reader.onload = () => {
           pendingImageDataUrl = reader.result;
+          pendingPreviewOverride.imageDataUrl = pendingImageDataUrl;
           const preview = document.getElementById('block-image-preview');
           preview.src = pendingImageDataUrl;
           preview.style.display = 'block';
-          renderPreview(block.type, document.getElementById('block-title-input').value, pendingLayout, pendingImageDataUrl);
+          renderFullPreview();
         };
         reader.readAsDataURL(file);
       });
