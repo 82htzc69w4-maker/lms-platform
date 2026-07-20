@@ -1,8 +1,13 @@
 export type Course = {
   id: string;
+  courseNumber: string;
   title: string;
+  instructor: string;
+  duration: string;
   description: string;
   category?: string;
+  outcomes: string;
+  linkedStandards: string;
   status: 'draft' | 'published';
 };
 
