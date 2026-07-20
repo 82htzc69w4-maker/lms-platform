@@ -151,11 +151,11 @@ courses.post('/:id/content', async (c) => {
   return c.json({ ok: true, blocks: content.blocks });
 });
 
-// PUT /api/courses/:id/content/:blockId — rename a block
+// PUT /api/courses/:id/content/:blockId — rename a block and/or update its settings
 courses.put('/:id/content/:blockId', async (c) => {
   const courseId = c.req.param('id');
   const blockId = c.req.param('blockId');
-  const body = await c.req.json<{ title: string }>();
+  const body = await c.req.json<{ title?: string; settings?: ContentBlock['settings'] }>();
 
   const content = await kvGetJSON<CourseContent>(c.env, `course:content:${courseId}`);
   if (!content) return c.json({ error: 'Course content not found' }, 404);
@@ -163,7 +163,9 @@ courses.put('/:id/content/:blockId', async (c) => {
   const block = content.blocks.find((b) => b.id === blockId);
   if (!block) return c.json({ error: 'Block not found' }, 404);
 
-  block.title = body.title?.trim() ?? block.title;
+  if (body.title !== undefined) block.title = body.title.trim();
+  if (body.settings !== undefined) block.settings = { ...block.settings, ...body.settings };
+
   await kvPutJSON(c.env, `course:content:${courseId}`, content);
   return c.json({ ok: true, blocks: content.blocks });
 });
