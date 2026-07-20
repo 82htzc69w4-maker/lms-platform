@@ -24,6 +24,7 @@ import certificates from './certificates/routes';
 import lookups from './lookups/routes';
 import { learnerHtml } from './learner';
 import { courseDeliveryHtml } from './course-delivery';
+import { courseDevelopmentHtml } from './course-development';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -33,6 +34,7 @@ app.get('/admin', (c) => c.html(adminHtml));
 app.get('/login', (c) => c.html(loginHtml));
 app.get('/learner', (c) => c.html(learnerHtml));
 app.get('/course-delivery', (c) => c.html(courseDeliveryHtml));
+app.get('/course-development/:id', (c) => c.html(courseDevelopmentHtml));
 app.get('/modules/:name', (c) => c.html(renderModulePlaceholder(c.req.param('name'))));
 app.get('/health', (c) => c.json({ status: 'ok', service: 'lms-platform' }));
 
