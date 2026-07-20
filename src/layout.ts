@@ -309,6 +309,91 @@ export const SHARED_STYLES = `
 
   .lookup-item button:hover { color: var(--risk); }
 
+  /* ---------- Course Design tool palette + content blocks ---------- */
+  .tool-palette {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .tool-btn {
+    background: var(--panel-alt);
+    color: var(--hazard);
+    border: 1px solid var(--hazard);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding: 8px 14px;
+    border-radius: 2px;
+    cursor: pointer;
+  }
+
+  .tool-btn:hover { background: var(--hazard); color: var(--bg); }
+
+  .content-blocks {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .content-block {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--panel-alt);
+    border: 1px solid var(--grid-line);
+    border-radius: 2px;
+    padding: 10px 12px;
+  }
+
+  .content-block-type {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--hazard);
+    background: rgba(242, 183, 5, 0.12);
+    padding: 4px 8px;
+    border-radius: 2px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .content-block input {
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--grid-line);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    padding: 7px 10px;
+    border-radius: 2px;
+  }
+
+  .content-block-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .content-block-actions button {
+    background: none;
+    border: 1px solid var(--grid-line);
+    color: var(--text-muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    padding: 5px 8px;
+    border-radius: 2px;
+    cursor: pointer;
+  }
+
+  .content-block-actions button:hover { color: var(--text-primary); border-color: var(--text-muted); }
+  .content-block-actions button.delete:hover { color: var(--risk); border-color: var(--risk); }
+
   /* ---------- Forms ---------- */
   .form-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
   .form-row input, .form-row select {
