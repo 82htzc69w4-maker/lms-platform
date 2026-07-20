@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import type { Env } from '../types';
 import { kvGetJSON, kvPutJSON, kvListByPrefix } from '../lib/kv';
 import type { Course, Enrollment } from './types';
+import type { ContentBlock, ContentBlockType, CourseContent } from './content-types';
 import { getSessionUser } from '../auth/session';
 
 const courses = new Hono<{ Bindings: Env }>();
@@ -115,6 +116,86 @@ courses.post('/:id/enroll', async (c) => {
   };
   await kvPutJSON(c.env, `enrollment:${session.username}:${courseId}`, enrollment);
   return c.json({ ok: true, enrollment });
+});
+
+// ---------------------------------------------------------------------------
+// Course Design — content blocks (Standard Content + Learning Activity tools)
+// ---------------------------------------------------------------------------
+
+// GET /api/courses/:id/content
+courses.get('/:id/content', async (c) => {
+  const courseId = c.req.param('id');
+  const content = await kvGetJSON<CourseContent>(c.env, `course:content:${courseId}`);
+  return c.json({ blocks: content?.blocks ?? [] });
+});
+
+// POST /api/courses/:id/content — add a new block from the tool palette
+courses.post('/:id/content', async (c) => {
+  const courseId = c.req.param('id');
+  const body = await c.req.json<{ type: ContentBlockType; title?: string }>();
+  if (!body.type) return c.json({ error: 'type is required' }, 400);
+
+  const content: CourseContent = (await kvGetJSON<CourseContent>(c.env, `course:content:${courseId}`)) ?? {
+    courseId,
+    blocks: [],
+  };
+
+  const block: ContentBlock = {
+    id: crypto.randomUUID(),
+    type: body.type,
+    title: body.title?.trim() || '',
+    createdAt: new Date().toISOString(),
+  };
+  content.blocks.push(block);
+  await kvPutJSON(c.env, `course:content:${courseId}`, content);
+  return c.json({ ok: true, blocks: content.blocks });
+});
+
+// PUT /api/courses/:id/content/:blockId — rename a block
+courses.put('/:id/content/:blockId', async (c) => {
+  const courseId = c.req.param('id');
+  const blockId = c.req.param('blockId');
+  const body = await c.req.json<{ title: string }>();
+
+  const content = await kvGetJSON<CourseContent>(c.env, `course:content:${courseId}`);
+  if (!content) return c.json({ error: 'Course content not found' }, 404);
+
+  const block = content.blocks.find((b) => b.id === blockId);
+  if (!block) return c.json({ error: 'Block not found' }, 404);
+
+  block.title = body.title?.trim() ?? block.title;
+  await kvPutJSON(c.env, `course:content:${courseId}`, content);
+  return c.json({ ok: true, blocks: content.blocks });
+});
+
+// DELETE /api/courses/:id/content/:blockId
+courses.delete('/:id/content/:blockId', async (c) => {
+  const courseId = c.req.param('id');
+  const blockId = c.req.param('blockId');
+
+  const content = await kvGetJSON<CourseContent>(c.env, `course:content:${courseId}`);
+  if (!content) return c.json({ error: 'Course content not found' }, 404);
+
+  content.blocks = content.blocks.filter((b) => b.id !== blockId);
+  await kvPutJSON(c.env, `course:content:${courseId}`, content);
+  return c.json({ ok: true, blocks: content.blocks });
+});
+
+// PUT /api/courses/:id/content-reorder — persists a new block order
+courses.put('/:id/content-reorder', async (c) => {
+  const courseId = c.req.param('id');
+  const body = await c.req.json<{ blockIds: string[] }>();
+
+  const content = await kvGetJSON<CourseContent>(c.env, `course:content:${courseId}`);
+  if (!content) return c.json({ error: 'Course content not found' }, 404);
+
+  const byId = new Map(content.blocks.map((b) => [b.id, b]));
+  const reordered = body.blockIds
+    .map((id) => byId.get(id))
+    .filter((b): b is ContentBlock => Boolean(b));
+  content.blocks = reordered;
+  await kvPutJSON(c.env, `course:content:${courseId}`, content);
+  return c.json({ ok: true, blocks: content.blocks });
 });
 
 export default courses;
