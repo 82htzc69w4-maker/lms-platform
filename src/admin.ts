@@ -5,6 +5,7 @@ const bodyHtml = `
     <button class="tab-btn active" data-tab="branding">Branding</button>
     <button class="tab-btn" data-tab="register">Register User</button>
     <button class="tab-btn" data-tab="users">Registered Users</button>
+    <button class="tab-btn" data-tab="administrative">Administrative</button>
   </div>
 
   <div class="tab-panel active" data-tab-panel="branding">
@@ -91,14 +92,14 @@ const bodyHtml = `
             <input type="text" id="learner-idNumber" placeholder="ID Number" />
           </div>
           <div class="form-row">
-            <input type="text" id="learner-currentOccupation" placeholder="Current Occupation" />
-            <input type="text" id="learner-futureOccupations" placeholder="Future Occupation(s)" />
+            <select id="learner-currentOccupation"><option value="">Current Occupation</option></select>
+            <select id="learner-futureOccupations"><option value="">Future Occupation</option></select>
           </div>
 
           <div class="stat-label" style="margin-bottom: 8px; margin-top: 16px;">Assignment</div>
           <div class="form-row">
-            <input type="text" id="learner-languagePreference" placeholder="Language Preference" />
-            <input type="text" id="learner-department" placeholder="Department" />
+            <select id="learner-languagePreference"><option value="">Language Preference</option></select>
+            <select id="learner-department"><option value="">Department</option></select>
           </div>
         </div>
 
@@ -148,14 +149,14 @@ const bodyHtml = `
             <input type="text" id="edit-idNumber" placeholder="ID Number" />
           </div>
           <div class="form-row">
-            <input type="text" id="edit-currentOccupation" placeholder="Current Occupation" />
-            <input type="text" id="edit-futureOccupations" placeholder="Future Occupation(s)" />
+            <select id="edit-currentOccupation"><option value="">Current Occupation</option></select>
+            <select id="edit-futureOccupations"><option value="">Future Occupation</option></select>
           </div>
 
           <div class="stat-label" style="margin-bottom: 8px; margin-top: 16px;">Assignment</div>
           <div class="form-row">
-            <input type="text" id="edit-languagePreference" placeholder="Language Preference" />
-            <input type="text" id="edit-department" placeholder="Department" />
+            <select id="edit-languagePreference"><option value="">Language Preference</option></select>
+            <select id="edit-department"><option value="">Department</option></select>
           </div>
         </div>
 
@@ -163,6 +164,78 @@ const bodyHtml = `
         <button class="btn" id="cancel-edit-btn" style="margin-top: 8px; margin-left: 8px; background: var(--panel-alt); color: var(--text-primary);">Cancel</button>
         <div id="edit-message" style="margin-top: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
 
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" data-tab-panel="administrative">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Departments</div>
+        <div class="panel-sub">Used in Register User (Learner Assignment) and the Workforce Readiness heat map</div>
+      </div>
+      <div class="panel-body">
+        <div class="form-row">
+          <input type="text" id="lookup-input-departments" placeholder="Add a department" />
+          <button class="btn" data-lookup-add="departments">Add</button>
+        </div>
+        <div id="lookup-list-departments"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Course Categories</div>
+        <div class="panel-sub">Used in Add Course (Course Delivery Section)</div>
+      </div>
+      <div class="panel-body">
+        <div class="form-row">
+          <input type="text" id="lookup-input-courseCategories" placeholder="Add a course category" />
+          <button class="btn" data-lookup-add="courseCategories">Add</button>
+        </div>
+        <div id="lookup-list-courseCategories"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Job Titles</div>
+        <div class="panel-sub">Reserved for career pathing and role requirements (not yet wired to a screen)</div>
+      </div>
+      <div class="panel-body">
+        <div class="form-row">
+          <input type="text" id="lookup-input-jobTitles" placeholder="Add a job title" />
+          <button class="btn" data-lookup-add="jobTitles">Add</button>
+        </div>
+        <div id="lookup-list-jobTitles"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Languages</div>
+        <div class="panel-sub">Used in Register User (Learner Assignment — Language Preference)</div>
+      </div>
+      <div class="panel-body">
+        <div class="form-row">
+          <input type="text" id="lookup-input-languages" placeholder="Add a language" />
+          <button class="btn" data-lookup-add="languages">Add</button>
+        </div>
+        <div id="lookup-list-languages"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Occupations</div>
+        <div class="panel-sub">Used in Register User (Learner Identity — Current and Future Occupation)</div>
+      </div>
+      <div class="panel-body">
+        <div class="form-row">
+          <input type="text" id="lookup-input-occupations" placeholder="Add an occupation" />
+          <button class="btn" data-lookup-add="occupations">Add</button>
+        </div>
+        <div id="lookup-list-occupations"></div>
       </div>
     </div>
   </div>
@@ -177,6 +250,115 @@ const scripts = `
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.dataset.tabPanel === tab));
     });
   });
+
+  // ---------- Lookup lists (Administrative tab) ----------
+  const LOOKUP_NAMES = ['departments', 'courseCategories', 'jobTitles', 'languages', 'occupations'];
+  let cachedLookupOptions = { departments: [], languages: [], occupations: [] };
+
+  function loadLookupList(listName) {
+    fetch('/api/lookups/' + listName)
+      .then(r => r.json())
+      .then(data => {
+        const values = data.values || [];
+        const wrap = document.getElementById('lookup-list-' + listName);
+
+        if (values.length === 0) {
+          wrap.innerHTML = '<div class="empty-state">No entries yet.</div>';
+          return;
+        }
+
+        wrap.innerHTML = '<div class="lookup-items">' + values.map(v => \`
+          <div class="lookup-item">
+            <span>\${v}</span>
+            <button data-lookup-delete="\${listName}" data-lookup-value="\${v}">&times;</button>
+          </div>
+        \`).join('') + '</div>';
+
+        wrap.querySelectorAll('[data-lookup-delete]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            fetch('/api/lookups/' + listName + '/' + encodeURIComponent(btn.dataset.lookupValue), { method: 'DELETE' })
+              .then(() => {
+                loadLookupList(listName);
+                loadLookupOptionsForSelects();
+              });
+          });
+        });
+      })
+      .catch(() => {
+        document.getElementById('lookup-list-' + listName).innerHTML = '<div class="empty-state">Could not load list.</div>';
+      });
+  }
+
+  document.querySelectorAll('[data-lookup-add]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const listName = btn.dataset.lookupAdd;
+      const input = document.getElementById('lookup-input-' + listName);
+      const value = input.value.trim();
+      if (!value) return;
+
+      fetch('/api/lookups/' + listName, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value })
+      })
+        .then(() => {
+          input.value = '';
+          loadLookupList(listName);
+          loadLookupOptionsForSelects();
+        });
+    });
+  });
+
+  LOOKUP_NAMES.forEach(loadLookupList);
+
+  // ---------- Populate dropdowns fed by lookup lists ----------
+  function fillSelect(select, values, forceValue) {
+    const placeholder = select.options[0];
+    select.innerHTML = '';
+    select.appendChild(placeholder);
+
+    const allValues = values.slice();
+    if (forceValue && !allValues.includes(forceValue)) allValues.unshift(forceValue);
+
+    allValues.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = v;
+      select.appendChild(opt);
+    });
+
+    if (forceValue) select.value = forceValue;
+  }
+
+  function populateLearnerSelects(opts, forced) {
+    forced = forced || {};
+    fillSelect(document.getElementById('learner-department'), opts.departments, forced.department);
+    fillSelect(document.getElementById('learner-languagePreference'), opts.languages, forced.languagePreference);
+    fillSelect(document.getElementById('learner-currentOccupation'), opts.occupations, forced.currentOccupation);
+    fillSelect(document.getElementById('learner-futureOccupations'), opts.occupations, forced.futureOccupations);
+  }
+
+  function populateEditSelects(opts, forced) {
+    forced = forced || {};
+    fillSelect(document.getElementById('edit-department'), opts.departments, forced.department);
+    fillSelect(document.getElementById('edit-languagePreference'), opts.languages, forced.languagePreference);
+    fillSelect(document.getElementById('edit-currentOccupation'), opts.occupations, forced.currentOccupation);
+    fillSelect(document.getElementById('edit-futureOccupations'), opts.occupations, forced.futureOccupations);
+  }
+
+  function loadLookupOptionsForSelects() {
+    return Promise.all([
+      fetch('/api/lookups/departments').then(r => r.json()),
+      fetch('/api/lookups/languages').then(r => r.json()),
+      fetch('/api/lookups/occupations').then(r => r.json()),
+    ]).then(([d, l, o]) => {
+      cachedLookupOptions = { departments: d.values || [], languages: l.values || [], occupations: o.values || [] };
+      populateLearnerSelects(cachedLookupOptions);
+      return cachedLookupOptions;
+    });
+  }
+
+  loadLookupOptionsForSelects();
 
   // ---------- Branding ----------
   let pendingLogoDataUrl = null;
@@ -393,10 +575,12 @@ const scripts = `
           document.getElementById('edit-email').value = profile.email || '';
           document.getElementById('edit-mobile').value = profile.mobile || '';
           document.getElementById('edit-idNumber').value = profile.idNumber || '';
-          document.getElementById('edit-currentOccupation').value = profile.currentOccupation || '';
-          document.getElementById('edit-futureOccupations').value = profile.futureOccupations || '';
-          document.getElementById('edit-languagePreference').value = profile.languagePreference || '';
-          document.getElementById('edit-department').value = profile.department || '';
+          populateEditSelects(cachedLookupOptions, {
+            department: profile.department,
+            languagePreference: profile.languagePreference,
+            currentOccupation: profile.currentOccupation,
+            futureOccupations: profile.futureOccupations,
+          });
         }
 
         document.getElementById('edit-message').textContent = '';
