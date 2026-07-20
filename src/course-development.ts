@@ -52,6 +52,18 @@ const bodyHtml = `
 
         <div class="panel">
           <div class="panel-header">
+            <div class="panel-title">Modules</div>
+            <div class="panel-sub">A module groups the blocks that follow it — every tool below can be used inside one</div>
+          </div>
+          <div class="panel-body">
+            <div class="tool-palette">
+              <button class="tool-btn" data-block-type="module">+ Module</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
             <div class="panel-title">Standard Content</div>
             <div class="panel-sub">Click a tool to add it, click a block below to edit it</div>
           </div>
@@ -79,6 +91,20 @@ const bodyHtml = `
               <button class="tool-btn" data-block-type="assessmentUpload">+ Assessment Upload</button>
               <button class="tool-btn" data-block-type="externalCertificate">+ External Certificate Upload</button>
               <button class="tool-btn" data-block-type="experientialLog">+ Experiential Log</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Section Controls</div>
+            <div class="panel-sub">Navigation buttons, and the marker that ends a module</div>
+          </div>
+          <div class="panel-body">
+            <div class="tool-palette">
+              <button class="tool-btn" data-block-type="forwardButton">+ Forward Button</button>
+              <button class="tool-btn" data-block-type="backButton">+ Back Button</button>
+              <button class="tool-btn" data-block-type="endOfSection">+ End of Section</button>
             </div>
           </div>
         </div>
@@ -247,6 +273,7 @@ const scripts = `
 
   // ---------- Course Design: content blocks ----------
   const BLOCK_TYPE_LABELS = {
+    module: 'Module',
     heading: 'Heading Section',
     subtitle: 'Subtitle',
     text: 'Text Field',
@@ -258,6 +285,9 @@ const scripts = `
     assessmentUpload: 'Assessment Upload',
     externalCertificate: 'External Certificate Upload',
     experientialLog: 'Experiential Log',
+    forwardButton: 'Forward Button',
+    backButton: 'Back Button',
+    endOfSection: 'End of Section',
   };
 
   const LAYOUT_ICONS = {
@@ -358,6 +388,33 @@ const scripts = `
     const layout = settings.layout || 'textOnly';
     const imageDataUrl = settings.imageDataUrl;
 
+    if (block.type === 'module') {
+      return \`<div style="margin:24px 0 16px; padding:10px 14px; background:rgba(242,183,5,0.12); border-left:3px solid var(--hazard); border-radius:2px;" data-preview-block-id="\${block.id}">
+        <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--hazard);">Module</span>
+        <div style="font-family:'Big Shoulders Display',sans-serif; font-size:20px; text-transform:uppercase; color:var(--text-primary); margin-top:4px;">\${safeTitle}</div>
+      </div>\`;
+    }
+
+    if (block.type === 'forwardButton') {
+      return \`<div style="text-align:right; margin:12px 0;" data-preview-block-id="\${block.id}">
+        <button class="btn" style="pointer-events:none;">\${escapeHtml(block.title) || 'Next'} &rarr;</button>
+      </div>\`;
+    }
+
+    if (block.type === 'backButton') {
+      return \`<div style="text-align:left; margin:12px 0;" data-preview-block-id="\${block.id}">
+        <button class="btn" style="pointer-events:none; background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line);">&larr; \${escapeHtml(block.title) || 'Back'}</button>
+      </div>\`;
+    }
+
+    if (block.type === 'endOfSection') {
+      return \`<div style="display:flex; align-items:center; gap:10px; margin:24px 0; color:var(--competent);" data-preview-block-id="\${block.id}">
+        <div style="flex:1; height:1px; background:var(--grid-line);"></div>
+        <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; text-transform:uppercase; letter-spacing:0.05em;">&check; \${escapeHtml(block.title) || 'End of Module'}</span>
+        <div style="flex:1; height:1px; background:var(--grid-line);"></div>
+      </div>\`;
+    }
+
     if (block.type === 'heading') {
       if (layout === 'imageLeft') {
         return \`<div style="display:flex; gap:16px; align-items:center; margin-bottom:20px;" data-preview-block-id="\${block.id}">
@@ -444,9 +501,17 @@ const scripts = `
       \`;
     }
 
+    const TITLE_PLACEHOLDERS = {
+      module: 'Module Name (e.g. "Module 1: Introduction")',
+      forwardButton: 'Button label (default: Next)',
+      backButton: 'Button label (default: Back)',
+      endOfSection: 'Section label (default: End of Module)',
+    };
+    const titlePlaceholder = TITLE_PLACEHOLDERS[block.type] || 'Title';
+
     editorWrap.innerHTML = \`
       <div class="form-row">
-        <input type="text" id="block-title-input" placeholder="Title" value="\${(block.title || '').replace(/"/g, '&quot;')}" />
+        <input type="text" id="block-title-input" placeholder="\${titlePlaceholder}" value="\${(block.title || '').replace(/"/g, '&quot;')}" />
       </div>
       \${layoutHtml}
       <button class="btn" id="save-block-btn" style="margin-top: 8px;">Save</button>
