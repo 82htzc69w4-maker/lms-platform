@@ -44,48 +44,68 @@ const bodyHtml = `
   </div>
 
   <div class="tab-panel" data-tab-panel="design">
-    <div class="panel">
-      <div class="panel-header">
-        <div class="panel-title">Standard Content</div>
-        <div class="panel-sub">Add a block, then build it out — each type will get its own editor later</div>
-      </div>
-      <div class="panel-body">
-        <div class="tool-palette">
-          <button class="tool-btn" data-block-type="heading">+ Heading Section</button>
-          <button class="tool-btn" data-block-type="text">+ Text Field</button>
-          <button class="tool-btn" data-block-type="webContent">+ Web Content</button>
-          <button class="tool-btn" data-block-type="presentation">+ Presentation / Document</button>
-        </div>
-      </div>
-    </div>
+    <div class="design-layout">
+      <div class="design-left">
 
-    <div class="panel">
-      <div class="panel-header">
-        <div class="panel-title">Learning Activity</div>
-        <div class="panel-sub">Interactive and assessed components</div>
-      </div>
-      <div class="panel-body">
-        <div class="tool-palette">
-          <button class="tool-btn" data-block-type="mobileUpload">+ Mobile Upload (SCORM/HTML/CMI5)</button>
-          <button class="tool-btn" data-block-type="test">+ Test</button>
-          <button class="tool-btn" data-block-type="assignmentUpload">+ Assignment Upload</button>
-          <button class="tool-btn" data-block-type="assessmentUpload">+ Assessment Upload</button>
-          <button class="tool-btn" data-block-type="externalCertificate">+ External Certificate Upload</button>
-          <button class="tool-btn" data-block-type="experientialLog">+ Experiential Log</button>
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Standard Content</div>
+            <div class="panel-sub">Click a tool to add it, click a block below to edit it</div>
+          </div>
+          <div class="panel-body">
+            <div class="tool-palette">
+              <button class="tool-btn" data-block-type="heading">+ Heading Section</button>
+              <button class="tool-btn" data-block-type="subtitle">+ Subtitle</button>
+              <button class="tool-btn" data-block-type="text">+ Text Field</button>
+              <button class="tool-btn" data-block-type="webContent">+ Web Content</button>
+              <button class="tool-btn" data-block-type="presentation">+ Presentation / Document</button>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
 
-    <div class="panel">
-      <div class="panel-header">
-        <div class="panel-title">Course Content</div>
-        <div class="panel-sub">The order below is the order learners will see</div>
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Learning Activity</div>
+            <div class="panel-sub">Interactive and assessed components</div>
+          </div>
+          <div class="panel-body">
+            <div class="tool-palette">
+              <button class="tool-btn" data-block-type="mobileUpload">+ Mobile Upload (SCORM/HTML/CMI5)</button>
+              <button class="tool-btn" data-block-type="test">+ Test</button>
+              <button class="tool-btn" data-block-type="assignmentUpload">+ Assignment Upload</button>
+              <button class="tool-btn" data-block-type="assessmentUpload">+ Assessment Upload</button>
+              <button class="tool-btn" data-block-type="externalCertificate">+ External Certificate Upload</button>
+              <button class="tool-btn" data-block-type="experientialLog">+ Experiential Log</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Course Content</div>
+            <div class="panel-sub">The order below is the order learners will see</div>
+          </div>
+          <div class="panel-body">
+            <div id="content-blocks-wrap">
+              <div class="empty-state">No content added yet. Use the tools above to start building this course.</div>
+            </div>
+          </div>
+        </div>
+
       </div>
-      <div class="panel-body">
-        <div id="content-blocks-wrap">
-          <div class="empty-state">No content added yet. Use the tools above to start building this course.</div>
+
+      <div class="design-right">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title" id="editor-panel-title">Block Editor</div>
+            <div class="panel-sub" id="editor-panel-sub">Select a block on the left to edit it</div>
+          </div>
+          <div class="panel-body" id="block-editor-wrap">
+            <div class="empty-state">Nothing selected yet.</div>
+          </div>
         </div>
       </div>
+
     </div>
   </div>
 `;
@@ -214,6 +234,7 @@ const scripts = `
   // ---------- Course Design: content blocks ----------
   const BLOCK_TYPE_LABELS = {
     heading: 'Heading Section',
+    subtitle: 'Subtitle',
     text: 'Text Field',
     webContent: 'Web Content',
     presentation: 'Presentation / Document',
@@ -225,7 +246,17 @@ const scripts = `
     experientialLog: 'Experiential Log',
   };
 
+  const LAYOUT_ICONS = {
+    textOnly: '<svg viewBox="0 0 32 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="28" height="2.5"/><rect x="2" y="10" width="28" height="2.5"/><rect x="2" y="16" width="18" height="2.5"/></svg>',
+    imageLeft: '<svg viewBox="0 0 32 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="18"/><rect x="17" y="4" width="13" height="2.5"/><rect x="17" y="10" width="13" height="2.5"/><rect x="17" y="16" width="9" height="2.5"/></svg>',
+    bannerTop: '<svg viewBox="0 0 32 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="28" height="9"/><rect x="2" y="15" width="28" height="2.5"/><rect x="2" y="20" width="18" height="2.5"/></svg>',
+  };
+
+  let currentBlocks = [];
+  let selectedBlockId = null;
+
   function renderBlocks(blocks) {
+    currentBlocks = blocks;
     const wrap = document.getElementById('content-blocks-wrap');
 
     if (blocks.length === 0) {
@@ -233,38 +264,41 @@ const scripts = `
       return;
     }
 
-    wrap.innerHTML = '<div class="content-blocks">' + blocks.map((block, i) => \`
-      <div class="content-block" data-block-id="\${block.id}">
+    wrap.innerHTML = blocks.map((block, i) => \`
+      <div class="content-block-row\${block.id === selectedBlockId ? ' selected' : ''}" data-block-id="\${block.id}">
         <span class="content-block-type">\${BLOCK_TYPE_LABELS[block.type] || block.type}</span>
-        <input type="text" value="\${block.title.replace(/"/g, '&quot;')}" placeholder="Untitled — click to name this block" data-block-id="\${block.id}" class="block-title-input" />
+        <span class="content-block-name\${block.title ? '' : ' untitled'}">\${block.title || 'Untitled — click to edit'}</span>
         <div class="content-block-actions">
           <button data-action="up" data-block-id="\${block.id}" \${i === 0 ? 'disabled' : ''}>&uarr;</button>
           <button data-action="down" data-block-id="\${block.id}" \${i === blocks.length - 1 ? 'disabled' : ''}>&darr;</button>
           <button data-action="delete" data-block-id="\${block.id}" class="delete">Delete</button>
         </div>
       </div>
-    \`).join('') + '</div>';
+    \`).join('');
 
-    wrap.querySelectorAll('.block-title-input').forEach(input => {
-      input.addEventListener('blur', () => {
-        fetch('/api/courses/' + COURSE_ID + '/content/' + input.dataset.blockId, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: input.value.trim() })
-        });
+    wrap.querySelectorAll('.content-block-row').forEach(row => {
+      row.addEventListener('click', (e) => {
+        if (e.target.closest('.content-block-actions')) return;
+        const block = currentBlocks.find(b => b.id === row.dataset.blockId);
+        if (block) openBlockEditor(block);
       });
     });
 
     wrap.querySelectorAll('[data-action="delete"]').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         fetch('/api/courses/' + COURSE_ID + '/content/' + btn.dataset.blockId, { method: 'DELETE' })
           .then(r => r.json())
-          .then(data => renderBlocks(data.blocks || []));
+          .then(data => {
+            if (btn.dataset.blockId === selectedBlockId) closeBlockEditor();
+            renderBlocks(data.blocks || []);
+          });
       });
     });
 
     wrap.querySelectorAll('[data-action="up"], [data-action="down"]').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         const currentIds = blocks.map(b => b.id);
         const idx = currentIds.indexOf(btn.dataset.blockId);
         const swapWith = btn.dataset.action === 'up' ? idx - 1 : idx + 1;
@@ -280,6 +314,115 @@ const scripts = `
           .then(r => r.json())
           .then(data => renderBlocks(data.blocks || []));
       });
+    });
+  }
+
+  function closeBlockEditor() {
+    selectedBlockId = null;
+    document.getElementById('editor-panel-title').textContent = 'Block Editor';
+    document.getElementById('editor-panel-sub').textContent = 'Select a block on the left to edit it';
+    document.getElementById('block-editor-wrap').innerHTML = '<div class="empty-state">Nothing selected yet.</div>';
+  }
+
+  function openBlockEditor(block) {
+    selectedBlockId = block.id;
+    renderBlocks(currentBlocks); // refresh to show selection highlight
+
+    const typeLabel = BLOCK_TYPE_LABELS[block.type] || block.type;
+    document.getElementById('editor-panel-title').textContent = typeLabel;
+    document.getElementById('editor-panel-sub').textContent = 'Editing this block — changes save when you click Save';
+
+    const editorWrap = document.getElementById('block-editor-wrap');
+    const settings = block.settings || {};
+    const isHeading = block.type === 'heading';
+
+    let layoutHtml = '';
+    if (isHeading) {
+      const layout = settings.layout || 'textOnly';
+      layoutHtml = \`
+        <div class="stat-label" style="margin-bottom: 4px;">Layout</div>
+        <div class="layout-options">
+          <div class="layout-option\${layout === 'textOnly' ? ' selected' : ''}" data-layout="textOnly">
+            \${LAYOUT_ICONS.textOnly}
+            <span>Text Only</span>
+          </div>
+          <div class="layout-option\${layout === 'imageLeft' ? ' selected' : ''}" data-layout="imageLeft">
+            \${LAYOUT_ICONS.imageLeft}
+            <span>Image Left</span>
+          </div>
+          <div class="layout-option\${layout === 'bannerTop' ? ' selected' : ''}" data-layout="bannerTop">
+            \${LAYOUT_ICONS.bannerTop}
+            <span>Banner on Top</span>
+          </div>
+        </div>
+        <div class="image-upload-area" id="image-upload-area" style="display: \${layout === 'textOnly' ? 'none' : 'block'};">
+          <img id="block-image-preview" class="image-upload-preview" src="\${settings.imageDataUrl || ''}" style="display: \${settings.imageDataUrl ? 'block' : 'none'};" />
+          <input type="file" id="block-image-input" accept="image/*" />
+        </div>
+      \`;
+    }
+
+    editorWrap.innerHTML = \`
+      <div class="form-row">
+        <input type="text" id="block-title-input" placeholder="Title" value="\${(block.title || '').replace(/"/g, '&quot;')}" />
+      </div>
+      \${layoutHtml}
+      <button class="btn" id="save-block-btn" style="margin-top: 8px;">Save</button>
+      <div id="block-save-message" style="margin-top: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
+    \`;
+
+    let pendingLayout = settings.layout || 'textOnly';
+    let pendingImageDataUrl = settings.imageDataUrl || null;
+
+    if (isHeading) {
+      editorWrap.querySelectorAll('.layout-option').forEach(opt => {
+        opt.addEventListener('click', () => {
+          pendingLayout = opt.dataset.layout;
+          editorWrap.querySelectorAll('.layout-option').forEach(o => o.classList.toggle('selected', o === opt));
+          document.getElementById('image-upload-area').style.display = pendingLayout === 'textOnly' ? 'none' : 'block';
+        });
+      });
+
+      document.getElementById('block-image-input').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) {
+          document.getElementById('block-save-message').textContent = 'Image is too large — please use one under 2MB.';
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          pendingImageDataUrl = reader.result;
+          const preview = document.getElementById('block-image-preview');
+          preview.src = pendingImageDataUrl;
+          preview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    document.getElementById('save-block-btn').addEventListener('click', () => {
+      const msgEl = document.getElementById('block-save-message');
+      const payload = { title: document.getElementById('block-title-input').value.trim() };
+      if (isHeading) {
+        payload.settings = { layout: pendingLayout, imageDataUrl: pendingImageDataUrl };
+      }
+
+      fetch('/api/courses/' + COURSE_ID + '/content/' + block.id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+        .then(r => r.json())
+        .then(data => {
+          msgEl.textContent = 'Saved.';
+          msgEl.style.color = 'var(--competent)';
+          renderBlocks(data.blocks || []);
+        })
+        .catch(() => {
+          msgEl.textContent = 'Failed to save.';
+          msgEl.style.color = 'var(--risk)';
+        });
     });
   }
 
@@ -301,7 +444,11 @@ const scripts = `
         body: JSON.stringify({ type, title: '' })
       })
         .then(r => r.json())
-        .then(data => renderBlocks(data.blocks || []));
+        .then(data => {
+          renderBlocks(data.blocks || []);
+          const newBlock = data.blocks[data.blocks.length - 1];
+          if (newBlock) openBlockEditor(newBlock);
+        });
     });
   });
 
