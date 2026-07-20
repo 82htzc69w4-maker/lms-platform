@@ -21,6 +21,7 @@ import auth from './auth/routes';
 import users from './users/routes';
 import courses from './courses/routes';
 import certificates from './certificates/routes';
+import lookups from './lookups/routes';
 import { learnerHtml } from './learner';
 import { courseDeliveryHtml } from './course-delivery';
 
@@ -50,5 +51,6 @@ app.route('/api/auth', auth);
 app.route('/api/users', users);
 app.route('/api/courses', courses);
 app.route('/api/certificates', certificates);
+app.route('/api/lookups', lookups);
 
 export default app;
