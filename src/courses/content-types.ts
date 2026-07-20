@@ -1,4 +1,6 @@
 export type ContentBlockType =
+  // Modules — a container marker; every block type below can sit inside one
+  | 'module'
   // Standard Content
   | 'heading'
   | 'subtitle'
@@ -11,7 +13,11 @@ export type ContentBlockType =
   | 'assignmentUpload'
   | 'assessmentUpload'
   | 'externalCertificate'
-  | 'experientialLog';
+  | 'experientialLog'
+  // Section Controls
+  | 'forwardButton'
+  | 'backButton'
+  | 'endOfSection';
 
 export type HeadingLayout = 'textOnly' | 'imageLeft' | 'bannerTop';
 
