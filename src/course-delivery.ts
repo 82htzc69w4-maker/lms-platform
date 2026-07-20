@@ -29,7 +29,7 @@ const bodyHtml = `
         <div class="form-row">
           <input type="text" id="new-course-id" placeholder="Course ID (e.g. course-002)" />
           <input type="text" id="new-course-title" placeholder="Title" />
-          <input type="text" id="new-course-category" placeholder="Category" />
+          <select id="new-course-category"><option value="">Category</option></select>
         </div>
         <div class="form-row">
           <input type="text" id="new-course-description" placeholder="Description" />
@@ -79,6 +79,26 @@ const scripts = `
     .catch(() => {
       window.location.href = '/login';
     });
+
+  // ---------- Populate Category dropdown from lookup list ----------
+  function loadCategoryOptions() {
+    fetch('/api/lookups/courseCategories')
+      .then(r => r.json())
+      .then(data => {
+        const select = document.getElementById('new-course-category');
+        const placeholder = select.options[0];
+        select.innerHTML = '';
+        select.appendChild(placeholder);
+        (data.values || []).forEach(v => {
+          const opt = document.createElement('option');
+          opt.value = v;
+          opt.textContent = v;
+          select.appendChild(opt);
+        });
+      })
+      .catch(() => { /* dropdown just stays empty if this fails */ });
+  }
+  loadCategoryOptions();
 
   // ---------- Tab switching ----------
   document.querySelectorAll('.tab-btn').forEach(btn => {
