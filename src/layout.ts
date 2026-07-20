@@ -277,6 +277,38 @@ export const SHARED_STYLES = `
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
 
+  /* ---------- Lookup list pills ---------- */
+  .lookup-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .lookup-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--panel-alt);
+    border: 1px solid var(--grid-line);
+    border-radius: 2px;
+    padding: 6px 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+  }
+
+  .lookup-item button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  .lookup-item button:hover { color: var(--risk); }
+
   /* ---------- Forms ---------- */
   .form-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
   .form-row input, .form-row select {
