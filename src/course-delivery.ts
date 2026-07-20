@@ -127,12 +127,13 @@ const scripts = `
             <td>\${course.title}</td>
             <td>\${course.category || '—'}</td>
             <td>\${course.description}</td>
+            <td><a class="btn" href="/course-development/\${course.id}" style="display:inline-block; text-decoration:none;">Edit</a></td>
           </tr>
         \`).join('');
 
         wrap.innerHTML = \`
           <table>
-            <thead><tr><th>Course</th><th>Category</th><th>Description</th></tr></thead>
+            <thead><tr><th>Course</th><th>Category</th><th>Description</th><th></th></tr></thead>
             <tbody>\${rows}</tbody>
           </table>
         \`;
@@ -160,7 +161,10 @@ const scripts = `
             <td>\${course.title}</td>
             <td>\${course.category || '—'}</td>
             <td>\${course.description}</td>
-            <td><button class="btn publish-btn" data-course-id="\${course.id}">Publish</button></td>
+            <td>
+              <a class="btn" href="/course-development/\${course.id}" style="display:inline-block; text-decoration:none; margin-right: 6px;">Edit</a>
+              <button class="btn publish-btn" data-course-id="\${course.id}">Publish</button>
+            </td>
           </tr>
         \`).join('');
 
