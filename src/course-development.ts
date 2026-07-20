@@ -5,6 +5,7 @@ const bodyHtml = `
 
   <div class="tabbar">
     <button class="tab-btn active" data-tab="information">Course Information</button>
+    <button class="tab-btn" data-tab="design">Course Design</button>
   </div>
 
   <div class="tab-panel active" data-tab-panel="information">
@@ -38,6 +39,52 @@ const bodyHtml = `
         <button class="btn" id="publish-course-btn" style="margin-left: 8px;">Publish</button>
         <div id="course-save-message" style="margin-top: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
 
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" data-tab-panel="design">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Standard Content</div>
+        <div class="panel-sub">Add a block, then build it out — each type will get its own editor later</div>
+      </div>
+      <div class="panel-body">
+        <div class="tool-palette">
+          <button class="tool-btn" data-block-type="heading">+ Heading Section</button>
+          <button class="tool-btn" data-block-type="text">+ Text Field</button>
+          <button class="tool-btn" data-block-type="webContent">+ Web Content</button>
+          <button class="tool-btn" data-block-type="presentation">+ Presentation / Document</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Learning Activity</div>
+        <div class="panel-sub">Interactive and assessed components</div>
+      </div>
+      <div class="panel-body">
+        <div class="tool-palette">
+          <button class="tool-btn" data-block-type="mobileUpload">+ Mobile Upload (SCORM/HTML/CMI5)</button>
+          <button class="tool-btn" data-block-type="test">+ Test</button>
+          <button class="tool-btn" data-block-type="assignmentUpload">+ Assignment Upload</button>
+          <button class="tool-btn" data-block-type="assessmentUpload">+ Assessment Upload</button>
+          <button class="tool-btn" data-block-type="externalCertificate">+ External Certificate Upload</button>
+          <button class="tool-btn" data-block-type="experientialLog">+ Experiential Log</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Course Content</div>
+        <div class="panel-sub">The order below is the order learners will see</div>
+      </div>
+      <div class="panel-body">
+        <div id="content-blocks-wrap">
+          <div class="empty-state">No content added yet. Use the tools above to start building this course.</div>
+        </div>
       </div>
     </div>
   </div>
@@ -163,6 +210,102 @@ const scripts = `
         loadCourse();
       });
   });
+
+  // ---------- Course Design: content blocks ----------
+  const BLOCK_TYPE_LABELS = {
+    heading: 'Heading Section',
+    text: 'Text Field',
+    webContent: 'Web Content',
+    presentation: 'Presentation / Document',
+    mobileUpload: 'Mobile Upload (SCORM/HTML/CMI5)',
+    test: 'Test',
+    assignmentUpload: 'Assignment Upload',
+    assessmentUpload: 'Assessment Upload',
+    externalCertificate: 'External Certificate Upload',
+    experientialLog: 'Experiential Log',
+  };
+
+  function renderBlocks(blocks) {
+    const wrap = document.getElementById('content-blocks-wrap');
+
+    if (blocks.length === 0) {
+      wrap.innerHTML = '<div class="empty-state">No content added yet. Use the tools above to start building this course.</div>';
+      return;
+    }
+
+    wrap.innerHTML = '<div class="content-blocks">' + blocks.map((block, i) => \`
+      <div class="content-block" data-block-id="\${block.id}">
+        <span class="content-block-type">\${BLOCK_TYPE_LABELS[block.type] || block.type}</span>
+        <input type="text" value="\${block.title.replace(/"/g, '&quot;')}" placeholder="Untitled — click to name this block" data-block-id="\${block.id}" class="block-title-input" />
+        <div class="content-block-actions">
+          <button data-action="up" data-block-id="\${block.id}" \${i === 0 ? 'disabled' : ''}>&uarr;</button>
+          <button data-action="down" data-block-id="\${block.id}" \${i === blocks.length - 1 ? 'disabled' : ''}>&darr;</button>
+          <button data-action="delete" data-block-id="\${block.id}" class="delete">Delete</button>
+        </div>
+      </div>
+    \`).join('') + '</div>';
+
+    wrap.querySelectorAll('.block-title-input').forEach(input => {
+      input.addEventListener('blur', () => {
+        fetch('/api/courses/' + COURSE_ID + '/content/' + input.dataset.blockId, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: input.value.trim() })
+        });
+      });
+    });
+
+    wrap.querySelectorAll('[data-action="delete"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        fetch('/api/courses/' + COURSE_ID + '/content/' + btn.dataset.blockId, { method: 'DELETE' })
+          .then(r => r.json())
+          .then(data => renderBlocks(data.blocks || []));
+      });
+    });
+
+    wrap.querySelectorAll('[data-action="up"], [data-action="down"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const currentIds = blocks.map(b => b.id);
+        const idx = currentIds.indexOf(btn.dataset.blockId);
+        const swapWith = btn.dataset.action === 'up' ? idx - 1 : idx + 1;
+        if (swapWith < 0 || swapWith >= currentIds.length) return;
+
+        [currentIds[idx], currentIds[swapWith]] = [currentIds[swapWith], currentIds[idx]];
+
+        fetch('/api/courses/' + COURSE_ID + '/content-reorder', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ blockIds: currentIds })
+        })
+          .then(r => r.json())
+          .then(data => renderBlocks(data.blocks || []));
+      });
+    });
+  }
+
+  function loadContentBlocks() {
+    fetch('/api/courses/' + COURSE_ID + '/content')
+      .then(r => r.json())
+      .then(data => renderBlocks(data.blocks || []))
+      .catch(() => {
+        document.getElementById('content-blocks-wrap').innerHTML = '<div class="empty-state">Could not load course content.</div>';
+      });
+  }
+
+  document.querySelectorAll('.tool-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const type = btn.dataset.blockType;
+      fetch('/api/courses/' + COURSE_ID + '/content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, title: '' })
+      })
+        .then(r => r.json())
+        .then(data => renderBlocks(data.blocks || []));
+    });
+  });
+
+  loadContentBlocks();
 `;
 
 export const courseDevelopmentHtml = renderLayout({
