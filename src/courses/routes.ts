@@ -20,13 +20,55 @@ courses.get('/', async (c) => {
 // POST /api/courses — add a course to the catalogue (for an upcoming
 // Instructor/Admin "manage courses" screen; not yet wired to a form)
 courses.post('/', async (c) => {
-  const body = await c.req.json<Course>();
+  const body = await c.req.json<Partial<Course> & { id: string; title: string; description: string }>();
   if (!body.id || !body.title || !body.description) {
     return c.json({ error: 'id, title, and description are required' }, 400);
   }
-  const course: Course = { ...body, status: body.status ?? 'draft' };
+  const course: Course = {
+    id: body.id,
+    courseNumber: body.courseNumber ?? '',
+    title: body.title,
+    instructor: body.instructor ?? '',
+    duration: body.duration ?? '',
+    description: body.description,
+    category: body.category,
+    outcomes: body.outcomes ?? '',
+    linkedStandards: body.linkedStandards ?? '',
+    status: body.status ?? 'draft',
+  };
   await kvPutJSON(c.env, `course:def:${course.id}`, course);
   return c.json({ ok: true, course });
+});
+
+// GET /api/courses/:id — full detail for the Course Development screen
+courses.get('/:id', async (c) => {
+  const courseId = c.req.param('id');
+  const course = await kvGetJSON<Course>(c.env, `course:def:${courseId}`);
+  if (!course) return c.json({ error: 'Course not found' }, 404);
+  return c.json({ course });
+});
+
+// PUT /api/courses/:id — update full course information
+courses.put('/:id', async (c) => {
+  const courseId = c.req.param('id');
+  const existing = await kvGetJSON<Course>(c.env, `course:def:${courseId}`);
+  if (!existing) return c.json({ error: 'Course not found' }, 404);
+
+  const body = await c.req.json<Partial<Course>>();
+  const updated: Course = {
+    ...existing,
+    courseNumber: body.courseNumber ?? existing.courseNumber,
+    title: body.title ?? existing.title,
+    instructor: body.instructor ?? existing.instructor,
+    duration: body.duration ?? existing.duration,
+    description: body.description ?? existing.description,
+    category: body.category ?? existing.category,
+    outcomes: body.outcomes ?? existing.outcomes,
+    linkedStandards: body.linkedStandards ?? existing.linkedStandards,
+  };
+
+  await kvPutJSON(c.env, `course:def:${courseId}`, updated);
+  return c.json({ ok: true, course: updated });
 });
 
 // POST /api/courses/:id/publish — moves a course from draft to published
