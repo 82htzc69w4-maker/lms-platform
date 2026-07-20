@@ -14,6 +14,14 @@ const bodyHtml = `
       <div class="stat-label">Not Competent / Expired</div>
       <div class="stat-value risk" id="stat-risk">0</div>
     </div>
+    <div class="stat-tile">
+      <div class="stat-label">Registered Learners</div>
+      <div class="stat-value total" id="stat-learners">0</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">Registered Admins</div>
+      <div class="stat-value total" id="stat-admins">0</div>
+    </div>
   </div>
 
   <div class="panel">
@@ -50,6 +58,21 @@ const scripts = `
 
   const LEVEL_TO_DOT = { high: 'red', medium: 'amber', low: 'green' };
   const LEVEL_TO_LABEL = { high: 'High Risk', medium: 'Medium Risk', low: 'Low Risk' };
+
+  // ---------- Registered user counts ----------
+  fetch('/api/users')
+    .then(r => r.json())
+    .then(data => {
+      const list = data.users || [];
+      const learnerCount = list.filter(u => u.role === 'learner').length;
+      const adminCount = list.filter(u => u.role === 'admin').length;
+      countUp(document.getElementById('stat-learners'), learnerCount);
+      countUp(document.getElementById('stat-admins'), adminCount);
+    })
+    .catch(() => {
+      document.getElementById('stat-learners').textContent = '—';
+      document.getElementById('stat-admins').textContent = '—';
+    });
 
   // ---------- Heat map: real department risk ----------
   fetch('/api/competency/risk-by-department')
