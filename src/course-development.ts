@@ -298,6 +298,29 @@ const scripts = `
 
   let currentBlocks = [];
   let selectedBlockId = null;
+  let blockOpInFlight = false;
+
+  function setToolsDisabled(disabled) {
+    document.querySelectorAll('.tool-btn').forEach(b => { b.disabled = disabled; });
+  }
+
+  // Ensures only one add/delete/reorder/save request against course content
+  // is ever in flight at a time. Without this, two quick clicks can race:
+  // both read the content before either has written, and the second write
+  // silently overwrites the first, dropping whatever block it added.
+  function runBlockOp(fetchPromiseFactory, onSuccess) {
+    if (blockOpInFlight) return;
+    blockOpInFlight = true;
+    setToolsDisabled(true);
+
+    fetchPromiseFactory()
+      .then(onSuccess)
+      .catch(() => { /* leave state as-is; user can retry */ })
+      .finally(() => {
+        blockOpInFlight = false;
+        setToolsDisabled(false);
+      });
+  }
 
   function renderBlocks(blocks) {
     currentBlocks = blocks;
@@ -332,12 +355,13 @@ const scripts = `
     wrap.querySelectorAll('[data-action="delete"]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        fetch('/api/courses/' + COURSE_ID + '/content/' + btn.dataset.blockId, { method: 'DELETE' })
-          .then(r => r.json())
-          .then(data => {
+        runBlockOp(
+          () => fetch('/api/courses/' + COURSE_ID + '/content/' + btn.dataset.blockId, { method: 'DELETE' }).then(r => r.json()),
+          (data) => {
             if (btn.dataset.blockId === selectedBlockId) closeBlockEditor();
             renderBlocks(data.blocks || []);
-          });
+          }
+        );
       });
     });
 
@@ -351,13 +375,14 @@ const scripts = `
 
         [currentIds[idx], currentIds[swapWith]] = [currentIds[swapWith], currentIds[idx]];
 
-        fetch('/api/courses/' + COURSE_ID + '/content-reorder', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ blockIds: currentIds })
-        })
-          .then(r => r.json())
-          .then(data => renderBlocks(data.blocks || []));
+        runBlockOp(
+          () => fetch('/api/courses/' + COURSE_ID + '/content-reorder', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ blockIds: currentIds })
+          }).then(r => r.json()),
+          (data) => renderBlocks(data.blocks || [])
+        );
       });
     });
 
@@ -572,21 +597,18 @@ const scripts = `
         payload.settings = { layout: pendingLayout, imageDataUrl: pendingImageDataUrl };
       }
 
-      fetch('/api/courses/' + COURSE_ID + '/content/' + block.id, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-        .then(r => r.json())
-        .then(data => {
+      runBlockOp(
+        () => fetch('/api/courses/' + COURSE_ID + '/content/' + block.id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).then(r => r.json()),
+        (data) => {
           msgEl.textContent = 'Saved.';
           msgEl.style.color = 'var(--competent)';
           renderBlocks(data.blocks || []);
-        })
-        .catch(() => {
-          msgEl.textContent = 'Failed to save.';
-          msgEl.style.color = 'var(--risk)';
-        });
+        }
+      );
     });
   }
 
@@ -602,17 +624,18 @@ const scripts = `
   document.querySelectorAll('.tool-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const type = btn.dataset.blockType;
-      fetch('/api/courses/' + COURSE_ID + '/content', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, title: '' })
-      })
-        .then(r => r.json())
-        .then(data => {
+      runBlockOp(
+        () => fetch('/api/courses/' + COURSE_ID + '/content', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type, title: '' })
+        }).then(r => r.json()),
+        (data) => {
           renderBlocks(data.blocks || []);
           const newBlock = data.blocks[data.blocks.length - 1];
           if (newBlock) openBlockEditor(newBlock);
-        });
+        }
+      );
     });
   });
 
