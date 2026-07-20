@@ -1,6 +1,7 @@
 export type ContentBlockType =
   // Standard Content
   | 'heading'
+  | 'subtitle'
   | 'text'
   | 'webContent'
   | 'presentation'
@@ -12,11 +13,19 @@ export type ContentBlockType =
   | 'externalCertificate'
   | 'experientialLog';
 
+export type HeadingLayout = 'textOnly' | 'imageLeft' | 'bannerTop';
+
+export type ContentBlockSettings = {
+  layout?: HeadingLayout;
+  imageDataUrl?: string;
+};
+
 export type ContentBlock = {
   id: string;
   type: ContentBlockType;
   title: string;
   createdAt: string;
+  settings?: ContentBlockSettings;
 };
 
 export type CourseContent = {
