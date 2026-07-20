@@ -35,6 +35,7 @@ const scripts = `
   document.getElementById('back-link').href = '/course-development/' + COURSE_ID;
 
   const BLOCK_TYPE_LABELS = {
+    module: 'Module',
     heading: 'Heading Section',
     subtitle: 'Subtitle',
     text: 'Text Field',
@@ -46,6 +47,9 @@ const scripts = `
     assessmentUpload: 'Assessment Upload',
     externalCertificate: 'External Certificate Upload',
     experientialLog: 'Experiential Log',
+    forwardButton: 'Forward Button',
+    backButton: 'Back Button',
+    endOfSection: 'End of Section',
   };
 
   const NO_IMAGE_PLACEHOLDER = '<div style="width:120px;height:80px;background:var(--panel-alt);border:1px dashed var(--grid-line);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;flex-shrink:0;">No image</div>';
@@ -62,6 +66,33 @@ const scripts = `
     const settings = block.settings || {};
     const layout = settings.layout || 'textOnly';
     const imageDataUrl = settings.imageDataUrl;
+
+    if (block.type === 'module') {
+      return \`<div style="margin:24px 0 16px; padding:10px 14px; background:rgba(242,183,5,0.12); border-left:3px solid var(--hazard); border-radius:2px;">
+        <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--hazard);">Module</span>
+        <div style="font-family:'Big Shoulders Display',sans-serif; font-size:20px; text-transform:uppercase; color:var(--text-primary); margin-top:4px;">\${safeTitle}</div>
+      </div>\`;
+    }
+
+    if (block.type === 'forwardButton') {
+      return \`<div style="text-align:right; margin:12px 0;">
+        <button class="btn" style="pointer-events:none;">\${escapeHtml(block.title) || 'Next'} &rarr;</button>
+      </div>\`;
+    }
+
+    if (block.type === 'backButton') {
+      return \`<div style="text-align:left; margin:12px 0;">
+        <button class="btn" style="pointer-events:none; background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line);">&larr; \${escapeHtml(block.title) || 'Back'}</button>
+      </div>\`;
+    }
+
+    if (block.type === 'endOfSection') {
+      return \`<div style="display:flex; align-items:center; gap:10px; margin:24px 0; color:var(--competent);">
+        <div style="flex:1; height:1px; background:var(--grid-line);"></div>
+        <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; text-transform:uppercase; letter-spacing:0.05em;">&check; \${escapeHtml(block.title) || 'End of Module'}</span>
+        <div style="flex:1; height:1px; background:var(--grid-line);"></div>
+      </div>\`;
+    }
 
     if (block.type === 'heading') {
       if (layout === 'imageLeft') {
