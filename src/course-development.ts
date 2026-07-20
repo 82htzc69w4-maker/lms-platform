@@ -104,6 +104,16 @@ const bodyHtml = `
             <div class="empty-state">Nothing selected yet.</div>
           </div>
         </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Preview</div>
+            <div class="panel-sub">How this block will appear to learners</div>
+          </div>
+          <div class="panel-body" id="block-preview-wrap">
+            <div class="empty-state">Select a block to preview it.</div>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -322,6 +332,46 @@ const scripts = `
     document.getElementById('editor-panel-title').textContent = 'Block Editor';
     document.getElementById('editor-panel-sub').textContent = 'Select a block on the left to edit it';
     document.getElementById('block-editor-wrap').innerHTML = '<div class="empty-state">Nothing selected yet.</div>';
+    document.getElementById('block-preview-wrap').innerHTML = '<div class="empty-state">Select a block to preview it.</div>';
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+
+  function renderPreview(type, title, layout, imageDataUrl) {
+    const wrap = document.getElementById('block-preview-wrap');
+    const safeTitle = escapeHtml(title) || 'Untitled';
+    const noImagePlaceholder = '<div style="width:120px;height:80px;background:var(--panel-alt);border:1px dashed var(--grid-line);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;flex-shrink:0;">No image</div>';
+    const noBannerPlaceholder = '<div style="width:100%;height:100px;background:var(--panel-alt);border:1px dashed var(--grid-line);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;margin-bottom:12px;">No banner image</div>';
+
+    if (type === 'heading') {
+      if (layout === 'imageLeft') {
+        wrap.innerHTML = \`
+          <div style="display:flex; gap:16px; align-items:center;">
+            \${imageDataUrl ? \`<img src="\${imageDataUrl}" style="width:120px; height:80px; object-fit:cover; border-radius:2px; flex-shrink:0;" />\` : noImagePlaceholder}
+            <h2 style="margin:0; font-family:'Big Shoulders Display',sans-serif; font-size:24px; text-transform:uppercase; color:var(--text-primary);">\${safeTitle}</h2>
+          </div>
+        \`;
+      } else if (layout === 'bannerTop') {
+        wrap.innerHTML = \`
+          \${imageDataUrl ? \`<img src="\${imageDataUrl}" style="width:100%; max-height:140px; object-fit:cover; border-radius:2px; margin-bottom:12px;" />\` : noBannerPlaceholder}
+          <h2 style="margin:0; font-family:'Big Shoulders Display',sans-serif; font-size:24px; text-transform:uppercase; color:var(--text-primary);">\${safeTitle}</h2>
+        \`;
+      } else {
+        wrap.innerHTML = \`<h2 style="margin:0; font-family:'Big Shoulders Display',sans-serif; font-size:24px; text-transform:uppercase; color:var(--text-primary);">\${safeTitle}</h2>\`;
+      }
+    } else if (type === 'subtitle') {
+      wrap.innerHTML = \`<div style="font-family:'Inter',sans-serif; font-size:15px; color:var(--text-muted); font-style:italic;">\${safeTitle}</div>\`;
+    } else {
+      wrap.innerHTML = \`
+        <span class="content-block-type" style="display:inline-block; margin-bottom:8px;">\${BLOCK_TYPE_LABELS[type] || type}</span>
+        <div style="font-family:'Inter',sans-serif; font-size:14px; color: var(--text-primary);">\${safeTitle}</div>
+        <div class="panel-sub" style="margin-top:8px;">Preview not yet available for this block type.</div>
+      \`;
+    }
   }
 
   function openBlockEditor(block) {
@@ -374,12 +424,19 @@ const scripts = `
     let pendingLayout = settings.layout || 'textOnly';
     let pendingImageDataUrl = settings.imageDataUrl || null;
 
+    renderPreview(block.type, block.title, pendingLayout, pendingImageDataUrl);
+
+    document.getElementById('block-title-input').addEventListener('input', (e) => {
+      renderPreview(block.type, e.target.value, pendingLayout, pendingImageDataUrl);
+    });
+
     if (isHeading) {
       editorWrap.querySelectorAll('.layout-option').forEach(opt => {
         opt.addEventListener('click', () => {
           pendingLayout = opt.dataset.layout;
           editorWrap.querySelectorAll('.layout-option').forEach(o => o.classList.toggle('selected', o === opt));
           document.getElementById('image-upload-area').style.display = pendingLayout === 'textOnly' ? 'none' : 'block';
+          renderPreview(block.type, document.getElementById('block-title-input').value, pendingLayout, pendingImageDataUrl);
         });
       });
 
@@ -396,6 +453,7 @@ const scripts = `
           const preview = document.getElementById('block-image-preview');
           preview.src = pendingImageDataUrl;
           preview.style.display = 'block';
+          renderPreview(block.type, document.getElementById('block-title-input').value, pendingLayout, pendingImageDataUrl);
         };
         reader.readAsDataURL(file);
       });
