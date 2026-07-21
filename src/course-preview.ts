@@ -39,6 +39,7 @@ const scripts = `
     heading: 'Heading Section',
     subtitle: 'Subtitle',
     text: 'Text Field',
+    textImage: 'Text + Image',
     webContent: 'Web Content',
     presentation: 'Presentation / Document',
     mobileUpload: 'Mobile Upload (SCORM/HTML/CMI5)',
@@ -111,6 +112,16 @@ const scripts = `
 
     if (block.type === 'subtitle') {
       return \`<div style="font-family:'Inter',sans-serif; font-size:15px; color:var(--text-muted); font-style:italic; margin-bottom:20px;">\${safeTitle}</div>\`;
+    }
+
+    if (block.type === 'textImage') {
+      const position = settings.imagePosition || 'left';
+      const imageEl = imageDataUrl
+        ? \`<img src="\${imageDataUrl}" style="width:160px; height:120px; object-fit:cover; border-radius:2px; flex-shrink:0;" />\`
+        : '<div style="width:160px;height:120px;background:var(--panel-alt);border:1px dashed var(--grid-line);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;flex-shrink:0;">No image</div>';
+      const textEl = \`<div style="flex:1; font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); line-height:1.6; white-space:pre-wrap;">\${safeTitle}</div>\`;
+      const rowContent = position === 'right' ? textEl + imageEl : imageEl + textEl;
+      return \`<div style="display:flex; gap:16px; align-items:flex-start; margin-bottom:20px;">\${rowContent}</div>\`;
     }
 
     return \`<div style="margin-bottom:20px; padding:12px; border:1px dashed var(--grid-line); border-radius:2px;">
