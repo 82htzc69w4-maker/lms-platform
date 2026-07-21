@@ -42,7 +42,8 @@ const scripts = `
     text: 'Text Field',
     textImage: 'Text + Image',
     webContent: 'Web Content',
-    presentation: 'Presentation / Document',
+    presentation: 'Presentation',
+    document: 'Document',
     mobileUpload: 'Mobile Upload (SCORM/HTML/CMI5)',
     test: 'Test',
     assignmentUpload: 'Assignment Upload',
@@ -123,6 +124,34 @@ const scripts = `
       const textEl = \`<div style="flex:1; font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); line-height:1.6; white-space:pre-wrap;">\${safeTitle}</div>\`;
       const rowContent = position === 'right' ? textEl + imageEl : imageEl + textEl;
       return \`<div style="display:flex; gap:16px; align-items:flex-start; margin-bottom:20px;">\${rowContent}</div>\`;
+    }
+
+    if (block.type === 'presentation' || block.type === 'document') {
+      const fileDataUrl = settings.fileDataUrl;
+      const fileName = settings.fileName;
+      const fileMimeType = settings.fileMimeType || '';
+      const label = block.type === 'presentation' ? 'Presentation' : 'Document';
+
+      if (!fileDataUrl) {
+        return \`<div style="margin-bottom:20px; padding:20px; border:1px dashed var(--grid-line); border-radius:2px; text-align:center; color:var(--text-muted); font-family:'IBM Plex Mono',monospace; font-size:12px;">
+          \${label}\${block.title ? ': ' + safeTitle : ''} — no file uploaded yet
+        </div>\`;
+      }
+
+      if (fileMimeType === 'application/pdf') {
+        return \`<div style="margin-bottom:20px;">
+          \${block.title ? \`<div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:8px;">\${safeTitle}</div>\` : ''}
+          <iframe src="\${fileDataUrl}" style="width:100%; height:500px; border:1px solid var(--grid-line); border-radius:2px;"></iframe>
+        </div>\`;
+      }
+
+      return \`<div style="margin-bottom:20px; padding:16px; border:1px solid var(--grid-line); border-radius:2px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+        <div>
+          <span class="content-block-type" style="display:inline-block; margin-bottom:6px;">\${label}</span>
+          <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary);">\${escapeHtml(fileName) || safeTitle}</div>
+        </div>
+        <a href="\${fileDataUrl}" download="\${escapeHtml(fileName) || 'file'}" class="btn" style="text-decoration:none; white-space:nowrap;">Open File</a>
+      </div>\`;
     }
 
     return \`<div style="margin-bottom:20px; padding:12px; border:1px dashed var(--grid-line); border-radius:2px;">
