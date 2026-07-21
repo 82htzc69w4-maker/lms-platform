@@ -5,6 +5,7 @@ export type ContentBlockType =
   | 'heading'
   | 'subtitle'
   | 'text'
+  | 'textImage'
   | 'webContent'
   | 'presentation'
   // Learning Activity
@@ -23,6 +24,7 @@ export type HeadingLayout = 'textOnly' | 'imageLeft' | 'bannerTop';
 
 export type ContentBlockSettings = {
   layout?: HeadingLayout;
+  imagePosition?: 'left' | 'right';
   imageDataUrl?: string;
 };
 
