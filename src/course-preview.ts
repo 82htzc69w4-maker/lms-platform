@@ -8,6 +8,7 @@ const bodyHtml = `
       <div class="panel-title" id="preview-course-title">Course Preview</div>
       <div class="panel-sub">This is a simulation of what a learner will see — not the real learner experience yet</div>
     </div>
+    <div style="padding: 12px 20px 0; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;" id="page-indicator"></div>
     <div class="panel-body" id="preview-course-body">
       <div class="empty-state">Loading&hellip;</div>
     </div>
@@ -77,13 +78,13 @@ const scripts = `
 
     if (block.type === 'forwardButton') {
       return \`<div style="text-align:right; margin:12px 0;">
-        <button class="btn" style="pointer-events:none;">\${escapeHtml(block.title) || 'Next'} &rarr;</button>
+        <button class="btn nav-forward-btn">\${escapeHtml(block.title) || 'Next'} &rarr;</button>
       </div>\`;
     }
 
     if (block.type === 'backButton') {
       return \`<div style="text-align:left; margin:12px 0;">
-        <button class="btn" style="pointer-events:none; background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line);">&larr; \${escapeHtml(block.title) || 'Back'}</button>
+        <button class="btn nav-back-btn" style="background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line);">&larr; \${escapeHtml(block.title) || 'Back'}</button>
       </div>\`;
     }
 
@@ -130,6 +131,59 @@ const scripts = `
     </div>\`;
   }
 
+  // ---------- Pagination: a new page starts at every Module block ----------
+  function splitIntoPages(blocks) {
+    const pages = [];
+    let current = [];
+    blocks.forEach(b => {
+      if (b.type === 'module') {
+        if (current.length > 0) pages.push(current);
+        current = [b];
+      } else {
+        current.push(b);
+      }
+    });
+    if (current.length > 0) pages.push(current);
+    return pages;
+  }
+
+  let pages = [];
+  let currentPageIndex = 0;
+
+  function renderPage(index) {
+    currentPageIndex = index;
+    const bodyEl = document.getElementById('preview-course-body');
+    const page = pages[index];
+
+    // Fully replaces the previous page's content — nothing from the prior
+    // page remains in the DOM or is scrollable to.
+    bodyEl.innerHTML = page.map(renderBlockHtml).join('');
+    window.scrollTo({ top: 0, behavior: 'instant' });
+
+    const pageIndicator = document.getElementById('page-indicator');
+    if (pageIndicator) {
+      pageIndicator.textContent = pages.length > 1 ? 'Page ' + (index + 1) + ' of ' + pages.length : '';
+    }
+
+    bodyEl.querySelectorAll('.nav-forward-btn').forEach(btn => {
+      if (index >= pages.length - 1) {
+        btn.style.opacity = '0.4';
+        btn.style.cursor = 'default';
+      } else {
+        btn.addEventListener('click', () => renderPage(index + 1));
+      }
+    });
+
+    bodyEl.querySelectorAll('.nav-back-btn').forEach(btn => {
+      if (index <= 0) {
+        btn.style.opacity = '0.4';
+        btn.style.cursor = 'default';
+      } else {
+        btn.addEventListener('click', () => renderPage(index - 1));
+      }
+    });
+  }
+
   Promise.all([
     fetch('/api/courses/' + COURSE_ID).then(r => r.json()),
     fetch('/api/courses/' + COURSE_ID + '/content').then(r => r.json()),
@@ -145,7 +199,8 @@ const scripts = `
       return;
     }
 
-    bodyEl.innerHTML = blocks.map(renderBlockHtml).join('');
+    pages = splitIntoPages(blocks);
+    renderPage(0);
   }).catch(() => {
     document.getElementById('preview-course-body').innerHTML = '<div class="empty-state">Could not load this course.</div>';
   });
