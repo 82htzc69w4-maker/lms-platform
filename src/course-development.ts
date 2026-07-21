@@ -74,7 +74,8 @@ const bodyHtml = `
               <button class="tool-btn" data-block-type="text">+ Text Field</button>
               <button class="tool-btn" data-block-type="textImage">+ Text + Image</button>
               <button class="tool-btn" data-block-type="webContent">+ Web Content</button>
-              <button class="tool-btn" data-block-type="presentation">+ Presentation / Document</button>
+              <button class="tool-btn" data-block-type="presentation">+ Presentation</button>
+              <button class="tool-btn" data-block-type="document">+ Document</button>
             </div>
           </div>
         </div>
@@ -280,7 +281,8 @@ const scripts = `
     text: 'Text Field',
     textImage: 'Text + Image',
     webContent: 'Web Content',
-    presentation: 'Presentation / Document',
+    presentation: 'Presentation',
+    document: 'Document',
     mobileUpload: 'Mobile Upload (SCORM/HTML/CMI5)',
     test: 'Test',
     assignmentUpload: 'Assignment Upload',
@@ -472,6 +474,34 @@ const scripts = `
       return \`<div style="display:flex; gap:16px; align-items:flex-start; margin-bottom:20px;" data-preview-block-id="\${block.id}">\${rowContent}</div>\`;
     }
 
+    if (block.type === 'presentation' || block.type === 'document') {
+      const fileDataUrl = settings.fileDataUrl;
+      const fileName = settings.fileName;
+      const fileMimeType = settings.fileMimeType || '';
+      const label = block.type === 'presentation' ? 'Presentation' : 'Document';
+
+      if (!fileDataUrl) {
+        return \`<div style="margin-bottom:20px; padding:20px; border:1px dashed var(--grid-line); border-radius:2px; text-align:center; color:var(--text-muted); font-family:'IBM Plex Mono',monospace; font-size:12px;" data-preview-block-id="\${block.id}">
+          \${label}\${block.title ? ': ' + safeTitle : ''} — no file uploaded yet
+        </div>\`;
+      }
+
+      if (fileMimeType === 'application/pdf') {
+        return \`<div style="margin-bottom:20px;" data-preview-block-id="\${block.id}">
+          \${block.title ? \`<div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:8px;">\${safeTitle}</div>\` : ''}
+          <iframe src="\${fileDataUrl}" style="width:100%; height:500px; border:1px solid var(--grid-line); border-radius:2px;"></iframe>
+        </div>\`;
+      }
+
+      return \`<div style="margin-bottom:20px; padding:16px; border:1px solid var(--grid-line); border-radius:2px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;" data-preview-block-id="\${block.id}">
+        <div>
+          <span class="content-block-type" style="display:inline-block; margin-bottom:6px;">\${label}</span>
+          <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary);">\${escapeHtml(fileName) || safeTitle}</div>
+        </div>
+        <a href="\${fileDataUrl}" download="\${escapeHtml(fileName) || 'file'}" class="btn" style="text-decoration:none; white-space:nowrap;">Open File</a>
+      </div>\`;
+    }
+
     return \`<div style="margin-bottom:20px; padding:12px; border:1px dashed var(--grid-line); border-radius:2px;" data-preview-block-id="\${block.id}">
       <span class="content-block-type" style="display:inline-block; margin-bottom:6px;">\${BLOCK_TYPE_LABELS[block.type] || block.type}</span>
       <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary);">\${safeTitle}</div>
@@ -498,6 +528,9 @@ const scripts = `
             layout: pendingPreviewOverride.layout,
             imagePosition: pendingPreviewOverride.imagePosition,
             imageDataUrl: pendingPreviewOverride.imageDataUrl,
+            fileDataUrl: pendingPreviewOverride.fileDataUrl,
+            fileName: pendingPreviewOverride.fileName,
+            fileMimeType: pendingPreviewOverride.fileMimeType,
           },
         };
       }
@@ -517,6 +550,7 @@ const scripts = `
     const settings = block.settings || {};
     const isHeading = block.type === 'heading';
     const isTextImage = block.type === 'textImage';
+    const isFileBlock = block.type === 'presentation' || block.type === 'document';
 
     let layoutHtml = '';
     if (isHeading) {
@@ -565,6 +599,19 @@ const scripts = `
       \`;
     }
 
+    if (isFileBlock) {
+      const fileLabel = block.type === 'presentation' ? 'Presentation file' : 'Document file';
+      layoutHtml = \`
+        <div class="stat-label" style="margin-bottom: 4px; margin-top: 12px;">\${fileLabel}</div>
+        <div class="image-upload-area" id="file-upload-area">
+          <div id="file-upload-current" style="margin-bottom: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-muted);">
+            \${settings.fileName ? 'Uploaded: ' + escapeHtml(settings.fileName) : 'No file uploaded yet'}
+          </div>
+          <input type="file" id="block-file-input" accept=".pdf,.ppt,.pptx,.doc,.docx" />
+        </div>
+      \`;
+    }
+
     const TITLE_PLACEHOLDERS = {
       module: 'Module Name (e.g. "Module 1: Introduction")',
       forwardButton: 'Button label (default: Next)',
@@ -589,6 +636,9 @@ const scripts = `
     let pendingLayout = settings.layout || 'textOnly';
     let pendingImagePosition = settings.imagePosition || 'left';
     let pendingImageDataUrl = settings.imageDataUrl || null;
+    let pendingFileDataUrl = settings.fileDataUrl || null;
+    let pendingFileName = settings.fileName || null;
+    let pendingFileMimeType = settings.fileMimeType || null;
 
     pendingPreviewOverride = {
       blockId: block.id,
@@ -596,6 +646,9 @@ const scripts = `
       layout: pendingLayout,
       imagePosition: pendingImagePosition,
       imageDataUrl: pendingImageDataUrl,
+      fileDataUrl: pendingFileDataUrl,
+      fileName: pendingFileName,
+      fileMimeType: pendingFileMimeType,
     };
     renderFullPreview();
 
@@ -603,6 +656,29 @@ const scripts = `
       pendingPreviewOverride.title = e.target.value;
       renderFullPreview();
     });
+
+    if (isFileBlock) {
+      document.getElementById('block-file-input').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 4 * 1024 * 1024) {
+          document.getElementById('block-save-message').textContent = 'File is too large — please use one under 4MB.';
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          pendingFileDataUrl = reader.result;
+          pendingFileName = file.name;
+          pendingFileMimeType = file.type;
+          pendingPreviewOverride.fileDataUrl = pendingFileDataUrl;
+          pendingPreviewOverride.fileName = pendingFileName;
+          pendingPreviewOverride.fileMimeType = pendingFileMimeType;
+          document.getElementById('file-upload-current').textContent = 'Uploaded: ' + file.name;
+          renderFullPreview();
+        };
+        reader.readAsDataURL(file);
+      });
+    }
 
     if (isHeading) {
       editorWrap.querySelectorAll('.layout-option').forEach(opt => {
@@ -672,6 +748,8 @@ const scripts = `
         payload.settings = { layout: pendingLayout, imageDataUrl: pendingImageDataUrl };
       } else if (isTextImage) {
         payload.settings = { imagePosition: pendingImagePosition, imageDataUrl: pendingImageDataUrl };
+      } else if (isFileBlock) {
+        payload.settings = { fileDataUrl: pendingFileDataUrl, fileName: pendingFileName, fileMimeType: pendingFileMimeType };
       }
 
       runBlockOp(
