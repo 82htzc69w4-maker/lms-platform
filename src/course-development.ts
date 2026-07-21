@@ -72,6 +72,7 @@ const bodyHtml = `
               <button class="tool-btn" data-block-type="heading">+ Heading Section</button>
               <button class="tool-btn" data-block-type="subtitle">+ Subtitle</button>
               <button class="tool-btn" data-block-type="text">+ Text Field</button>
+              <button class="tool-btn" data-block-type="textImage">+ Text + Image</button>
               <button class="tool-btn" data-block-type="webContent">+ Web Content</button>
               <button class="tool-btn" data-block-type="presentation">+ Presentation / Document</button>
             </div>
@@ -277,6 +278,7 @@ const scripts = `
     heading: 'Heading Section',
     subtitle: 'Subtitle',
     text: 'Text Field',
+    textImage: 'Text + Image',
     webContent: 'Web Content',
     presentation: 'Presentation / Document',
     mobileUpload: 'Mobile Upload (SCORM/HTML/CMI5)',
@@ -293,6 +295,7 @@ const scripts = `
   const LAYOUT_ICONS = {
     textOnly: '<svg viewBox="0 0 32 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="28" height="2.5"/><rect x="2" y="10" width="28" height="2.5"/><rect x="2" y="16" width="18" height="2.5"/></svg>',
     imageLeft: '<svg viewBox="0 0 32 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="18"/><rect x="17" y="4" width="13" height="2.5"/><rect x="17" y="10" width="13" height="2.5"/><rect x="17" y="16" width="9" height="2.5"/></svg>',
+    imageRight: '<svg viewBox="0 0 32 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="18" y="3" width="12" height="18"/><rect x="2" y="4" width="13" height="2.5"/><rect x="2" y="10" width="13" height="2.5"/><rect x="2" y="16" width="9" height="2.5"/></svg>',
     bannerTop: '<svg viewBox="0 0 32 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="28" height="9"/><rect x="2" y="15" width="28" height="2.5"/><rect x="2" y="20" width="18" height="2.5"/></svg>',
   };
 
@@ -459,6 +462,16 @@ const scripts = `
       return \`<div style="font-family:'Inter',sans-serif; font-size:15px; color:var(--text-muted); font-style:italic; margin-bottom:20px;" data-preview-block-id="\${block.id}">\${safeTitle}</div>\`;
     }
 
+    if (block.type === 'textImage') {
+      const position = settings.imagePosition || 'left';
+      const imageEl = imageDataUrl
+        ? \`<img src="\${imageDataUrl}" style="width:160px; height:120px; object-fit:cover; border-radius:2px; flex-shrink:0;" />\`
+        : '<div style="width:160px;height:120px;background:var(--panel-alt);border:1px dashed var(--grid-line);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;flex-shrink:0;">No image</div>';
+      const textEl = \`<div style="flex:1; font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); line-height:1.6; white-space:pre-wrap;">\${safeTitle}</div>\`;
+      const rowContent = position === 'right' ? textEl + imageEl : imageEl + textEl;
+      return \`<div style="display:flex; gap:16px; align-items:flex-start; margin-bottom:20px;" data-preview-block-id="\${block.id}">\${rowContent}</div>\`;
+    }
+
     return \`<div style="margin-bottom:20px; padding:12px; border:1px dashed var(--grid-line); border-radius:2px;" data-preview-block-id="\${block.id}">
       <span class="content-block-type" style="display:inline-block; margin-bottom:6px;">\${BLOCK_TYPE_LABELS[block.type] || block.type}</span>
       <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary);">\${safeTitle}</div>
@@ -481,7 +494,11 @@ const scripts = `
         blockToRender = {
           ...b,
           title: pendingPreviewOverride.title,
-          settings: { layout: pendingPreviewOverride.layout, imageDataUrl: pendingPreviewOverride.imageDataUrl },
+          settings: {
+            layout: pendingPreviewOverride.layout,
+            imagePosition: pendingPreviewOverride.imagePosition,
+            imageDataUrl: pendingPreviewOverride.imageDataUrl,
+          },
         };
       }
       return renderBlockHtml(blockToRender);
@@ -499,6 +516,7 @@ const scripts = `
     const editorWrap = document.getElementById('block-editor-wrap');
     const settings = block.settings || {};
     const isHeading = block.type === 'heading';
+    const isTextImage = block.type === 'textImage';
 
     let layoutHtml = '';
     if (isHeading) {
@@ -526,17 +544,42 @@ const scripts = `
       \`;
     }
 
+    if (isTextImage) {
+      const position = settings.imagePosition || 'left';
+      layoutHtml = \`
+        <div class="stat-label" style="margin-bottom: 4px; margin-top: 12px;">Image Placement</div>
+        <div class="layout-options">
+          <div class="layout-option\${position === 'left' ? ' selected' : ''}" data-position="left">
+            \${LAYOUT_ICONS.imageLeft}
+            <span>Image Left</span>
+          </div>
+          <div class="layout-option\${position === 'right' ? ' selected' : ''}" data-position="right">
+            \${LAYOUT_ICONS.imageRight}
+            <span>Image Right</span>
+          </div>
+        </div>
+        <div class="image-upload-area" id="image-upload-area">
+          <img id="block-image-preview" class="image-upload-preview" src="\${settings.imageDataUrl || ''}" style="display: \${settings.imageDataUrl ? 'block' : 'none'};" />
+          <input type="file" id="block-image-input" accept="image/*" />
+        </div>
+      \`;
+    }
+
     const TITLE_PLACEHOLDERS = {
       module: 'Module Name (e.g. "Module 1: Introduction")',
       forwardButton: 'Button label (default: Next)',
       backButton: 'Button label (default: Back)',
       endOfSection: 'Section label (default: End of Module)',
     };
-    const titlePlaceholder = TITLE_PLACEHOLDERS[block.type] || 'Title';
+    const titlePlaceholder = TITLE_PLACEHOLDERS[block.type] || (isTextImage ? 'Body text' : 'Title');
+
+    const titleFieldHtml = isTextImage
+      ? \`<textarea id="block-title-input" placeholder="\${titlePlaceholder}" rows="5" style="width:100%; background: var(--panel-alt); border: 1px solid var(--grid-line); color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13px; padding: 10px 12px; border-radius: 2px;">\${escapeHtml(block.title || '')}</textarea>\`
+      : \`<input type="text" id="block-title-input" placeholder="\${titlePlaceholder}" value="\${(block.title || '').replace(/"/g, '&quot;')}" />\`;
 
     editorWrap.innerHTML = \`
       <div class="form-row">
-        <input type="text" id="block-title-input" placeholder="\${titlePlaceholder}" value="\${(block.title || '').replace(/"/g, '&quot;')}" />
+        \${titleFieldHtml}
       </div>
       \${layoutHtml}
       <button class="btn" id="save-block-btn" style="margin-top: 8px;">Save</button>
@@ -544,12 +587,14 @@ const scripts = `
     \`;
 
     let pendingLayout = settings.layout || 'textOnly';
+    let pendingImagePosition = settings.imagePosition || 'left';
     let pendingImageDataUrl = settings.imageDataUrl || null;
 
     pendingPreviewOverride = {
       blockId: block.id,
       title: block.title,
       layout: pendingLayout,
+      imagePosition: pendingImagePosition,
       imageDataUrl: pendingImageDataUrl,
     };
     renderFullPreview();
@@ -590,11 +635,43 @@ const scripts = `
       });
     }
 
+    if (isTextImage) {
+      editorWrap.querySelectorAll('.layout-option').forEach(opt => {
+        opt.addEventListener('click', () => {
+          pendingImagePosition = opt.dataset.position;
+          pendingPreviewOverride.imagePosition = pendingImagePosition;
+          editorWrap.querySelectorAll('.layout-option').forEach(o => o.classList.toggle('selected', o === opt));
+          renderFullPreview();
+        });
+      });
+
+      document.getElementById('block-image-input').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) {
+          document.getElementById('block-save-message').textContent = 'Image is too large — please use one under 2MB.';
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          pendingImageDataUrl = reader.result;
+          pendingPreviewOverride.imageDataUrl = pendingImageDataUrl;
+          const preview = document.getElementById('block-image-preview');
+          preview.src = pendingImageDataUrl;
+          preview.style.display = 'block';
+          renderFullPreview();
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
     document.getElementById('save-block-btn').addEventListener('click', () => {
       const msgEl = document.getElementById('block-save-message');
       const payload = { title: document.getElementById('block-title-input').value.trim() };
       if (isHeading) {
         payload.settings = { layout: pendingLayout, imageDataUrl: pendingImageDataUrl };
+      } else if (isTextImage) {
+        payload.settings = { imagePosition: pendingImagePosition, imageDataUrl: pendingImageDataUrl };
       }
 
       runBlockOp(
