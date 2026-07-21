@@ -8,6 +8,7 @@ export type ContentBlockType =
   | 'textImage'
   | 'webContent'
   | 'presentation'
+  | 'document'
   // Learning Activity
   | 'mobileUpload' // SCORM/HTML/CMI5
   | 'test'
@@ -26,6 +27,9 @@ export type ContentBlockSettings = {
   layout?: HeadingLayout;
   imagePosition?: 'left' | 'right';
   imageDataUrl?: string;
+  fileDataUrl?: string;
+  fileName?: string;
+  fileMimeType?: string;
 };
 
 export type ContentBlock = {
