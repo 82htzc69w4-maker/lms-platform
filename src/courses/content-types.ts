@@ -9,6 +9,8 @@ export type ContentBlockType =
   | 'webContent'
   | 'presentation'
   | 'document'
+  | 'videoUpload'
+  | 'youtubeLink'
   // Learning Activity
   | 'mobileUpload' // SCORM/HTML/CMI5
   | 'test'

@@ -76,6 +76,8 @@ const bodyHtml = `
               <button class="tool-btn" data-block-type="webContent">+ Web Content</button>
               <button class="tool-btn" data-block-type="presentation">+ Presentation</button>
               <button class="tool-btn" data-block-type="document">+ Document</button>
+              <button class="tool-btn" data-block-type="videoUpload">+ Video Upload</button>
+              <button class="tool-btn" data-block-type="youtubeLink">+ YouTube Link</button>
             </div>
           </div>
         </div>
@@ -283,6 +285,8 @@ const scripts = `
     webContent: 'Web Content',
     presentation: 'Presentation',
     document: 'Document',
+    videoUpload: 'Video Upload',
+    youtubeLink: 'YouTube Link',
     mobileUpload: 'Mobile Upload (SCORM/HTML/CMI5)',
     test: 'Test',
     assignmentUpload: 'Assignment Upload',
@@ -412,6 +416,20 @@ const scripts = `
     return div.innerHTML;
   }
 
+  function getYoutubeEmbedId(url) {
+    if (!url) return null;
+    const patterns = [
+      /youtube\.com\/watch\?v=([\w-]{11})/,
+      /youtu\.be\/([\w-]{11})/,
+      /youtube\.com\/embed\/([\w-]{11})/,
+    ];
+    for (const p of patterns) {
+      const m = url.match(p);
+      if (m) return m[1];
+    }
+    return null;
+  }
+
   function renderBlockHtml(block) {
     const safeTitle = escapeHtml(block.title) || 'Untitled';
     const settings = block.settings || {};
@@ -502,6 +520,29 @@ const scripts = `
       </div>\`;
     }
 
+    if (block.type === 'videoUpload') {
+      const fileDataUrl = settings.fileDataUrl;
+      if (!fileDataUrl) {
+        return \`<div style="margin-bottom:20px; padding:20px; border:1px dashed var(--grid-line); border-radius:2px; text-align:center; color:var(--text-muted); font-family:'IBM Plex Mono',monospace; font-size:12px;" data-preview-block-id="\${block.id}">Video Upload — no file uploaded yet</div>\`;
+      }
+      return \`<div style="margin-bottom:20px;" data-preview-block-id="\${block.id}">
+        \${block.title ? \`<div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:8px;">\${safeTitle}</div>\` : ''}
+        <video controls style="width:100%; max-height:400px; border-radius:2px; background:#000;">
+          <source src="\${fileDataUrl}" type="\${settings.fileMimeType || 'video/mp4'}" />
+        </video>
+      </div>\`;
+    }
+
+    if (block.type === 'youtubeLink') {
+      const videoId = getYoutubeEmbedId(block.title);
+      if (!videoId) {
+        return \`<div style="margin-bottom:20px; padding:20px; border:1px dashed var(--grid-line); border-radius:2px; text-align:center; color:var(--text-muted); font-family:'IBM Plex Mono',monospace; font-size:12px;" data-preview-block-id="\${block.id}">YouTube Link — paste a valid YouTube URL to embed the video</div>\`;
+      }
+      return \`<div style="margin-bottom:20px;" data-preview-block-id="\${block.id}">
+        <iframe width="100%" height="360" src="https://www.youtube.com/embed/\${videoId}" style="border:1px solid var(--grid-line); border-radius:2px;" allowfullscreen></iframe>
+      </div>\`;
+    }
+
     return \`<div style="margin-bottom:20px; padding:12px; border:1px dashed var(--grid-line); border-radius:2px;" data-preview-block-id="\${block.id}">
       <span class="content-block-type" style="display:inline-block; margin-bottom:6px;">\${BLOCK_TYPE_LABELS[block.type] || block.type}</span>
       <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary);">\${safeTitle}</div>
@@ -550,7 +591,8 @@ const scripts = `
     const settings = block.settings || {};
     const isHeading = block.type === 'heading';
     const isTextImage = block.type === 'textImage';
-    const isFileBlock = block.type === 'presentation' || block.type === 'document';
+    const isFileBlock = block.type === 'presentation' || block.type === 'document' || block.type === 'videoUpload';
+    const isYoutubeLink = block.type === 'youtubeLink';
 
     let layoutHtml = '';
     if (isHeading) {
@@ -600,14 +642,16 @@ const scripts = `
     }
 
     if (isFileBlock) {
-      const fileLabel = block.type === 'presentation' ? 'Presentation file' : 'Document file';
+      const fileLabel = block.type === 'presentation' ? 'Presentation file' : block.type === 'document' ? 'Document file' : 'Video file';
+      const acceptAttr = block.type === 'videoUpload' ? 'video/*' : '.pdf,.ppt,.pptx,.doc,.docx';
+      const sizeHint = block.type === 'videoUpload' ? ' — short clips only, under 8MB (not full video hosting)' : '';
       layoutHtml = \`
-        <div class="stat-label" style="margin-bottom: 4px; margin-top: 12px;">\${fileLabel}</div>
+        <div class="stat-label" style="margin-bottom: 4px; margin-top: 12px;">\${fileLabel}\${sizeHint}</div>
         <div class="image-upload-area" id="file-upload-area">
           <div id="file-upload-current" style="margin-bottom: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-muted);">
             \${settings.fileName ? 'Uploaded: ' + escapeHtml(settings.fileName) : 'No file uploaded yet'}
           </div>
-          <input type="file" id="block-file-input" accept=".pdf,.ppt,.pptx,.doc,.docx" />
+          <input type="file" id="block-file-input" accept="\${acceptAttr}" />
         </div>
       \`;
     }
@@ -617,6 +661,8 @@ const scripts = `
       forwardButton: 'Button label (default: Next)',
       backButton: 'Button label (default: Back)',
       endOfSection: 'Section label (default: End of Module)',
+      youtubeLink: 'YouTube URL (e.g. https://www.youtube.com/watch?v=...)',
+      videoUpload: 'Caption (optional)',
     };
     const titlePlaceholder = TITLE_PLACEHOLDERS[block.type] || (isTextImage ? 'Body text' : 'Title');
 
@@ -661,8 +707,9 @@ const scripts = `
       document.getElementById('block-file-input').addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        if (file.size > 4 * 1024 * 1024) {
-          document.getElementById('block-save-message').textContent = 'File is too large — please use one under 4MB.';
+        const maxSize = block.type === 'videoUpload' ? 8 * 1024 * 1024 : 4 * 1024 * 1024;
+        if (file.size > maxSize) {
+          document.getElementById('block-save-message').textContent = 'File is too large — please use one under ' + (maxSize / (1024 * 1024)) + 'MB.';
           return;
         }
         const reader = new FileReader();

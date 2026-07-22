@@ -44,6 +44,8 @@ const scripts = `
     webContent: 'Web Content',
     presentation: 'Presentation',
     document: 'Document',
+    videoUpload: 'Video Upload',
+    youtubeLink: 'YouTube Link',
     mobileUpload: 'Mobile Upload (SCORM/HTML/CMI5)',
     test: 'Test',
     assignmentUpload: 'Assignment Upload',
@@ -62,6 +64,20 @@ const scripts = `
     const div = document.createElement('div');
     div.textContent = str || '';
     return div.innerHTML;
+  }
+
+  function getYoutubeEmbedId(url) {
+    if (!url) return null;
+    const patterns = [
+      /youtube\.com\/watch\?v=([\w-]{11})/,
+      /youtu\.be\/([\w-]{11})/,
+      /youtube\.com\/embed\/([\w-]{11})/,
+    ];
+    for (const p of patterns) {
+      const m = url.match(p);
+      if (m) return m[1];
+    }
+    return null;
   }
 
   function renderBlockHtml(block) {
@@ -151,6 +167,29 @@ const scripts = `
           <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary);">\${escapeHtml(fileName) || safeTitle}</div>
         </div>
         <a href="\${fileDataUrl}" download="\${escapeHtml(fileName) || 'file'}" class="btn" style="text-decoration:none; white-space:nowrap;">Open File</a>
+      </div>\`;
+    }
+
+    if (block.type === 'videoUpload') {
+      const fileDataUrl = settings.fileDataUrl;
+      if (!fileDataUrl) {
+        return '<div style="margin-bottom:20px; padding:20px; border:1px dashed var(--grid-line); border-radius:2px; text-align:center; color:var(--text-muted); font-family:\\'IBM Plex Mono\\',monospace; font-size:12px;">Video Upload — no file uploaded yet</div>';
+      }
+      return \`<div style="margin-bottom:20px;">
+        \${block.title ? \`<div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:8px;">\${safeTitle}</div>\` : ''}
+        <video controls style="width:100%; max-height:400px; border-radius:2px; background:#000;">
+          <source src="\${fileDataUrl}" type="\${settings.fileMimeType || 'video/mp4'}" />
+        </video>
+      </div>\`;
+    }
+
+    if (block.type === 'youtubeLink') {
+      const videoId = getYoutubeEmbedId(block.title);
+      if (!videoId) {
+        return '<div style="margin-bottom:20px; padding:20px; border:1px dashed var(--grid-line); border-radius:2px; text-align:center; color:var(--text-muted); font-family:\\'IBM Plex Mono\\',monospace; font-size:12px;">YouTube Link — paste a valid YouTube URL to embed the video</div>';
+      }
+      return \`<div style="margin-bottom:20px;">
+        <iframe width="100%" height="360" src="https://www.youtube.com/embed/\${videoId}" style="border:1px solid var(--grid-line); border-radius:2px;" allowfullscreen></iframe>
       </div>\`;
     }
 
