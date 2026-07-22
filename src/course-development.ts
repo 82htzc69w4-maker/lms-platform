@@ -419,9 +419,9 @@ const scripts = `
   function getYoutubeEmbedId(url) {
     if (!url) return null;
     const patterns = [
-      /youtube\.com\/watch\?v=([\w-]{11})/,
-      /youtu\.be\/([\w-]{11})/,
-      /youtube\.com\/embed\/([\w-]{11})/,
+      /youtube\\.com\\/watch\\?v=([\\w-]{11})/,
+      /youtu\\.be\\/([\\w-]{11})/,
+      /youtube\\.com\\/embed\\/([\\w-]{11})/,
     ];
     for (const p of patterns) {
       const m = url.match(p);
