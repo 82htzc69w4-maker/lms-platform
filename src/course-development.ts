@@ -593,6 +593,7 @@ const scripts = `
     const isTextImage = block.type === 'textImage';
     const isFileBlock = block.type === 'presentation' || block.type === 'document' || block.type === 'videoUpload';
     const isYoutubeLink = block.type === 'youtubeLink';
+    const isTest = block.type === 'test';
 
     let layoutHtml = '';
     if (isHeading) {
@@ -670,6 +671,17 @@ const scripts = `
       ? \`<textarea id="block-title-input" placeholder="\${titlePlaceholder}" rows="5" style="width:100%; background: var(--panel-alt); border: 1px solid var(--grid-line); color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13px; padding: 10px 12px; border-radius: 2px;">\${escapeHtml(block.title || '')}</textarea>\`
       : \`<input type="text" id="block-title-input" placeholder="\${titlePlaceholder}" value="\${(block.title || '').replace(/"/g, '&quot;')}" />\`;
 
+    const questionsSectionHtml = isTest ? \`
+      <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--grid-line);">
+        <div class="stat-label" style="margin-bottom: 8px;">Questions</div>
+        <button class="btn" id="add-question-btn">+ Add Question</button>
+        <div id="question-form-wrap" style="display: none; margin-top: 16px; padding: 16px; border: 1px solid var(--grid-line); border-radius: 2px; background: var(--panel-alt);"></div>
+        <div id="questions-list-wrap" style="margin-top: 16px;">
+          <div class="empty-state">Loading questions&hellip;</div>
+        </div>
+      </div>
+    \` : '';
+
     editorWrap.innerHTML = \`
       <div class="form-row">
         \${titleFieldHtml}
@@ -677,6 +689,7 @@ const scripts = `
       \${layoutHtml}
       <button class="btn" id="save-block-btn" style="margin-top: 8px;">Save</button>
       <div id="block-save-message" style="margin-top: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
+      \${questionsSectionHtml}
     \`;
 
     let pendingLayout = settings.layout || 'textOnly';
@@ -786,6 +799,360 @@ const scripts = `
         };
         reader.readAsDataURL(file);
       });
+    }
+
+    if (isTest) {
+      const TYPE_LABELS = {
+        multipleChoice: 'Multiple Choice',
+        trueFalse: 'True / False',
+        written: 'Written',
+        matching: 'Matching',
+        ordering: 'Ordering',
+      };
+
+      let questionsState = [];
+      let editingQuestionId = null;
+      let mcOptions = [];
+      let tfCorrect = true;
+      let writtenModelAnswer = '';
+      let matchPairs = [];
+      let orderItems = [];
+
+      function genId() {
+        return 'tmp-' + Math.random().toString(36).slice(2);
+      }
+
+      function renderMcOptionsHtml() {
+        return mcOptions.map(opt => \`
+          <div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">
+            <input type="radio" name="mc-correct" \${opt.isCorrect ? 'checked' : ''} data-mc-id="\${opt.id}" class="mc-correct-radio" />
+            <input type="text" value="\${(opt.text || '').replace(/"/g, '&quot;')}" placeholder="Option text" data-mc-id="\${opt.id}" class="mc-text-input" style="flex:1;" />
+            <button type="button" data-mc-id="\${opt.id}" class="mc-remove-btn" style="background:none;border:1px solid var(--grid-line);color:var(--text-muted);padding:6px 10px;border-radius:2px;cursor:pointer;">Remove</button>
+          </div>
+        \`).join('') + '<button type="button" id="mc-add-option-btn" class="btn" style="margin-top:6px;">+ Add Option</button>';
+      }
+
+      function attachMcHandlers() {
+        document.querySelectorAll('.mc-correct-radio').forEach(r => {
+          r.addEventListener('change', () => {
+            mcOptions.forEach(o => { o.isCorrect = (o.id === r.dataset.mcId); });
+          });
+        });
+        document.querySelectorAll('.mc-text-input').forEach(inp => {
+          inp.addEventListener('input', () => {
+            const opt = mcOptions.find(o => o.id === inp.dataset.mcId);
+            if (opt) opt.text = inp.value;
+          });
+        });
+        document.querySelectorAll('.mc-remove-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            mcOptions = mcOptions.filter(o => o.id !== btn.dataset.mcId);
+            document.getElementById('question-type-fields').innerHTML = renderMcOptionsHtml();
+            attachMcHandlers();
+          });
+        });
+        document.getElementById('mc-add-option-btn').addEventListener('click', () => {
+          mcOptions.push({ id: genId(), text: '', isCorrect: false });
+          document.getElementById('question-type-fields').innerHTML = renderMcOptionsHtml();
+          attachMcHandlers();
+        });
+      }
+
+      function renderMatchPairsHtml() {
+        return matchPairs.map(pair => \`
+          <div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">
+            <input type="text" value="\${(pair.left || '').replace(/"/g, '&quot;')}" placeholder="Left item" data-pair-id="\${pair.id}" class="pair-left-input" style="flex:1;" />
+            <span style="color:var(--text-muted);">&harr;</span>
+            <input type="text" value="\${(pair.right || '').replace(/"/g, '&quot;')}" placeholder="Right item" data-pair-id="\${pair.id}" class="pair-right-input" style="flex:1;" />
+            <button type="button" data-pair-id="\${pair.id}" class="pair-remove-btn" style="background:none;border:1px solid var(--grid-line);color:var(--text-muted);padding:6px 10px;border-radius:2px;cursor:pointer;">Remove</button>
+          </div>
+        \`).join('') + '<button type="button" id="pair-add-btn" class="btn" style="margin-top:6px;">+ Add Pair</button>';
+      }
+
+      function attachMatchHandlers() {
+        document.querySelectorAll('.pair-left-input').forEach(inp => {
+          inp.addEventListener('input', () => {
+            const p = matchPairs.find(p => p.id === inp.dataset.pairId);
+            if (p) p.left = inp.value;
+          });
+        });
+        document.querySelectorAll('.pair-right-input').forEach(inp => {
+          inp.addEventListener('input', () => {
+            const p = matchPairs.find(p => p.id === inp.dataset.pairId);
+            if (p) p.right = inp.value;
+          });
+        });
+        document.querySelectorAll('.pair-remove-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            matchPairs = matchPairs.filter(p => p.id !== btn.dataset.pairId);
+            document.getElementById('question-type-fields').innerHTML = renderMatchPairsHtml();
+            attachMatchHandlers();
+          });
+        });
+        document.getElementById('pair-add-btn').addEventListener('click', () => {
+          matchPairs.push({ id: genId(), left: '', right: '' });
+          document.getElementById('question-type-fields').innerHTML = renderMatchPairsHtml();
+          attachMatchHandlers();
+        });
+      }
+
+      function renderOrderItemsHtml() {
+        return orderItems.map((item, i) => \`
+          <div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">
+            <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-muted); width:18px;">\${i + 1}.</span>
+            <input type="text" value="\${(item.text || '').replace(/"/g, '&quot;')}" placeholder="Item text" data-item-id="\${item.id}" class="order-item-input" style="flex:1;" />
+            <button type="button" data-item-id="\${item.id}" class="order-remove-btn" style="background:none;border:1px solid var(--grid-line);color:var(--text-muted);padding:6px 10px;border-radius:2px;cursor:pointer;">Remove</button>
+          </div>
+        \`).join('') + '<button type="button" id="order-add-btn" class="btn" style="margin-top:6px;">+ Add Item</button>';
+      }
+
+      function attachOrderHandlers() {
+        document.querySelectorAll('.order-item-input').forEach(inp => {
+          inp.addEventListener('input', () => {
+            const item = orderItems.find(i => i.id === inp.dataset.itemId);
+            if (item) item.text = inp.value;
+          });
+        });
+        document.querySelectorAll('.order-remove-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            orderItems = orderItems.filter(i => i.id !== btn.dataset.itemId);
+            document.getElementById('question-type-fields').innerHTML = renderOrderItemsHtml();
+            attachOrderHandlers();
+          });
+        });
+        document.getElementById('order-add-btn').addEventListener('click', () => {
+          orderItems.push({ id: genId(), text: '' });
+          document.getElementById('question-type-fields').innerHTML = renderOrderItemsHtml();
+          attachOrderHandlers();
+        });
+      }
+
+      function renderQuestionTypeFields(type) {
+        const container = document.getElementById('question-type-fields');
+        if (type === 'multipleChoice') {
+          container.innerHTML = renderMcOptionsHtml();
+          attachMcHandlers();
+        } else if (type === 'trueFalse') {
+          container.innerHTML = \`
+            <div class="form-row">
+              <label style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:13px;">
+                <input type="radio" name="tf-correct" value="true" \${tfCorrect ? 'checked' : ''} /> True
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:13px;">
+                <input type="radio" name="tf-correct" value="false" \${!tfCorrect ? 'checked' : ''} /> False
+              </label>
+            </div>
+          \`;
+          container.querySelectorAll('input[name="tf-correct"]').forEach(r => {
+            r.addEventListener('change', () => { tfCorrect = r.value === 'true'; });
+          });
+        } else if (type === 'written') {
+          container.innerHTML = \`<textarea id="written-model-answer" placeholder="Model answer (optional, for grading reference)" rows="3" style="width:100%;background:var(--panel);border:1px solid var(--grid-line);color:var(--text-primary);font-family:'Inter',sans-serif;font-size:13px;padding:10px 12px;border-radius:2px;">\${escapeHtml(writtenModelAnswer)}</textarea>\`;
+          document.getElementById('written-model-answer').addEventListener('input', (e) => { writtenModelAnswer = e.target.value; });
+        } else if (type === 'matching') {
+          container.innerHTML = renderMatchPairsHtml();
+          attachMatchHandlers();
+        } else if (type === 'ordering') {
+          container.innerHTML = renderOrderItemsHtml();
+          attachOrderHandlers();
+        }
+      }
+
+      function openQuestionForm(existingQuestion) {
+        editingQuestionId = existingQuestion ? existingQuestion.id : null;
+        const type = existingQuestion ? existingQuestion.type : 'multipleChoice';
+
+        mcOptions = existingQuestion && existingQuestion.type === 'multipleChoice'
+          ? existingQuestion.options.map(o => ({ ...o }))
+          : [{ id: genId(), text: '', isCorrect: true }, { id: genId(), text: '', isCorrect: false }];
+        tfCorrect = existingQuestion && existingQuestion.type === 'trueFalse' ? existingQuestion.correctBoolean : true;
+        writtenModelAnswer = existingQuestion && existingQuestion.type === 'written' ? (existingQuestion.modelAnswer || '') : '';
+        matchPairs = existingQuestion && existingQuestion.type === 'matching'
+          ? existingQuestion.pairs.map(p => ({ ...p }))
+          : [{ id: genId(), left: '', right: '' }, { id: genId(), left: '', right: '' }];
+        orderItems = existingQuestion && existingQuestion.type === 'ordering'
+          ? existingQuestion.orderedItems.map(text => ({ id: genId(), text }))
+          : [{ id: genId(), text: '' }, { id: genId(), text: '' }];
+
+        const formWrap = document.getElementById('question-form-wrap');
+        formWrap.style.display = 'block';
+        formWrap.innerHTML = \`
+          <div class="form-row">
+            <select id="new-question-type">
+              <option value="multipleChoice" \${type === 'multipleChoice' ? 'selected' : ''}>Multiple Choice</option>
+              <option value="trueFalse" \${type === 'trueFalse' ? 'selected' : ''}>True / False</option>
+              <option value="written" \${type === 'written' ? 'selected' : ''}>Written</option>
+              <option value="matching" \${type === 'matching' ? 'selected' : ''}>Matching</option>
+              <option value="ordering" \${type === 'ordering' ? 'selected' : ''}>Ordering</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <input type="text" id="new-question-text" placeholder="Question text" value="\${existingQuestion ? escapeHtml(existingQuestion.text).replace(/"/g, '&quot;') : ''}" />
+          </div>
+          <div id="question-type-fields"></div>
+          <button class="btn" id="save-question-btn" style="margin-top: 8px;">\${existingQuestion ? 'Update Question' : 'Save Question'}</button>
+          <button type="button" id="cancel-question-btn" style="margin-top: 8px; margin-left: 8px; background: var(--panel); color: var(--text-primary); border: 1px solid var(--grid-line); padding: 10px 18px; border-radius: 2px; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 12px; text-transform: uppercase;">Cancel</button>
+          <div id="question-save-message" style="margin-top: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
+        \`;
+
+        renderQuestionTypeFields(type);
+
+        document.getElementById('new-question-type').addEventListener('change', (e) => {
+          renderQuestionTypeFields(e.target.value);
+        });
+
+        document.getElementById('cancel-question-btn').addEventListener('click', () => {
+          formWrap.style.display = 'none';
+          editingQuestionId = null;
+        });
+
+        document.getElementById('save-question-btn').addEventListener('click', saveQuestion);
+      }
+
+      function saveQuestion() {
+        const type = document.getElementById('new-question-type').value;
+        const text = document.getElementById('new-question-text').value.trim();
+        const msgEl = document.getElementById('question-save-message');
+
+        if (!text) {
+          msgEl.textContent = 'Question text is required.';
+          msgEl.style.color = 'var(--risk)';
+          return;
+        }
+
+        const payload = { type, text };
+
+        if (type === 'multipleChoice') {
+          const validOptions = mcOptions.filter(o => o.text.trim());
+          if (validOptions.length < 2) {
+            msgEl.textContent = 'Add at least 2 options.';
+            msgEl.style.color = 'var(--risk)';
+            return;
+          }
+          if (!validOptions.some(o => o.isCorrect)) {
+            msgEl.textContent = 'Mark one option as correct.';
+            msgEl.style.color = 'var(--risk)';
+            return;
+          }
+          payload.options = validOptions.map(o => ({ id: o.id, text: o.text.trim(), isCorrect: o.isCorrect }));
+        } else if (type === 'trueFalse') {
+          payload.correctBoolean = tfCorrect;
+        } else if (type === 'written') {
+          payload.modelAnswer = writtenModelAnswer.trim();
+        } else if (type === 'matching') {
+          const validPairs = matchPairs.filter(p => p.left.trim() && p.right.trim());
+          if (validPairs.length < 2) {
+            msgEl.textContent = 'Add at least 2 complete pairs.';
+            msgEl.style.color = 'var(--risk)';
+            return;
+          }
+          payload.pairs = validPairs.map(p => ({ id: p.id, left: p.left.trim(), right: p.right.trim() }));
+        } else if (type === 'ordering') {
+          const validItems = orderItems.filter(i => i.text.trim());
+          if (validItems.length < 2) {
+            msgEl.textContent = 'Add at least 2 items.';
+            msgEl.style.color = 'var(--risk)';
+            return;
+          }
+          payload.orderedItems = validItems.map(i => i.text.trim());
+        }
+
+        const url = editingQuestionId
+          ? '/api/tests/' + block.id + '/questions/' + editingQuestionId
+          : '/api/tests/' + block.id + '/questions';
+        const method = editingQuestionId ? 'PUT' : 'POST';
+
+        fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+          .then(r => r.json())
+          .then(data => {
+            document.getElementById('question-form-wrap').style.display = 'none';
+            editingQuestionId = null;
+            renderQuestionsList(data.questions || []);
+          })
+          .catch(() => {
+            msgEl.textContent = 'Failed to save question.';
+            msgEl.style.color = 'var(--risk)';
+          });
+      }
+
+      function renderQuestionsList(questions) {
+        questionsState = questions;
+        const wrap = document.getElementById('questions-list-wrap');
+
+        if (questions.length === 0) {
+          wrap.innerHTML = '<div class="empty-state">No questions added yet.</div>';
+          return;
+        }
+
+        wrap.innerHTML = questions.map((q, i) => {
+          let detail = '';
+          if (q.type === 'multipleChoice') {
+            detail = '<ul style="margin:6px 0 0; padding-left:18px; font-size:12px; color:var(--text-muted);">' +
+              q.options.map(o => \`<li style="\${o.isCorrect ? 'color:var(--competent); font-weight:600;' : ''}">\${escapeHtml(o.text)}\${o.isCorrect ? ' \u2713' : ''}</li>\`).join('') +
+              '</ul>';
+          } else if (q.type === 'trueFalse') {
+            detail = \`<div style="font-size:12px; color:var(--text-muted); margin-top:6px;">Correct: <strong style="color:var(--competent);">\${q.correctBoolean ? 'True' : 'False'}</strong></div>\`;
+          } else if (q.type === 'written') {
+            detail = q.modelAnswer ? \`<div style="font-size:12px; color:var(--text-muted); margin-top:6px;">Model answer: \${escapeHtml(q.modelAnswer)}</div>\` : '';
+          } else if (q.type === 'matching') {
+            detail = '<ul style="margin:6px 0 0; padding-left:18px; font-size:12px; color:var(--text-muted);">' +
+              q.pairs.map(p => \`<li>\${escapeHtml(p.left)} &harr; \${escapeHtml(p.right)}</li>\`).join('') +
+              '</ul>';
+          } else if (q.type === 'ordering') {
+            detail = '<ol style="margin:6px 0 0; padding-left:18px; font-size:12px; color:var(--text-muted);">' +
+              q.orderedItems.map(item => \`<li>\${escapeHtml(item)}</li>\`).join('') +
+              '</ol>';
+          }
+
+          return \`
+            <div class="content-block-row" style="align-items:flex-start; cursor:default;">
+              <div style="flex:1;">
+                <span class="content-block-type">\${TYPE_LABELS[q.type]}</span>
+                <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-top:6px;">\${i + 1}. \${escapeHtml(q.text)}</div>
+                \${detail}
+              </div>
+              <div class="content-block-actions">
+                <button data-action="edit-question" data-question-id="\${q.id}">Edit</button>
+                <button data-action="delete-question" data-question-id="\${q.id}" class="delete">Delete</button>
+              </div>
+            </div>
+          \`;
+        }).join('');
+
+        wrap.querySelectorAll('[data-action="edit-question"]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const q = questionsState.find(q => q.id === btn.dataset.questionId);
+            if (q) openQuestionForm(q);
+          });
+        });
+
+        wrap.querySelectorAll('[data-action="delete-question"]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            fetch('/api/tests/' + block.id + '/questions/' + btn.dataset.questionId, { method: 'DELETE' })
+              .then(r => r.json())
+              .then(data => renderQuestionsList(data.questions || []));
+          });
+        });
+      }
+
+      function loadQuestions() {
+        fetch('/api/tests/' + block.id)
+          .then(r => r.json())
+          .then(data => renderQuestionsList(data.questions || []))
+          .catch(() => {
+            document.getElementById('questions-list-wrap').innerHTML = '<div class="empty-state">Could not load questions.</div>';
+          });
+      }
+
+      document.getElementById('add-question-btn').addEventListener('click', () => {
+        openQuestionForm(null);
+      });
+
+      loadQuestions();
     }
 
     document.getElementById('save-block-btn').addEventListener('click', () => {

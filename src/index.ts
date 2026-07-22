@@ -22,6 +22,7 @@ import users from './users/routes';
 import courses from './courses/routes';
 import certificates from './certificates/routes';
 import lookups from './lookups/routes';
+import tests from './tests/routes';
 import { learnerHtml } from './learner';
 import { courseDeliveryHtml } from './course-delivery';
 import { courseDevelopmentHtml } from './course-development';
@@ -56,5 +57,6 @@ app.route('/api/users', users);
 app.route('/api/courses', courses);
 app.route('/api/certificates', certificates);
 app.route('/api/lookups', lookups);
+app.route('/api/tests', tests);
 
 export default app;
