@@ -80,6 +80,217 @@ const scripts = `
     return null;
   }
 
+  function shuffleArray(arr) {
+    const copy = arr.slice();
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = copy[i];
+      copy[i] = copy[j];
+      copy[j] = tmp;
+    }
+    return copy;
+  }
+
+  function buildTestQuestionHtml(q, index) {
+    const num = index + 1;
+
+    if (q.type === 'multipleChoice') {
+      const optionsHtml = (q.options || []).map(o => \`
+        <label style="display:flex; align-items:center; gap:8px; margin-bottom:6px; font-family:'Inter',sans-serif; font-size:14px; cursor:pointer;">
+          <input type="radio" name="q-\${q.id}" value="\${o.id}" />
+          \${escapeHtml(o.text)}
+        </label>
+      \`).join('');
+      return \`<div class="test-question" data-question-id="\${q.id}" style="margin-bottom:20px;">
+        <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:8px;">\${num}. \${escapeHtml(q.text)}</div>
+        \${optionsHtml}
+      </div>\`;
+    }
+
+    if (q.type === 'trueFalse') {
+      return \`<div class="test-question" data-question-id="\${q.id}" style="margin-bottom:20px;">
+        <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:8px;">\${num}. \${escapeHtml(q.text)}</div>
+        <label style="display:flex; align-items:center; gap:8px; margin-bottom:6px; font-family:'Inter',sans-serif; font-size:14px; cursor:pointer;">
+          <input type="radio" name="q-\${q.id}" value="true" /> True
+        </label>
+        <label style="display:flex; align-items:center; gap:8px; margin-bottom:6px; font-family:'Inter',sans-serif; font-size:14px; cursor:pointer;">
+          <input type="radio" name="q-\${q.id}" value="false" /> False
+        </label>
+      </div>\`;
+    }
+
+    if (q.type === 'written') {
+      return \`<div class="test-question" data-question-id="\${q.id}" style="margin-bottom:20px;">
+        <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:8px;">\${num}. \${escapeHtml(q.text)}</div>
+        <textarea rows="3" style="width:100%; background:var(--panel-alt); border:1px solid var(--grid-line); color:var(--text-primary); font-family:'Inter',sans-serif; font-size:13px; padding:10px 12px; border-radius:2px;"></textarea>
+      </div>\`;
+    }
+
+    if (q.type === 'matching') {
+      const rightTexts = shuffleArray((q.pairs || []).map(p => p.right));
+      const pairsHtml = (q.pairs || []).map(p => \`
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+          <span style="flex:1; font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary);">\${escapeHtml(p.left)}</span>
+          <select class="matching-select" data-pair-id="\${p.id}" style="flex:1; background:var(--panel-alt); border:1px solid var(--grid-line); color:var(--text-primary); font-family:'IBM Plex Mono',monospace; font-size:13px; padding:8px; border-radius:2px;">
+            <option value="">-- Select --</option>
+            \${rightTexts.map(r => \`<option value="\${escapeHtml(r)}">\${escapeHtml(r)}</option>\`).join('')}
+          </select>
+        </div>
+      \`).join('');
+      return \`<div class="test-question" data-question-id="\${q.id}" style="margin-bottom:20px;">
+        <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:8px;">\${num}. \${escapeHtml(q.text)}</div>
+        \${pairsHtml}
+      </div>\`;
+    }
+
+    if (q.type === 'ordering') {
+      const shuffled = shuffleArray(q.orderedItems || []);
+      const itemsHtml = shuffled.map(item => \`
+        <div class="ordering-item" data-text="\${escapeHtml(item)}" style="display:flex; align-items:center; gap:8px; margin-bottom:6px; padding:8px 10px; border:1px solid var(--grid-line); border-radius:2px; background:var(--panel-alt);">
+          <span style="flex:1; font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary);">\${escapeHtml(item)}</span>
+          <button type="button" class="order-up-btn" style="background:none;border:1px solid var(--grid-line);color:var(--text-muted);padding:4px 8px;border-radius:2px;cursor:pointer;">&uarr;</button>
+          <button type="button" class="order-down-btn" style="background:none;border:1px solid var(--grid-line);color:var(--text-muted);padding:4px 8px;border-radius:2px;cursor:pointer;">&darr;</button>
+        </div>
+      \`).join('');
+      return \`<div class="test-question" data-question-id="\${q.id}" style="margin-bottom:20px;">
+        <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:8px;">\${num}. \${escapeHtml(q.text)}</div>
+        <div class="ordering-list">\${itemsHtml}</div>
+      </div>\`;
+    }
+
+    return '';
+  }
+
+  function attachOrderingHandlers(container) {
+    container.querySelectorAll('.order-up-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const item = btn.closest('.ordering-item');
+        const prev = item.previousElementSibling;
+        if (prev) item.parentNode.insertBefore(item, prev);
+      });
+    });
+    container.querySelectorAll('.order-down-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const item = btn.closest('.ordering-item');
+        const next = item.nextElementSibling;
+        if (next) item.parentNode.insertBefore(next, item);
+      });
+    });
+  }
+
+  function gatherTestAnswers(container, questions) {
+    return questions.map(q => {
+      const qDiv = container.querySelector('.test-question[data-question-id="' + q.id + '"]');
+      if (q.type === 'multipleChoice') {
+        const checked = qDiv.querySelector('input[type="radio"]:checked');
+        return { questionId: q.id, selectedOptionId: checked ? checked.value : null };
+      }
+      if (q.type === 'trueFalse') {
+        const checked = qDiv.querySelector('input[type="radio"]:checked');
+        return { questionId: q.id, selectedBoolean: checked ? checked.value === 'true' : null };
+      }
+      if (q.type === 'written') {
+        const textarea = qDiv.querySelector('textarea');
+        return { questionId: q.id, text: textarea ? textarea.value : '' };
+      }
+      if (q.type === 'matching') {
+        const selects = qDiv.querySelectorAll('.matching-select');
+        const matches = Array.prototype.map.call(selects, sel => ({ pairId: sel.dataset.pairId, selectedRight: sel.value }));
+        return { questionId: q.id, matches: matches };
+      }
+      if (q.type === 'ordering') {
+        const items = Array.prototype.map.call(qDiv.querySelectorAll('.ordering-item'), el => el.dataset.text);
+        return { questionId: q.id, orderedTexts: items };
+      }
+      return { questionId: q.id };
+    });
+  }
+
+  function renderTestResults(container, attempt) {
+    const resultsEl = container.querySelector('.test-results');
+    const formEl = container.querySelector('.test-form');
+
+    const summaryPct = attempt.maxScore > 0 ? Math.round((100 * attempt.score) / attempt.maxScore) : null;
+    const summaryText = 'Score: ' + attempt.score + ' / ' + attempt.maxScore + (summaryPct !== null ? ' (' + summaryPct + '%)' : '');
+
+    const rows = attempt.results.map((r, i) => {
+      if (r.correct === null) {
+        return \`<div style="margin-bottom:10px; padding:10px; border:1px solid var(--grid-line); border-radius:2px; font-family:'IBM Plex Mono',monospace; font-size:13px;">\${i + 1}. Submitted for review</div>\`;
+      }
+      const icon = r.correct
+        ? '<span style="color:var(--competent);">&check; Correct</span>'
+        : '<span style="color:var(--risk);">&times; Incorrect</span>';
+      const detail = r.pointsPossible > 1 ? ' (' + r.pointsEarned + '/' + r.pointsPossible + ')' : '';
+      const summaryLine = (!r.correct && r.correctAnswerSummary)
+        ? \`<div style="font-size:12px; color:var(--text-muted); margin-top:4px;">\${escapeHtml(r.correctAnswerSummary)}</div>\`
+        : '';
+      return \`<div style="margin-bottom:10px; padding:10px; border:1px solid var(--grid-line); border-radius:2px; font-family:'IBM Plex Mono',monospace; font-size:13px;">\${i + 1}. \${icon}\${detail}\${summaryLine}</div>\`;
+    }).join('');
+
+    resultsEl.innerHTML = \`
+      <div style="font-family:'Big Shoulders Display',sans-serif; font-size:20px; text-transform:uppercase; color:var(--text-primary); margin-bottom:12px;">\${summaryText}</div>
+      \${rows}
+      <button type="button" class="btn retake-test-btn" style="margin-top:8px;">Retake Test</button>
+    \`;
+    resultsEl.style.display = 'block';
+    formEl.style.display = 'none';
+
+    resultsEl.querySelector('.retake-test-btn').addEventListener('click', () => {
+      resultsEl.style.display = 'none';
+      formEl.style.display = 'block';
+    });
+  }
+
+  function initTest(blockId, container) {
+    Promise.all([
+      fetch('/api/tests/' + blockId).then(r => r.json()),
+      fetch('/api/tests/' + blockId + '/my-attempt').then(r => r.json()).catch(() => ({ attempt: null })),
+    ]).then(([testData, attemptData]) => {
+      const questions = testData.questions || [];
+      const previousAttempt = attemptData.attempt;
+
+      if (questions.length === 0) {
+        container.innerHTML = '<div class="empty-state">This test has no questions yet.</div>';
+        return;
+      }
+
+      const questionsHtml = questions.map((q, i) => buildTestQuestionHtml(q, i)).join('');
+      const bannerHtml = previousAttempt
+        ? \`<div style="margin-bottom:16px; padding:12px; background:rgba(62,155,84,0.12); border-left:3px solid var(--competent); border-radius:2px; font-family:'IBM Plex Mono',monospace; font-size:13px;">Previous score: \${previousAttempt.score} / \${previousAttempt.maxScore}</div>\`
+        : '';
+
+      container.innerHTML = \`
+        \${bannerHtml}
+        <div class="test-form">
+          \${questionsHtml}
+          <button type="button" class="btn submit-test-btn">Submit Test</button>
+        </div>
+        <div class="test-results" style="display:none;"></div>
+      \`;
+
+      attachOrderingHandlers(container);
+
+      container.querySelector('.submit-test-btn').addEventListener('click', () => {
+        const answers = gatherTestAnswers(container, questions);
+        fetch('/api/tests/' + blockId + '/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ answers: answers })
+        })
+          .then(r => r.json())
+          .then(data => renderTestResults(container, data.attempt));
+      });
+    }).catch(() => {
+      container.innerHTML = '<div class="empty-state">Could not load this test.</div>';
+    });
+  }
+
+  function mountTests() {
+    document.querySelectorAll('[data-test-block-id]').forEach(el => {
+      initTest(el.dataset.testBlockId, el);
+    });
+  }
+
   function renderBlockHtml(block) {
     const safeTitle = escapeHtml(block.title) || 'Untitled';
     const settings = block.settings || {};
@@ -193,6 +404,18 @@ const scripts = `
       </div>\`;
     }
 
+    if (block.type === 'test') {
+      return \`<div class="panel" style="margin-bottom:20px;">
+        <div class="panel-header">
+          <div class="panel-title">\${block.title ? safeTitle : 'Test'}</div>
+          <div class="panel-sub">Answer the questions below, then submit</div>
+        </div>
+        <div class="panel-body" data-test-block-id="\${block.id}">
+          <div class="empty-state">Loading test&hellip;</div>
+        </div>
+      </div>\`;
+    }
+
     return \`<div style="margin-bottom:20px; padding:12px; border:1px dashed var(--grid-line); border-radius:2px;">
       <span class="content-block-type" style="display:inline-block; margin-bottom:6px;">\${BLOCK_TYPE_LABELS[block.type] || block.type}</span>
       <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary);">\${safeTitle}</div>
@@ -250,6 +473,8 @@ const scripts = `
         btn.addEventListener('click', () => renderPage(index - 1));
       }
     });
+
+    mountTests();
   }
 
   Promise.all([

@@ -32,3 +32,21 @@ export type Test = {
   blockId: string;
   questions: Question[];
 };
+
+export type QuestionResult = {
+  questionId: string;
+  type: QuestionType;
+  correct: boolean | null; // null = not auto-gradable (written)
+  pointsEarned: number;
+  pointsPossible: number;
+  correctAnswerSummary?: string;
+};
+
+export type Attempt = {
+  blockId: string;
+  username: string;
+  results: QuestionResult[];
+  score: number;
+  maxScore: number;
+  submittedAt: string;
+};
