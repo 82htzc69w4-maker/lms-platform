@@ -720,6 +720,37 @@ const scripts = `
 
   let pendingPreviewOverride = null;
 
+  function renderPreviewBlocks(blocks) {
+    let html = '';
+    let i = 0;
+    while (i < blocks.length) {
+      const b = blocks[i];
+      if (b.type === 'forwardButton' || b.type === 'backButton') {
+        const cluster = [];
+        while (i < blocks.length && (blocks[i].type === 'forwardButton' || blocks[i].type === 'backButton')) {
+          cluster.push(blocks[i]);
+          i++;
+        }
+        const backHtml = cluster
+          .filter(c => c.type === 'backButton')
+          .map(c => \`<button type="button" class="btn" style="pointer-events:none; background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line);">&larr; \${escapeHtml(c.title) || 'Back'}</button>\`)
+          .join(' ');
+        const forwardHtml = cluster
+          .filter(c => c.type === 'forwardButton')
+          .map(c => \`<button type="button" class="btn" style="pointer-events:none;">\${escapeHtml(c.title) || 'Next'} &rarr;</button>\`)
+          .join(' ');
+        html += \`<div style="display:flex; justify-content:space-between; align-items:center; margin:16px 0;">
+          <div>\${backHtml}</div>
+          <div>\${forwardHtml}</div>
+        </div>\`;
+      } else {
+        html += renderBlockHtml(b);
+        i++;
+      }
+    }
+    return html;
+  }
+
   function renderFullPreview() {
     const wrap = document.getElementById('block-preview-wrap');
 
@@ -728,10 +759,9 @@ const scripts = `
       return;
     }
 
-    wrap.innerHTML = currentBlocks.map(b => {
-      let blockToRender = b;
+    const resolvedBlocks = currentBlocks.map(b => {
       if (pendingPreviewOverride && b.id === pendingPreviewOverride.blockId) {
-        blockToRender = {
+        return {
           ...b,
           title: pendingPreviewOverride.title,
           settings: {
@@ -747,8 +777,10 @@ const scripts = `
           },
         };
       }
-      return renderBlockHtml(blockToRender);
-    }).join('');
+      return b;
+    });
+
+    wrap.innerHTML = renderPreviewBlocks(resolvedBlocks);
   }
 
   function openBlockEditor(block) {

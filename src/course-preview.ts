@@ -474,22 +474,67 @@ const scripts = `
   function splitIntoPages(blocks) {
     const pages = [];
     let current = [];
+    let pendingBreak = false;
+
     blocks.forEach(b => {
       if (b.type === 'module') {
         if (current.length > 0) pages.push(current);
         current = [b];
-      } else {
-        current.push(b);
-        if (b.type === 'forwardButton') {
-          // A Forward button ends the current page right where it sits —
-          // clicking it should always have somewhere new to go.
-          pages.push(current);
-          current = [];
-        }
+        pendingBreak = false;
+        return;
+      }
+
+      const isNavButton = b.type === 'forwardButton' || b.type === 'backButton';
+
+      // Once a Forward button has been seen, keep grouping any immediately
+      // adjacent Back/Forward buttons onto the same page — the break only
+      // happens once real content resumes (or the list ends).
+      if (pendingBreak && !isNavButton) {
+        pages.push(current);
+        current = [];
+        pendingBreak = false;
+      }
+
+      current.push(b);
+
+      if (b.type === 'forwardButton') {
+        pendingBreak = true;
       }
     });
+
     if (current.length > 0) pages.push(current);
     return pages;
+  }
+
+  function renderPageBlocks(blocks) {
+    let html = '';
+    let i = 0;
+    while (i < blocks.length) {
+      const b = blocks[i];
+      if (b.type === 'forwardButton' || b.type === 'backButton') {
+        const cluster = [];
+        while (i < blocks.length && (blocks[i].type === 'forwardButton' || blocks[i].type === 'backButton')) {
+          cluster.push(blocks[i]);
+          i++;
+        }
+        const backHtml = cluster
+          .filter(c => c.type === 'backButton')
+          .map(c => \`<button type="button" class="btn nav-back-btn" style="background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line);">&larr; \${escapeHtml(c.title) || 'Back'}</button>\`)
+          .join(' ');
+        const forwardHtml = cluster
+          .filter(c => c.type === 'forwardButton')
+          .map(c => \`<button type="button" class="btn nav-forward-btn">\${escapeHtml(c.title) || 'Next'} &rarr;</button>\`)
+          .join(' ');
+        html += \`<div style="display:flex; justify-content:space-between; align-items:center; margin:16px 0;">
+          <div>\${backHtml}</div>
+          <div>\${forwardHtml}</div>
+        </div>\`;
+      } else {
+        html += renderBlockHtml(b);
+        i++;
+      }
+    }
+    return html;
   }
 
   let pages = [];
@@ -502,7 +547,7 @@ const scripts = `
 
     // Fully replaces the previous page's content — nothing from the prior
     // page remains in the DOM or is scrollable to.
-    bodyEl.innerHTML = page.map(renderBlockHtml).join('');
+    bodyEl.innerHTML = renderPageBlocks(page);
     window.scrollTo({ top: 0, behavior: 'instant' });
 
     const pageIndicator = document.getElementById('page-indicator');
