@@ -544,6 +544,10 @@ const scripts = `
     if (course && course.bannerDataUrl) {
       bannerEl.src = course.bannerDataUrl;
       bannerEl.style.display = 'block';
+      const bannerHeight = course.bannerHeight || 220;
+      bannerEl.style.objectFit = course.bannerFit || 'cover';
+      bannerEl.style.height = bannerHeight + 'px';
+      bannerEl.style.maxHeight = bannerHeight + 'px';
     }
 
     const bodyEl = document.getElementById('preview-course-body');

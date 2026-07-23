@@ -62,6 +62,14 @@ const bodyHtml = `
           <div class="form-row" style="margin-top: 12px;">
             <input type="file" id="course-banner-input" accept="image/*" />
           </div>
+          <div class="form-row" style="margin-top: 8px;">
+            <select id="course-banner-fit">
+              <option value="cover">Fit: Cover (crop to fill)</option>
+              <option value="contain">Fit: Contain (show whole image)</option>
+            </select>
+          </div>
+          <div class="stat-label" style="margin-bottom: 4px; margin-top: 8px;">Banner Height: <span id="banner-height-label">220px</span></div>
+          <input type="range" id="course-banner-height" min="100" max="400" value="220" style="width:100%;" />
         </div>
 
         <button class="btn" id="save-course-btn">Save Changes</button>
@@ -278,13 +286,38 @@ const scripts = `
           document.getElementById('course-banner-empty').style.display = 'none';
         }
 
+        const bannerFit = course.bannerFit || 'cover';
+        const bannerHeight = course.bannerHeight || 220;
+        document.getElementById('course-banner-fit').value = bannerFit;
+        document.getElementById('course-banner-height').value = bannerHeight;
+        document.getElementById('banner-height-label').textContent = bannerHeight + 'px';
+        applyBannerHeaderStyle(bannerFit, bannerHeight);
+
         document.getElementById('publish-course-btn').style.display = course.status === 'published' ? 'none' : 'inline-block';
       })
       .catch(() => {
         document.getElementById('course-status-sub').textContent = 'Could not load this course.';
       });
   }
+
+  function applyBannerHeaderStyle(fit, height) {
+    const el = document.getElementById('course-banner-header');
+    el.style.objectFit = fit;
+    el.style.height = height + 'px';
+    el.style.maxHeight = height + 'px';
+  }
+
   loadCourse();
+
+  document.getElementById('course-banner-fit').addEventListener('change', (e) => {
+    applyBannerHeaderStyle(e.target.value, document.getElementById('course-banner-height').value);
+  });
+
+  document.getElementById('course-banner-height').addEventListener('input', (e) => {
+    const height = e.target.value;
+    document.getElementById('banner-height-label').textContent = height + 'px';
+    applyBannerHeaderStyle(document.getElementById('course-banner-fit').value, height);
+  });
 
   document.getElementById('course-image-input').addEventListener('change', (e) => {
     const file = e.target.files[0];
@@ -333,6 +366,8 @@ const scripts = `
       linkedStandards: document.getElementById('course-linkedStandards').value.trim(),
       imageDataUrl: pendingCourseImageDataUrl,
       bannerDataUrl: pendingCourseBannerDataUrl,
+      bannerFit: document.getElementById('course-banner-fit').value,
+      bannerHeight: parseInt(document.getElementById('course-banner-height').value, 10),
     };
 
     fetch('/api/courses/' + COURSE_ID, {

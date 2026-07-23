@@ -11,6 +11,8 @@ export type Course = {
   status: 'draft' | 'published';
   imageDataUrl?: string;
   bannerDataUrl?: string;
+  bannerFit?: 'cover' | 'contain';
+  bannerHeight?: number;
 };
 
 export type Enrollment = {
