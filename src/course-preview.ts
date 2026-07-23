@@ -344,12 +344,22 @@ const scripts = `
       return \`<div style="font-family:'Inter',sans-serif; font-size:15px; color:var(--text-muted); font-style:italic; margin-bottom:20px;">\${safeTitle}</div>\`;
     }
 
+    if (block.type === 'text') {
+      const html = block.title && block.title.trim()
+        ? block.title
+        : '<span style="color:var(--text-muted);">Empty text field</span>';
+      return \`<div style="margin-bottom:20px; font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); line-height:1.6;">\${html}</div>\`;
+    }
+
     if (block.type === 'textImage') {
       const position = settings.imagePosition || 'left';
       const imageEl = imageDataUrl
         ? \`<img src="\${imageDataUrl}" style="width:160px; height:120px; object-fit:cover; border-radius:2px; flex-shrink:0;" />\`
         : '<div style="width:160px;height:120px;background:var(--panel-alt);border:1px dashed var(--grid-line);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;flex-shrink:0;">No image</div>';
-      const textEl = \`<div style="flex:1; font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); line-height:1.6; white-space:pre-wrap;">\${safeTitle}</div>\`;
+      const textHtml = block.title && block.title.trim()
+        ? block.title
+        : '<span style="color:var(--text-muted);">Empty text</span>';
+      const textEl = \`<div style="flex:1; font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); line-height:1.6;">\${textHtml}</div>\`;
       const rowContent = position === 'right' ? textEl + imageEl : imageEl + textEl;
       return \`<div style="display:flex; gap:16px; align-items:flex-start; margin-bottom:20px;">\${rowContent}</div>\`;
     }

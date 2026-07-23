@@ -561,12 +561,22 @@ const scripts = `
       return \`<div style="font-family:'Inter',sans-serif; font-size:15px; color:var(--text-muted); font-style:italic; margin-bottom:20px;" data-preview-block-id="\${block.id}">\${safeTitle}</div>\`;
     }
 
+    if (block.type === 'text') {
+      const html = block.title && block.title.trim()
+        ? block.title
+        : '<span style="color:var(--text-muted);">Empty text field</span>';
+      return \`<div style="margin-bottom:20px; font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); line-height:1.6;" data-preview-block-id="\${block.id}">\${html}</div>\`;
+    }
+
     if (block.type === 'textImage') {
       const position = settings.imagePosition || 'left';
       const imageEl = imageDataUrl
         ? \`<img src="\${imageDataUrl}" style="width:160px; height:120px; object-fit:cover; border-radius:2px; flex-shrink:0;" />\`
         : '<div style="width:160px;height:120px;background:var(--panel-alt);border:1px dashed var(--grid-line);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;flex-shrink:0;">No image</div>';
-      const textEl = \`<div style="flex:1; font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); line-height:1.6; white-space:pre-wrap;">\${safeTitle}</div>\`;
+      const textHtml = block.title && block.title.trim()
+        ? block.title
+        : '<span style="color:var(--text-muted);">Empty text</span>';
+      const textEl = \`<div style="flex:1; font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); line-height:1.6;">\${textHtml}</div>\`;
       const rowContent = position === 'right' ? textEl + imageEl : imageEl + textEl;
       return \`<div style="display:flex; gap:16px; align-items:flex-start; margin-bottom:20px;" data-preview-block-id="\${block.id}">\${rowContent}</div>\`;
     }
@@ -687,6 +697,7 @@ const scripts = `
     const isYoutubeLink = block.type === 'youtubeLink';
     const isTest = block.type === 'test';
     const isTable = block.type === 'table';
+    const isRichText = block.type === 'text' || block.type === 'textImage';
 
     let layoutHtml = '';
     if (isHeading) {
@@ -764,8 +775,15 @@ const scripts = `
     };
     const titlePlaceholder = TITLE_PLACEHOLDERS[block.type] || (isTextImage ? 'Body text' : 'Title');
 
-    const titleFieldHtml = isTextImage
-      ? \`<textarea id="block-title-input" placeholder="\${titlePlaceholder}" rows="5" style="width:100%; background: var(--panel-alt); border: 1px solid var(--grid-line); color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13px; padding: 10px 12px; border-radius: 2px;">\${escapeHtml(block.title || '')}</textarea>\`
+    const titleFieldHtml = isRichText
+      ? \`
+        <div style="display:flex; gap:6px; margin-bottom:6px;">
+          <button type="button" class="richtext-btn" data-cmd="bold" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:var(--text-primary);padding:6px 12px;border-radius:2px;cursor:pointer;font-weight:700;">B</button>
+          <button type="button" class="richtext-btn" data-cmd="italic" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:var(--text-primary);padding:6px 12px;border-radius:2px;cursor:pointer;font-style:italic;">I</button>
+          <button type="button" class="richtext-btn" data-cmd="underline" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:var(--text-primary);padding:6px 12px;border-radius:2px;cursor:pointer;text-decoration:underline;">U</button>
+        </div>
+        <div id="block-title-input" contenteditable="true" style="width:100%; min-height:100px; background: var(--panel-alt); border: 1px solid var(--grid-line); color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13px; padding: 10px 12px; border-radius: 2px;">\${block.title || ''}</div>
+      \`
       : \`<input type="text" id="block-title-input" placeholder="\${titlePlaceholder}" value="\${(block.title || '').replace(/"/g, '&quot;')}" />\`;
 
     const questionsSectionHtml = isTest ? \`
@@ -810,9 +828,22 @@ const scripts = `
     renderFullPreview();
 
     document.getElementById('block-title-input').addEventListener('input', (e) => {
-      pendingPreviewOverride.title = e.target.value;
+      pendingPreviewOverride.title = isRichText ? e.target.innerHTML : e.target.value;
       renderFullPreview();
     });
+
+    if (isRichText) {
+      document.querySelectorAll('.richtext-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          document.execCommand(btn.dataset.cmd, false, null);
+          const titleEl = document.getElementById('block-title-input');
+          titleEl.focus();
+          pendingPreviewOverride.title = titleEl.innerHTML;
+          renderFullPreview();
+        });
+      });
+    }
 
     if (isFileBlock) {
       document.getElementById('block-file-input').addEventListener('change', (e) => {
@@ -1336,7 +1367,8 @@ const scripts = `
 
     document.getElementById('save-block-btn').addEventListener('click', () => {
       const msgEl = document.getElementById('block-save-message');
-      const payload = { title: document.getElementById('block-title-input').value.trim() };
+      const titleEl = document.getElementById('block-title-input');
+      const payload = { title: isRichText ? titleEl.innerHTML : titleEl.value.trim() };
       if (isHeading) {
         payload.settings = { layout: pendingLayout, imageDataUrl: pendingImageDataUrl };
       } else if (isTextImage) {
