@@ -176,6 +176,16 @@ const bodyHtml = `
 
         <div class="panel">
           <div class="panel-header">
+            <div class="panel-title">Current Block Preview</div>
+            <div class="panel-sub">Just this block, updating live — no need to scroll down</div>
+          </div>
+          <div class="panel-body" id="current-block-preview-wrap">
+            <div class="empty-state">Select a block to preview it here.</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
             <div class="panel-title">Preview</div>
             <div class="panel-sub">The whole course so far, in order — updates live as you edit</div>
           </div>
@@ -783,9 +793,11 @@ const scripts = `
 
   function renderFullPreview() {
     const wrap = document.getElementById('block-preview-wrap');
+    const singleWrap = document.getElementById('current-block-preview-wrap');
 
     if (currentBlocks.length === 0) {
       wrap.innerHTML = '<div class="empty-state">No content added yet. The whole course will build up here as you add blocks.</div>';
+      if (singleWrap) singleWrap.innerHTML = '<div class="empty-state">Select a block to preview it here.</div>';
       return;
     }
 
@@ -811,6 +823,17 @@ const scripts = `
     });
 
     wrap.innerHTML = renderPreviewBlocks(resolvedBlocks);
+
+    if (singleWrap) {
+      if (pendingPreviewOverride) {
+        const currentBlock = resolvedBlocks.find(b => b.id === pendingPreviewOverride.blockId);
+        singleWrap.innerHTML = currentBlock
+          ? renderBlockHtml(currentBlock)
+          : '<div class="empty-state">Select a block to preview it here.</div>';
+      } else {
+        singleWrap.innerHTML = '<div class="empty-state">Select a block to preview it here.</div>';
+      }
+    }
   }
 
   function openBlockEditor(block) {
