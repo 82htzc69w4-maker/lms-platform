@@ -23,4 +23,5 @@ export type Enrollment = {
   courseId: string;
   registeredAt: string;
   status: 'active' | 'completed';
+  completedAt?: string;
 };

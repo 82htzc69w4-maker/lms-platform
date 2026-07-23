@@ -3,20 +3,16 @@ import { renderLayout } from './layout';
 const bodyHtml = `
   <div class="stats">
     <div class="stat-tile">
-      <div class="stat-label">Open Gaps</div>
-      <div class="stat-value total" id="stat-total">0</div>
-    </div>
-    <div class="stat-tile">
-      <div class="stat-label">Needs Refresher</div>
-      <div class="stat-value refresher" id="stat-refresher">0</div>
-    </div>
-    <div class="stat-tile">
       <div class="stat-label">Not Competent</div>
       <div class="stat-value risk" id="stat-not-competent">0</div>
     </div>
     <div class="stat-tile">
-      <div class="stat-label">Expired</div>
-      <div class="stat-value risk" id="stat-expired">0</div>
+      <div class="stat-label">Expired Courses</div>
+      <div class="stat-value risk" id="stat-expired-courses">0</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">Expired Certifications</div>
+      <div class="stat-value risk" id="stat-expired-certifications">0</div>
     </div>
     <div class="stat-tile">
       <div class="stat-label">Registered Learners</div>
@@ -112,6 +108,16 @@ const scripts = `
     })
     .catch(() => { /* leave hidden if we can't confirm role */ });
 
+  // ---------- Expired courses (completed enrollments past their validity period) ----------
+  fetch('/api/courses/expired')
+    .then(r => r.json())
+    .then(data => {
+      countUp(document.getElementById('stat-expired-courses'), (data.expired || []).length);
+    })
+    .catch(() => {
+      document.getElementById('stat-expired-courses').textContent = '—';
+    });
+
   // ---------- Heat map: real department risk ----------
   fetch('/api/competency/risk-by-department')
     .then(r => r.json())
@@ -147,13 +153,10 @@ const scripts = `
       const wrap = document.getElementById('gap-log-wrap');
 
       const notCompetentCount = gaps.filter(g => g.status === 'not_competent').length;
-      const expiredCount = gaps.filter(g => g.status === 'expired').length;
-      const refresherCount = gaps.filter(g => g.status === 'needs_refresher').length;
+      const expiredCertCount = gaps.filter(g => g.status === 'expired').length;
 
-      countUp(document.getElementById('stat-total'), gaps.length);
-      countUp(document.getElementById('stat-refresher'), refresherCount);
       countUp(document.getElementById('stat-not-competent'), notCompetentCount);
-      countUp(document.getElementById('stat-expired'), expiredCount);
+      countUp(document.getElementById('stat-expired-certifications'), expiredCertCount);
 
       if (gaps.length === 0) {
         wrap.innerHTML = '<div class="empty-state">No open gaps recorded. Once employees are linked to competency evidence, anything short of \\'competent\\' will show here.</div>';

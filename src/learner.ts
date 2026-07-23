@@ -74,7 +74,12 @@ const scripts = `
           return;
         }
 
-        const cards = list.map(course => \`
+        const cards = list.map(course => {
+          const isCompleted = course.enrollmentStatus === 'completed';
+          const statusHtml = isCompleted
+            ? \`<div class="stat-label" style="text-transform:none; letter-spacing:0; color:var(--competent); margin-bottom:6px;">Completed \${course.completedAt ? new Date(course.completedAt).toLocaleDateString() : ''}</div>\`
+            : \`<button class="btn mark-complete-btn" data-course-id="\${course.id}" style="width:100%; margin-top:8px;">Mark as Complete</button>\`;
+          return \`
           <div class="course-card">
             \${course.imageDataUrl
               ? \`<img class="course-card-image" src="\${course.imageDataUrl}" alt="" />\`
@@ -83,11 +88,28 @@ const scripts = `
               <div class="course-card-title">\${course.title}</div>
               <div class="course-card-category">\${course.category || 'Uncategorized'}</div>
               <div class="course-card-description">\${course.description}</div>
+              \${statusHtml}
             </div>
           </div>
-        \`).join('');
+        \`;
+        }).join('');
 
         wrap.innerHTML = \`<div class="course-card-grid">\${cards}</div>\`;
+
+        document.querySelectorAll('.mark-complete-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const courseId = btn.dataset.courseId;
+            btn.textContent = 'Marking Complete…';
+            btn.disabled = true;
+            fetch('/api/courses/' + courseId + '/complete', { method: 'POST' })
+              .then(r => r.json())
+              .then(() => loadMyCourses())
+              .catch(() => {
+                btn.textContent = 'Mark as Complete';
+                btn.disabled = false;
+              });
+          });
+        });
       })
       .catch(() => {
         document.getElementById('my-courses-wrap').innerHTML =
