@@ -40,6 +40,7 @@ export type ContentBlockSettings = {
   fileName?: string;
   fileMimeType?: string;
   tableData?: TableData;
+  fontFamily?: string;
 };
 
 export type ContentBlock = {

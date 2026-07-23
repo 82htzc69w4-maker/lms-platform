@@ -553,32 +553,36 @@ const scripts = `
     }
 
     if (block.type === 'heading') {
+      const headingFont = settings.fontFamily || "'Big Shoulders Display', sans-serif";
       if (layout === 'imageLeft') {
         return \`<div style="display:flex; gap:16px; align-items:center; margin-bottom:20px;" data-preview-block-id="\${block.id}">
           \${imageDataUrl ? \`<img src="\${imageDataUrl}" style="width:120px; height:80px; object-fit:cover; border-radius:2px; flex-shrink:0;" />\` : NO_IMAGE_PLACEHOLDER}
-          <h2 style="margin:0; font-family:'Big Shoulders Display',sans-serif; font-size:24px; text-transform:uppercase; color:var(--text-primary);">\${safeTitle}</h2>
+          <h2 style="margin:0; font-family:\${headingFont}; font-size:24px; text-transform:uppercase; color:var(--text-primary);">\${safeTitle}</h2>
         </div>\`;
       } else if (layout === 'bannerTop') {
         return \`<div style="margin-bottom:20px;" data-preview-block-id="\${block.id}">
           \${imageDataUrl ? \`<img src="\${imageDataUrl}" style="width:100%; max-height:140px; object-fit:cover; border-radius:2px; margin-bottom:12px;" />\` : NO_BANNER_PLACEHOLDER}
-          <h2 style="margin:0; font-family:'Big Shoulders Display',sans-serif; font-size:24px; text-transform:uppercase; color:var(--text-primary);">\${safeTitle}</h2>
+          <h2 style="margin:0; font-family:\${headingFont}; font-size:24px; text-transform:uppercase; color:var(--text-primary);">\${safeTitle}</h2>
         </div>\`;
       }
-      return \`<h2 style="margin:0 0 20px; font-family:'Big Shoulders Display',sans-serif; font-size:24px; text-transform:uppercase; color:var(--text-primary);" data-preview-block-id="\${block.id}">\${safeTitle}</h2>\`;
+      return \`<h2 style="margin:0 0 20px; font-family:\${headingFont}; font-size:24px; text-transform:uppercase; color:var(--text-primary);" data-preview-block-id="\${block.id}">\${safeTitle}</h2>\`;
     }
 
     if (block.type === 'subtitle') {
-      return \`<div style="font-family:'Inter',sans-serif; font-size:15px; color:var(--text-muted); font-style:italic; margin-bottom:20px;" data-preview-block-id="\${block.id}">\${safeTitle}</div>\`;
+      const subtitleFont = settings.fontFamily || "'Inter', sans-serif";
+      return \`<div style="font-family:\${subtitleFont}; font-size:15px; color:var(--text-muted); font-style:italic; margin-bottom:20px;" data-preview-block-id="\${block.id}">\${safeTitle}</div>\`;
     }
 
     if (block.type === 'text') {
+      const textFont = settings.fontFamily || "'Inter', sans-serif";
       const html = block.title && block.title.trim()
         ? block.title
         : '<span style="color:var(--text-muted);">Empty text field</span>';
-      return \`<div style="margin-bottom:20px; font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); line-height:1.6;" data-preview-block-id="\${block.id}">\${html}</div>\`;
+      return \`<div style="margin-bottom:20px; font-family:\${textFont}; font-size:14px; color:var(--text-primary); line-height:1.6;" data-preview-block-id="\${block.id}">\${html}</div>\`;
     }
 
     if (block.type === 'textImage') {
+      const textImageFont = settings.fontFamily || "'Inter', sans-serif";
       const position = settings.imagePosition || 'left';
       const imageEl = imageDataUrl
         ? \`<img src="\${imageDataUrl}" style="width:160px; height:120px; object-fit:cover; border-radius:2px; flex-shrink:0;" />\`
@@ -586,18 +590,19 @@ const scripts = `
       const textHtml = block.title && block.title.trim()
         ? block.title
         : '<span style="color:var(--text-muted);">Empty text</span>';
-      const textEl = \`<div style="flex:1; font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); line-height:1.6;">\${textHtml}</div>\`;
+      const textEl = \`<div style="flex:1; font-family:\${textImageFont}; font-size:14px; color:var(--text-primary); line-height:1.6;">\${textHtml}</div>\`;
       const rowContent = position === 'right' ? textEl + imageEl : imageEl + textEl;
       return \`<div style="display:flex; gap:16px; align-items:flex-start; margin-bottom:20px;" data-preview-block-id="\${block.id}">\${rowContent}</div>\`;
     }
 
     if (block.type === 'table') {
+      const tableFont = settings.fontFamily || "'Inter', sans-serif";
       const tableData = settings.tableData;
       if (!tableData) {
         return \`<div style="margin-bottom:20px; padding:20px; border:1px dashed var(--grid-line); border-radius:2px; text-align:center; color:var(--text-muted); font-family:'IBM Plex Mono',monospace; font-size:12px;" data-preview-block-id="\${block.id}">Table — not yet created</div>\`;
       }
       const rowsHtml = tableData.cells.map(row => \`
-        <tr>\${row.map(cell => \`<td style="border:1px solid var(--grid-line); padding:8px; font-family:'Inter',sans-serif; font-size:13px; color:var(--text-primary);">\${escapeHtml(cell)}</td>\`).join('')}</tr>
+        <tr>\${row.map(cell => \`<td style="border:1px solid var(--grid-line); padding:8px; font-family:\${tableFont}; font-size:13px; color:var(--text-primary);">\${escapeHtml(cell)}</td>\`).join('')}</tr>
       \`).join('');
       return \`<div style="margin-bottom:20px; overflow-x:auto;" data-preview-block-id="\${block.id}">
         <table style="border-collapse:collapse; width:100%;">\${rowsHtml}</table>
@@ -678,12 +683,14 @@ const scripts = `
           ...b,
           title: pendingPreviewOverride.title,
           settings: {
+            ...b.settings,
             layout: pendingPreviewOverride.layout,
             imagePosition: pendingPreviewOverride.imagePosition,
             imageDataUrl: pendingPreviewOverride.imageDataUrl,
             fileDataUrl: pendingPreviewOverride.fileDataUrl,
             fileName: pendingPreviewOverride.fileName,
             fileMimeType: pendingPreviewOverride.fileMimeType,
+            fontFamily: pendingPreviewOverride.fontFamily,
           },
         };
       }
@@ -708,6 +715,7 @@ const scripts = `
     const isTest = block.type === 'test';
     const isTable = block.type === 'table';
     const isRichText = block.type === 'text' || block.type === 'textImage';
+    const isFontSelectable = isHeading || block.type === 'subtitle' || isRichText || isTable;
 
     let layoutHtml = '';
     if (isHeading) {
@@ -792,6 +800,7 @@ const scripts = `
           <button type="button" class="richtext-btn" data-cmd="italic" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:var(--text-primary);padding:6px 12px;border-radius:2px;cursor:pointer;font-style:italic;">I</button>
           <button type="button" class="richtext-btn" data-cmd="underline" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:var(--text-primary);padding:6px 12px;border-radius:2px;cursor:pointer;text-decoration:underline;">U</button>
           <button type="button" class="richtext-btn" data-cmd="insertUnorderedList" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:var(--text-primary);padding:6px 12px;border-radius:2px;cursor:pointer;">&bull; List</button>
+          <button type="button" class="richtext-btn" data-cmd="insertOrderedList" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:var(--text-primary);padding:6px 12px;border-radius:2px;cursor:pointer;">1. List</button>
         </div>
         <div id="block-title-input" contenteditable="true" style="width:100%; min-height:100px; background: var(--panel-alt); border: 1px solid var(--grid-line); color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13px; padding: 10px 12px; border-radius: 2px;">\${block.title || ''}</div>
       \`
@@ -808,15 +817,37 @@ const scripts = `
       </div>
     \` : '';
 
+    const fontFieldHtml = isFontSelectable ? \`
+      <div class="stat-label" style="margin-bottom: 4px; margin-top: 12px;">Font</div>
+      <select id="block-font-select" style="margin-bottom: 4px;">
+        <option value="">Default</option>
+        <option value="'Big Shoulders Display', sans-serif">Big Shoulders Display</option>
+        <option value="'Inter', sans-serif">Inter</option>
+        <option value="'IBM Plex Mono', monospace">IBM Plex Mono</option>
+        <option value="'Playfair Display', serif">Playfair Display</option>
+        <option value="'Merriweather', serif">Merriweather</option>
+      </select>
+    \` : '';
+
     editorWrap.innerHTML = \`
       <div class="form-row">
         \${titleFieldHtml}
       </div>
+      \${fontFieldHtml}
       \${layoutHtml}
       <button class="btn" id="save-block-btn" style="margin-top: 8px;">Save</button>
       <div id="block-save-message" style="margin-top: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
       \${questionsSectionHtml}
     \`;
+
+    if (isFontSelectable) {
+      document.getElementById('block-font-select').value = pendingFontFamily;
+      document.getElementById('block-font-select').addEventListener('change', (e) => {
+        pendingFontFamily = e.target.value;
+        pendingPreviewOverride.fontFamily = pendingFontFamily;
+        renderFullPreview();
+      });
+    }
 
     let pendingLayout = settings.layout || 'textOnly';
     let pendingImagePosition = settings.imagePosition || 'left';
@@ -825,6 +856,7 @@ const scripts = `
     let pendingFileName = settings.fileName || null;
     let pendingFileMimeType = settings.fileMimeType || null;
     let tableState = settings.tableData ? JSON.parse(JSON.stringify(settings.tableData)) : null;
+    let pendingFontFamily = settings.fontFamily || '';
 
     pendingPreviewOverride = {
       blockId: block.id,
@@ -835,6 +867,7 @@ const scripts = `
       fileDataUrl: pendingFileDataUrl,
       fileName: pendingFileName,
       fileMimeType: pendingFileMimeType,
+      fontFamily: pendingFontFamily,
     };
     renderFullPreview();
 
@@ -1381,13 +1414,15 @@ const scripts = `
       const titleEl = document.getElementById('block-title-input');
       const payload = { title: isRichText ? titleEl.innerHTML : titleEl.value.trim() };
       if (isHeading) {
-        payload.settings = { layout: pendingLayout, imageDataUrl: pendingImageDataUrl };
+        payload.settings = { layout: pendingLayout, imageDataUrl: pendingImageDataUrl, fontFamily: pendingFontFamily };
       } else if (isTextImage) {
-        payload.settings = { imagePosition: pendingImagePosition, imageDataUrl: pendingImageDataUrl };
+        payload.settings = { imagePosition: pendingImagePosition, imageDataUrl: pendingImageDataUrl, fontFamily: pendingFontFamily };
       } else if (isFileBlock) {
         payload.settings = { fileDataUrl: pendingFileDataUrl, fileName: pendingFileName, fileMimeType: pendingFileMimeType };
       } else if (isTable) {
-        payload.settings = { tableData: tableState };
+        payload.settings = { tableData: tableState, fontFamily: pendingFontFamily };
+      } else if (isFontSelectable) {
+        payload.settings = { fontFamily: pendingFontFamily };
       }
 
       runBlockOp(

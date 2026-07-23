@@ -329,32 +329,36 @@ const scripts = `
     }
 
     if (block.type === 'heading') {
+      const headingFont = settings.fontFamily || "'Big Shoulders Display', sans-serif";
       if (layout === 'imageLeft') {
         return \`<div style="display:flex; gap:16px; align-items:center; margin-bottom:20px;">
           \${imageDataUrl ? \`<img src="\${imageDataUrl}" style="width:120px; height:80px; object-fit:cover; border-radius:2px; flex-shrink:0;" />\` : NO_IMAGE_PLACEHOLDER}
-          <h2 style="margin:0; font-family:'Big Shoulders Display',sans-serif; font-size:24px; text-transform:uppercase; color:var(--text-primary);">\${safeTitle}</h2>
+          <h2 style="margin:0; font-family:\${headingFont}; font-size:24px; text-transform:uppercase; color:var(--text-primary);">\${safeTitle}</h2>
         </div>\`;
       } else if (layout === 'bannerTop') {
         return \`<div style="margin-bottom:20px;">
           \${imageDataUrl ? \`<img src="\${imageDataUrl}" style="width:100%; max-height:140px; object-fit:cover; border-radius:2px; margin-bottom:12px;" />\` : NO_BANNER_PLACEHOLDER}
-          <h2 style="margin:0; font-family:'Big Shoulders Display',sans-serif; font-size:24px; text-transform:uppercase; color:var(--text-primary);">\${safeTitle}</h2>
+          <h2 style="margin:0; font-family:\${headingFont}; font-size:24px; text-transform:uppercase; color:var(--text-primary);">\${safeTitle}</h2>
         </div>\`;
       }
-      return \`<h2 style="margin:0 0 20px; font-family:'Big Shoulders Display',sans-serif; font-size:24px; text-transform:uppercase; color:var(--text-primary);">\${safeTitle}</h2>\`;
+      return \`<h2 style="margin:0 0 20px; font-family:\${headingFont}; font-size:24px; text-transform:uppercase; color:var(--text-primary);">\${safeTitle}</h2>\`;
     }
 
     if (block.type === 'subtitle') {
-      return \`<div style="font-family:'Inter',sans-serif; font-size:15px; color:var(--text-muted); font-style:italic; margin-bottom:20px;">\${safeTitle}</div>\`;
+      const subtitleFont = settings.fontFamily || "'Inter', sans-serif";
+      return \`<div style="font-family:\${subtitleFont}; font-size:15px; color:var(--text-muted); font-style:italic; margin-bottom:20px;">\${safeTitle}</div>\`;
     }
 
     if (block.type === 'text') {
+      const textFont = settings.fontFamily || "'Inter', sans-serif";
       const html = block.title && block.title.trim()
         ? block.title
         : '<span style="color:var(--text-muted);">Empty text field</span>';
-      return \`<div style="margin-bottom:20px; font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); line-height:1.6;">\${html}</div>\`;
+      return \`<div style="margin-bottom:20px; font-family:\${textFont}; font-size:14px; color:var(--text-primary); line-height:1.6;">\${html}</div>\`;
     }
 
     if (block.type === 'textImage') {
+      const textImageFont = settings.fontFamily || "'Inter', sans-serif";
       const position = settings.imagePosition || 'left';
       const imageEl = imageDataUrl
         ? \`<img src="\${imageDataUrl}" style="width:160px; height:120px; object-fit:cover; border-radius:2px; flex-shrink:0;" />\`
@@ -362,18 +366,19 @@ const scripts = `
       const textHtml = block.title && block.title.trim()
         ? block.title
         : '<span style="color:var(--text-muted);">Empty text</span>';
-      const textEl = \`<div style="flex:1; font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); line-height:1.6;">\${textHtml}</div>\`;
+      const textEl = \`<div style="flex:1; font-family:\${textImageFont}; font-size:14px; color:var(--text-primary); line-height:1.6;">\${textHtml}</div>\`;
       const rowContent = position === 'right' ? textEl + imageEl : imageEl + textEl;
       return \`<div style="display:flex; gap:16px; align-items:flex-start; margin-bottom:20px;">\${rowContent}</div>\`;
     }
 
     if (block.type === 'table') {
+      const tableFont = settings.fontFamily || "'Inter', sans-serif";
       const tableData = settings.tableData;
       if (!tableData) {
         return '<div style="margin-bottom:20px; padding:20px; border:1px dashed var(--grid-line); border-radius:2px; text-align:center; color:var(--text-muted); font-family:\\'IBM Plex Mono\\',monospace; font-size:12px;">Table — not yet created</div>';
       }
       const rowsHtml = tableData.cells.map(row => \`
-        <tr>\${row.map(cell => \`<td style="border:1px solid var(--grid-line); padding:8px; font-family:'Inter',sans-serif; font-size:13px; color:var(--text-primary);">\${escapeHtml(cell)}</td>\`).join('')}</tr>
+        <tr>\${row.map(cell => \`<td style="border:1px solid var(--grid-line); padding:8px; font-family:\${tableFont}; font-size:13px; color:var(--text-primary);">\${escapeHtml(cell)}</td>\`).join('')}</tr>
       \`).join('');
       return \`<div style="margin-bottom:20px; overflow-x:auto;">
         <table style="border-collapse:collapse; width:100%;">\${rowsHtml}</table>
