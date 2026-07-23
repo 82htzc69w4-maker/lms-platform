@@ -99,6 +99,7 @@ const bodyHtml = `
               <button class="tool-btn" data-block-type="subtitle">+ Subtitle</button>
               <button class="tool-btn" data-block-type="text">+ Text Field</button>
               <button class="tool-btn" data-block-type="textImage">+ Text + Image</button>
+              <button class="tool-btn" data-block-type="pictureOnly">+ Picture Only</button>
               <button class="tool-btn" data-block-type="webContent">+ Web Content</button>
               <button class="tool-btn" data-block-type="table">+ Table</button>
               <button class="tool-btn" data-block-type="presentation">+ Presentation</button>
@@ -370,6 +371,7 @@ const scripts = `
     subtitle: 'Subtitle',
     text: 'Text Field',
     textImage: 'Text + Image',
+    pictureOnly: 'Picture Only',
     webContent: 'Web Content',
     table: 'Table',
     presentation: 'Presentation',
@@ -584,15 +586,30 @@ const scripts = `
     if (block.type === 'textImage') {
       const textImageFont = settings.fontFamily || "'Inter', sans-serif";
       const position = settings.imagePosition || 'left';
+      const imgWidth = settings.imageWidth || 160;
       const imageEl = imageDataUrl
-        ? \`<img src="\${imageDataUrl}" style="width:160px; height:120px; object-fit:cover; border-radius:2px; flex-shrink:0;" />\`
-        : '<div style="width:160px;height:120px;background:var(--panel-alt);border:1px dashed var(--grid-line);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;flex-shrink:0;">No image</div>';
+        ? \`<img src="\${imageDataUrl}" style="width:\${imgWidth}px; height:auto; border-radius:2px; flex-shrink:0;" />\`
+        : \`<div style="width:\${imgWidth}px;height:\${Math.round(imgWidth * 0.75)}px;background:var(--panel-alt);border:1px dashed var(--grid-line);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;flex-shrink:0;">No image</div>\`;
       const textHtml = block.title && block.title.trim()
         ? block.title
         : '<span style="color:var(--text-muted);">Empty text</span>';
       const textEl = \`<div style="flex:1; font-family:\${textImageFont}; font-size:14px; color:var(--text-primary); line-height:1.6;">\${textHtml}</div>\`;
       const rowContent = position === 'right' ? textEl + imageEl : imageEl + textEl;
       return \`<div style="display:flex; gap:16px; align-items:flex-start; margin-bottom:20px;" data-preview-block-id="\${block.id}">\${rowContent}</div>\`;
+    }
+
+    if (block.type === 'pictureOnly') {
+      const pWidth = settings.imageWidth || 300;
+      if (!imageDataUrl) {
+        return \`<div style="margin-bottom:20px; width:\${pWidth}px; max-width:100%; height:\${Math.round(pWidth * 0.6)}px; background:var(--panel-alt); border:1px dashed var(--grid-line); border-radius:2px; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:11px;" data-preview-block-id="\${block.id}">No image</div>\`;
+      }
+      const captionHtml = block.title && block.title.trim()
+        ? \`<div style="font-family:'Inter',sans-serif; font-size:12px; color:var(--text-muted); margin-top:6px;">\${escapeHtml(block.title)}</div>\`
+        : '';
+      return \`<div style="margin-bottom:20px;" data-preview-block-id="\${block.id}">
+        <img src="\${imageDataUrl}" style="width:\${pWidth}px; max-width:100%; height:auto; border-radius:2px;" />
+        \${captionHtml}
+      </div>\`;
     }
 
     if (block.type === 'table') {
@@ -687,6 +704,7 @@ const scripts = `
             layout: pendingPreviewOverride.layout,
             imagePosition: pendingPreviewOverride.imagePosition,
             imageDataUrl: pendingPreviewOverride.imageDataUrl,
+            imageWidth: pendingPreviewOverride.imageWidth,
             fileDataUrl: pendingPreviewOverride.fileDataUrl,
             fileName: pendingPreviewOverride.fileName,
             fileMimeType: pendingPreviewOverride.fileMimeType,
@@ -710,6 +728,7 @@ const scripts = `
     const settings = block.settings || {};
     const isHeading = block.type === 'heading';
     const isTextImage = block.type === 'textImage';
+    const isPictureOnly = block.type === 'pictureOnly';
     const isFileBlock = block.type === 'presentation' || block.type === 'document' || block.type === 'videoUpload';
     const isYoutubeLink = block.type === 'youtubeLink';
     const isTest = block.type === 'test';
@@ -746,6 +765,7 @@ const scripts = `
 
     if (isTextImage) {
       const position = settings.imagePosition || 'left';
+      const imageWidth = settings.imageWidth || 160;
       layoutHtml = \`
         <div class="stat-label" style="margin-bottom: 4px; margin-top: 12px;">Image Placement</div>
         <div class="layout-options">
@@ -762,6 +782,21 @@ const scripts = `
           <img id="block-image-preview" class="image-upload-preview" src="\${settings.imageDataUrl || ''}" style="display: \${settings.imageDataUrl ? 'block' : 'none'};" />
           <input type="file" id="block-image-input" accept="image/*" />
         </div>
+        <div class="stat-label" style="margin-bottom: 4px; margin-top: 12px;">Image Size: <span id="image-size-label">\${imageWidth}px</span></div>
+        <input type="range" id="image-size-slider" min="60" max="500" value="\${imageWidth}" style="width:100%;" />
+      \`;
+    }
+
+    if (isPictureOnly) {
+      const imageWidth = settings.imageWidth || 300;
+      layoutHtml = \`
+        <div class="stat-label" style="margin-bottom: 4px; margin-top: 12px;">Image</div>
+        <div class="image-upload-area" id="image-upload-area">
+          <img id="block-image-preview" class="image-upload-preview" src="\${settings.imageDataUrl || ''}" style="display: \${settings.imageDataUrl ? 'block' : 'none'};" />
+          <input type="file" id="block-image-input" accept="image/*" />
+        </div>
+        <div class="stat-label" style="margin-bottom: 4px; margin-top: 12px;">Image Size: <span id="image-size-label">\${imageWidth}px</span></div>
+        <input type="range" id="image-size-slider" min="60" max="800" value="\${imageWidth}" style="width:100%;" />
       \`;
     }
 
@@ -791,6 +826,7 @@ const scripts = `
       endOfSection: 'Section label (default: End of Module)',
       youtubeLink: 'YouTube URL (e.g. https://www.youtube.com/watch?v=...)',
       videoUpload: 'Caption (optional)',
+      pictureOnly: 'Caption (optional)',
     };
     const titlePlaceholder = TITLE_PLACEHOLDERS[block.type] || (isTextImage ? 'Body text' : 'Title');
 
@@ -853,6 +889,7 @@ const scripts = `
     let pendingLayout = settings.layout || 'textOnly';
     let pendingImagePosition = settings.imagePosition || 'left';
     let pendingImageDataUrl = settings.imageDataUrl || null;
+    let pendingImageWidth = settings.imageWidth || (isPictureOnly ? 300 : 160);
     let pendingFileDataUrl = settings.fileDataUrl || null;
     let pendingFileName = settings.fileName || null;
     let pendingFileMimeType = settings.fileMimeType || null;
@@ -864,6 +901,7 @@ const scripts = `
       layout: pendingLayout,
       imagePosition: pendingImagePosition,
       imageDataUrl: pendingImageDataUrl,
+      imageWidth: pendingImageWidth,
       fileDataUrl: pendingFileDataUrl,
       fileName: pendingFileName,
       fileMimeType: pendingFileMimeType,
@@ -1052,6 +1090,41 @@ const scripts = `
           renderFullPreview();
         };
         reader.readAsDataURL(file);
+      });
+
+      document.getElementById('image-size-slider').addEventListener('input', (e) => {
+        pendingImageWidth = parseInt(e.target.value, 10);
+        pendingPreviewOverride.imageWidth = pendingImageWidth;
+        document.getElementById('image-size-label').textContent = pendingImageWidth + 'px';
+        renderFullPreview();
+      });
+    }
+
+    if (isPictureOnly) {
+      document.getElementById('block-image-input').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) {
+          document.getElementById('block-save-message').textContent = 'Image is too large — please use one under 2MB.';
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          pendingImageDataUrl = reader.result;
+          pendingPreviewOverride.imageDataUrl = pendingImageDataUrl;
+          const preview = document.getElementById('block-image-preview');
+          preview.src = pendingImageDataUrl;
+          preview.style.display = 'block';
+          renderFullPreview();
+        };
+        reader.readAsDataURL(file);
+      });
+
+      document.getElementById('image-size-slider').addEventListener('input', (e) => {
+        pendingImageWidth = parseInt(e.target.value, 10);
+        pendingPreviewOverride.imageWidth = pendingImageWidth;
+        document.getElementById('image-size-label').textContent = pendingImageWidth + 'px';
+        renderFullPreview();
       });
     }
 
@@ -1416,7 +1489,9 @@ const scripts = `
       if (isHeading) {
         payload.settings = { layout: pendingLayout, imageDataUrl: pendingImageDataUrl, fontFamily: pendingFontFamily };
       } else if (isTextImage) {
-        payload.settings = { imagePosition: pendingImagePosition, imageDataUrl: pendingImageDataUrl, fontFamily: pendingFontFamily };
+        payload.settings = { imagePosition: pendingImagePosition, imageDataUrl: pendingImageDataUrl, imageWidth: pendingImageWidth, fontFamily: pendingFontFamily };
+      } else if (isPictureOnly) {
+        payload.settings = { imageDataUrl: pendingImageDataUrl, imageWidth: pendingImageWidth };
       } else if (isFileBlock) {
         payload.settings = { fileDataUrl: pendingFileDataUrl, fileName: pendingFileName, fileMimeType: pendingFileMimeType };
       } else if (isTable) {

@@ -44,6 +44,7 @@ const scripts = `
     subtitle: 'Subtitle',
     text: 'Text Field',
     textImage: 'Text + Image',
+    pictureOnly: 'Picture Only',
     webContent: 'Web Content',
     table: 'Table',
     presentation: 'Presentation',
@@ -360,15 +361,30 @@ const scripts = `
     if (block.type === 'textImage') {
       const textImageFont = settings.fontFamily || "'Inter', sans-serif";
       const position = settings.imagePosition || 'left';
+      const imgWidth = settings.imageWidth || 160;
       const imageEl = imageDataUrl
-        ? \`<img src="\${imageDataUrl}" style="width:160px; height:120px; object-fit:cover; border-radius:2px; flex-shrink:0;" />\`
-        : '<div style="width:160px;height:120px;background:var(--panel-alt);border:1px dashed var(--grid-line);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;flex-shrink:0;">No image</div>';
+        ? \`<img src="\${imageDataUrl}" style="width:\${imgWidth}px; height:auto; border-radius:2px; flex-shrink:0;" />\`
+        : \`<div style="width:\${imgWidth}px;height:\${Math.round(imgWidth * 0.75)}px;background:var(--panel-alt);border:1px dashed var(--grid-line);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;flex-shrink:0;">No image</div>\`;
       const textHtml = block.title && block.title.trim()
         ? block.title
         : '<span style="color:var(--text-muted);">Empty text</span>';
       const textEl = \`<div style="flex:1; font-family:\${textImageFont}; font-size:14px; color:var(--text-primary); line-height:1.6;">\${textHtml}</div>\`;
       const rowContent = position === 'right' ? textEl + imageEl : imageEl + textEl;
       return \`<div style="display:flex; gap:16px; align-items:flex-start; margin-bottom:20px;">\${rowContent}</div>\`;
+    }
+
+    if (block.type === 'pictureOnly') {
+      const pWidth = settings.imageWidth || 300;
+      if (!imageDataUrl) {
+        return \`<div style="margin-bottom:20px; width:\${pWidth}px; max-width:100%; height:\${Math.round(pWidth * 0.6)}px; background:var(--panel-alt); border:1px dashed var(--grid-line); border-radius:2px; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:11px;">No image</div>\`;
+      }
+      const captionHtml = block.title && block.title.trim()
+        ? \`<div style="font-family:'Inter',sans-serif; font-size:12px; color:var(--text-muted); margin-top:6px;">\${escapeHtml(block.title)}</div>\`
+        : '';
+      return \`<div style="margin-bottom:20px;">
+        <img src="\${imageDataUrl}" style="width:\${pWidth}px; max-width:100%; height:auto; border-radius:2px;" />
+        \${captionHtml}
+      </div>\`;
     }
 
     if (block.type === 'table') {

@@ -12,6 +12,7 @@ export type ContentBlockType =
   | 'subtitle'
   | 'text'
   | 'textImage'
+  | 'pictureOnly'
   | 'webContent'
   | 'presentation'
   | 'document'
@@ -36,6 +37,7 @@ export type ContentBlockSettings = {
   layout?: HeadingLayout;
   imagePosition?: 'left' | 'right';
   imageDataUrl?: string;
+  imageWidth?: number;
   fileDataUrl?: string;
   fileName?: string;
   fileMimeType?: string;
