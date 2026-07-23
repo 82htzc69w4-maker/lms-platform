@@ -153,8 +153,8 @@ const scripts = `
       const itemsHtml = shuffled.map(item => \`
         <div class="ordering-item" data-text="\${escapeHtml(item)}" style="display:flex; align-items:center; gap:8px; margin-bottom:6px; padding:8px 10px; border:1px solid var(--grid-line); border-radius:2px; background:var(--panel-alt);">
           <span style="flex:1; font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary);">\${escapeHtml(item)}</span>
-          <button type="button" class="order-up-btn" style="background:none;border:1px solid var(--grid-line);color:var(--text-muted);padding:4px 8px;border-radius:2px;cursor:pointer;">&uarr;</button>
-          <button type="button" class="order-down-btn" style="background:none;border:1px solid var(--grid-line);color:var(--text-muted);padding:4px 8px;border-radius:2px;cursor:pointer;">&darr;</button>
+          <button type="button" class="order-up-btn" style="background:none;border:1px solid var(--grid-line);color:#000;padding:4px 8px;border-radius:2px;cursor:pointer;">&uarr;</button>
+          <button type="button" class="order-down-btn" style="background:none;border:1px solid var(--grid-line);color:#000;padding:4px 8px;border-radius:2px;cursor:pointer;">&darr;</button>
         </div>
       \`).join('');
       return \`<div class="test-question" data-question-id="\${q.id}" style="margin-bottom:20px;">
@@ -317,7 +317,7 @@ const scripts = `
 
     if (block.type === 'backButton') {
       return \`<div style="text-align:left; margin:12px 0;">
-        <button class="btn nav-back-btn" style="background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line);">&larr; \${escapeHtml(block.title) || 'Back'}</button>
+        <button class="btn nav-back-btn" style="background:var(--panel-alt); color:#000; border:1px solid var(--grid-line);">&larr; \${escapeHtml(block.title) || 'Back'}</button>
       </div>\`;
     }
 
@@ -519,7 +519,7 @@ const scripts = `
         }
         const backHtml = cluster
           .filter(c => c.type === 'backButton')
-          .map(c => \`<button type="button" class="btn nav-back-btn" style="background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line);">&larr; \${escapeHtml(c.title) || 'Back'}</button>\`)
+          .map(c => \`<button type="button" class="btn nav-back-btn" style="background:var(--panel-alt); color:#000; border:1px solid var(--grid-line);">&larr; \${escapeHtml(c.title) || 'Back'}</button>\`)
           .join(' ');
         const forwardHtml = cluster
           .filter(c => c.type === 'forwardButton')

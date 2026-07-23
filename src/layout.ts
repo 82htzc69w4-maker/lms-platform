@@ -300,7 +300,7 @@ export const SHARED_STYLES = `
   .lookup-item button {
     background: none;
     border: none;
-    color: var(--text-muted);
+    color: #000;
     cursor: pointer;
     padding: 0;
     font-size: 14px;
@@ -399,7 +399,7 @@ export const SHARED_STYLES = `
 
   .tool-btn {
     background: var(--panel-alt);
-    color: var(--hazard);
+    color: #000;
     border: 1px solid var(--hazard);
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
@@ -411,7 +411,7 @@ export const SHARED_STYLES = `
     cursor: pointer;
   }
 
-  .tool-btn:hover { background: var(--hazard); color: var(--bg); }
+  .tool-btn:hover { background: var(--hazard); color: #000; }
 
   .content-blocks {
     display: flex;
@@ -463,7 +463,7 @@ export const SHARED_STYLES = `
   .content-block-actions button {
     background: none;
     border: 1px solid var(--grid-line);
-    color: var(--text-muted);
+    color: #000;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
     padding: 5px 8px;
@@ -590,7 +590,7 @@ export const SHARED_STYLES = `
   }
   .btn {
     background: var(--hazard);
-    color: var(--bg);
+    color: #000;
     border: none;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 12px;

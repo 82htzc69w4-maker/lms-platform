@@ -161,7 +161,7 @@ const bodyHtml = `
         </div>
 
         <button class="btn" id="save-edit-btn" style="margin-top: 8px;">Save Changes</button>
-        <button class="btn" id="cancel-edit-btn" style="margin-top: 8px; margin-left: 8px; background: var(--panel-alt); color: var(--text-primary);">Cancel</button>
+        <button class="btn" id="cancel-edit-btn" style="margin-top: 8px; margin-left: 8px; background: var(--panel-alt); color: #000;">Cancel</button>
         <div id="edit-message" style="margin-top: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
 
       </div>

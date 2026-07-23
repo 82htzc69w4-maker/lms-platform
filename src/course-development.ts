@@ -577,7 +577,7 @@ const scripts = `
 
     if (block.type === 'backButton') {
       return \`<div style="text-align:left; margin:12px 0;" data-preview-block-id="\${block.id}">
-        <button class="btn" style="pointer-events:none; background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line);">&larr; \${escapeHtml(block.title) || 'Back'}</button>
+        <button class="btn" style="pointer-events:none; background:var(--panel-alt); color:#000; border:1px solid var(--grid-line);">&larr; \${escapeHtml(block.title) || 'Back'}</button>
       </div>\`;
     }
 
@@ -733,7 +733,7 @@ const scripts = `
         }
         const backHtml = cluster
           .filter(c => c.type === 'backButton')
-          .map(c => \`<button type="button" class="btn" style="pointer-events:none; background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line);">&larr; \${escapeHtml(c.title) || 'Back'}</button>\`)
+          .map(c => \`<button type="button" class="btn" style="pointer-events:none; background:var(--panel-alt); color:#000; border:1px solid var(--grid-line);">&larr; \${escapeHtml(c.title) || 'Back'}</button>\`)
           .join(' ');
         const forwardHtml = cluster
           .filter(c => c.type === 'forwardButton')
@@ -900,11 +900,11 @@ const scripts = `
     const titleFieldHtml = isRichText
       ? \`
         <div style="display:flex; gap:6px; margin-bottom:6px;">
-          <button type="button" class="richtext-btn" data-cmd="bold" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:var(--text-primary);padding:6px 12px;border-radius:2px;cursor:pointer;font-weight:700;">B</button>
-          <button type="button" class="richtext-btn" data-cmd="italic" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:var(--text-primary);padding:6px 12px;border-radius:2px;cursor:pointer;font-style:italic;">I</button>
-          <button type="button" class="richtext-btn" data-cmd="underline" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:var(--text-primary);padding:6px 12px;border-radius:2px;cursor:pointer;text-decoration:underline;">U</button>
-          <button type="button" class="richtext-btn" data-cmd="insertUnorderedList" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:var(--text-primary);padding:6px 12px;border-radius:2px;cursor:pointer;">&bull; List</button>
-          <button type="button" class="richtext-btn" data-cmd="insertOrderedList" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:var(--text-primary);padding:6px 12px;border-radius:2px;cursor:pointer;">1. List</button>
+          <button type="button" class="richtext-btn" data-cmd="bold" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:#000;padding:6px 12px;border-radius:2px;cursor:pointer;font-weight:700;">B</button>
+          <button type="button" class="richtext-btn" data-cmd="italic" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:#000;padding:6px 12px;border-radius:2px;cursor:pointer;font-style:italic;">I</button>
+          <button type="button" class="richtext-btn" data-cmd="underline" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:#000;padding:6px 12px;border-radius:2px;cursor:pointer;text-decoration:underline;">U</button>
+          <button type="button" class="richtext-btn" data-cmd="insertUnorderedList" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:#000;padding:6px 12px;border-radius:2px;cursor:pointer;">&bull; List</button>
+          <button type="button" class="richtext-btn" data-cmd="insertOrderedList" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:#000;padding:6px 12px;border-radius:2px;cursor:pointer;">1. List</button>
         </div>
         <div id="block-title-input" contenteditable="true" style="width:100%; min-height:100px; background: var(--panel-alt); border: 1px solid var(--grid-line); color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13px; padding: 10px 12px; border-radius: 2px;">\${block.title || ''}</div>
       \`
@@ -1041,12 +1041,12 @@ const scripts = `
         let html = '<div style="overflow-x:auto;"><table style="border-collapse:collapse; width:100%;">';
         html += '<tr><td></td>';
         for (let c = 0; c < tableState.cols; c++) {
-          html += \`<td style="text-align:center; padding:4px;"><button type="button" class="table-col-remove-btn" data-col="\${c}" \${tableState.cols <= 1 ? 'disabled' : ''} style="background:none;border:1px solid var(--grid-line);color:var(--text-muted);padding:2px 6px;border-radius:2px;cursor:pointer;font-size:11px;">&times;</button></td>\`;
+          html += \`<td style="text-align:center; padding:4px;"><button type="button" class="table-col-remove-btn" data-col="\${c}" \${tableState.cols <= 1 ? 'disabled' : ''} style="background:none;border:1px solid var(--grid-line);color:#000;padding:2px 6px;border-radius:2px;cursor:pointer;font-size:11px;">&times;</button></td>\`;
         }
         html += '</tr>';
         for (let r = 0; r < tableState.rows; r++) {
           html += '<tr>';
-          html += \`<td style="padding:4px;"><button type="button" class="table-row-remove-btn" data-row="\${r}" \${tableState.rows <= 1 ? 'disabled' : ''} style="background:none;border:1px solid var(--grid-line);color:var(--text-muted);padding:2px 6px;border-radius:2px;cursor:pointer;font-size:11px;">&times;</button></td>\`;
+          html += \`<td style="padding:4px;"><button type="button" class="table-row-remove-btn" data-row="\${r}" \${tableState.rows <= 1 ? 'disabled' : ''} style="background:none;border:1px solid var(--grid-line);color:#000;padding:2px 6px;border-radius:2px;cursor:pointer;font-size:11px;">&times;</button></td>\`;
           for (let c = 0; c < tableState.cols; c++) {
             const val = (tableState.cells[r] && tableState.cells[r][c]) || '';
             html += \`<td style="padding:2px; border:1px solid var(--grid-line);"><input type="text" class="table-cell-input" data-row="\${r}" data-col="\${c}" value="\${val.replace(/"/g, '&quot;')}" style="width:100%; min-width:80px; background:var(--panel); border:none; color:var(--text-primary); font-family:'Inter',sans-serif; font-size:13px; padding:6px;" /></td>\`;
@@ -1221,7 +1221,7 @@ const scripts = `
           <div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">
             <input type="radio" name="mc-correct" \${opt.isCorrect ? 'checked' : ''} data-mc-id="\${opt.id}" class="mc-correct-radio" />
             <input type="text" value="\${(opt.text || '').replace(/"/g, '&quot;')}" placeholder="Option text" data-mc-id="\${opt.id}" class="mc-text-input" style="flex:1;" />
-            <button type="button" data-mc-id="\${opt.id}" class="mc-remove-btn" style="background:none;border:1px solid var(--grid-line);color:var(--text-muted);padding:6px 10px;border-radius:2px;cursor:pointer;">Remove</button>
+            <button type="button" data-mc-id="\${opt.id}" class="mc-remove-btn" style="background:none;border:1px solid var(--grid-line);color:#000;padding:6px 10px;border-radius:2px;cursor:pointer;">Remove</button>
           </div>
         \`).join('') + '<button type="button" id="mc-add-option-btn" class="btn" style="margin-top:6px;">+ Add Option</button>';
       }
@@ -1258,7 +1258,7 @@ const scripts = `
             <input type="text" value="\${(pair.left || '').replace(/"/g, '&quot;')}" placeholder="Left item" data-pair-id="\${pair.id}" class="pair-left-input" style="flex:1;" />
             <span style="color:var(--text-muted);">&harr;</span>
             <input type="text" value="\${(pair.right || '').replace(/"/g, '&quot;')}" placeholder="Right item" data-pair-id="\${pair.id}" class="pair-right-input" style="flex:1;" />
-            <button type="button" data-pair-id="\${pair.id}" class="pair-remove-btn" style="background:none;border:1px solid var(--grid-line);color:var(--text-muted);padding:6px 10px;border-radius:2px;cursor:pointer;">Remove</button>
+            <button type="button" data-pair-id="\${pair.id}" class="pair-remove-btn" style="background:none;border:1px solid var(--grid-line);color:#000;padding:6px 10px;border-radius:2px;cursor:pointer;">Remove</button>
           </div>
         \`).join('') + '<button type="button" id="pair-add-btn" class="btn" style="margin-top:6px;">+ Add Pair</button>';
       }
@@ -1295,7 +1295,7 @@ const scripts = `
           <div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">
             <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-muted); width:18px;">\${i + 1}.</span>
             <input type="text" value="\${(item.text || '').replace(/"/g, '&quot;')}" placeholder="Item text" data-item-id="\${item.id}" class="order-item-input" style="flex:1;" />
-            <button type="button" data-item-id="\${item.id}" class="order-remove-btn" style="background:none;border:1px solid var(--grid-line);color:var(--text-muted);padding:6px 10px;border-radius:2px;cursor:pointer;">Remove</button>
+            <button type="button" data-item-id="\${item.id}" class="order-remove-btn" style="background:none;border:1px solid var(--grid-line);color:#000;padding:6px 10px;border-radius:2px;cursor:pointer;">Remove</button>
           </div>
         \`).join('') + '<button type="button" id="order-add-btn" class="btn" style="margin-top:6px;">+ Add Item</button>';
       }
@@ -1385,7 +1385,7 @@ const scripts = `
           </div>
           <div id="question-type-fields"></div>
           <button class="btn" id="save-question-btn" style="margin-top: 8px;">\${existingQuestion ? 'Update Question' : 'Save Question'}</button>
-          <button type="button" id="cancel-question-btn" style="margin-top: 8px; margin-left: 8px; background: var(--panel); color: var(--text-primary); border: 1px solid var(--grid-line); padding: 10px 18px; border-radius: 2px; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 12px; text-transform: uppercase;">Cancel</button>
+          <button type="button" id="cancel-question-btn" style="margin-top: 8px; margin-left: 8px; background: var(--panel); color: #000; border: 1px solid var(--grid-line); padding: 10px 18px; border-radius: 2px; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 12px; text-transform: uppercase;">Cancel</button>
           <div id="question-save-message" style="margin-top: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
         \`;
 
