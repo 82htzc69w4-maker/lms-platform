@@ -11,8 +11,12 @@ const bodyHtml = `
       <div class="stat-value refresher" id="stat-refresher">0</div>
     </div>
     <div class="stat-tile">
-      <div class="stat-label">Not Competent / Expired</div>
-      <div class="stat-value risk" id="stat-risk">0</div>
+      <div class="stat-label">Not Competent</div>
+      <div class="stat-value risk" id="stat-not-competent">0</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">Expired</div>
+      <div class="stat-value risk" id="stat-expired">0</div>
     </div>
     <div class="stat-tile">
       <div class="stat-label">Registered Learners</div>
@@ -142,12 +146,14 @@ const scripts = `
       const gaps = data.gaps || [];
       const wrap = document.getElementById('gap-log-wrap');
 
-      const notCompetentCount = gaps.filter(g => g.status === 'not_competent' || g.status === 'expired').length;
+      const notCompetentCount = gaps.filter(g => g.status === 'not_competent').length;
+      const expiredCount = gaps.filter(g => g.status === 'expired').length;
       const refresherCount = gaps.filter(g => g.status === 'needs_refresher').length;
 
       countUp(document.getElementById('stat-total'), gaps.length);
       countUp(document.getElementById('stat-refresher'), refresherCount);
-      countUp(document.getElementById('stat-risk'), notCompetentCount);
+      countUp(document.getElementById('stat-not-competent'), notCompetentCount);
+      countUp(document.getElementById('stat-expired'), expiredCount);
 
       if (gaps.length === 0) {
         wrap.innerHTML = '<div class="empty-state">No open gaps recorded. Once employees are linked to competency evidence, anything short of \\'competent\\' will show here.</div>';
