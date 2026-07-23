@@ -19,6 +19,8 @@ const bodyHtml = `
       </div>
       <div class="panel-body">
 
+        <img id="course-banner-header" class="course-banner" style="display:none;" alt="" />
+
         <div class="form-row">
           <input type="text" id="course-number" placeholder="Course Number" />
           <input type="text" id="course-name" placeholder="Course Name" />
@@ -243,6 +245,14 @@ const scripts = `
         document.getElementById('course-panel-title').textContent = course.title || 'Course Information';
         document.getElementById('course-status-sub').textContent =
           'Status: ' + (course.status === 'published' ? 'Published' : 'Draft');
+
+        const bannerHeaderEl = document.getElementById('course-banner-header');
+        if (course.bannerDataUrl) {
+          bannerHeaderEl.src = course.bannerDataUrl;
+          bannerHeaderEl.style.display = 'block';
+        } else {
+          bannerHeaderEl.style.display = 'none';
+        }
 
         document.getElementById('course-number').value = course.courseNumber || '';
         document.getElementById('course-name').value = course.title || '';
@@ -781,6 +791,7 @@ const scripts = `
           <button type="button" class="richtext-btn" data-cmd="bold" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:var(--text-primary);padding:6px 12px;border-radius:2px;cursor:pointer;font-weight:700;">B</button>
           <button type="button" class="richtext-btn" data-cmd="italic" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:var(--text-primary);padding:6px 12px;border-radius:2px;cursor:pointer;font-style:italic;">I</button>
           <button type="button" class="richtext-btn" data-cmd="underline" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:var(--text-primary);padding:6px 12px;border-radius:2px;cursor:pointer;text-decoration:underline;">U</button>
+          <button type="button" class="richtext-btn" data-cmd="insertUnorderedList" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:var(--text-primary);padding:6px 12px;border-radius:2px;cursor:pointer;">&bull; List</button>
         </div>
         <div id="block-title-input" contenteditable="true" style="width:100%; min-height:100px; background: var(--panel-alt); border: 1px solid var(--grid-line); color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13px; padding: 10px 12px; border-radius: 2px;">\${block.title || ''}</div>
       \`

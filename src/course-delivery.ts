@@ -122,21 +122,21 @@ const scripts = `
           return;
         }
 
-        const rows = list.map(course => \`
-          <tr>
-            <td>\${course.title}</td>
-            <td>\${course.category || '—'}</td>
-            <td>\${course.description}</td>
-            <td><a class="btn" href="/course-development/\${course.id}" style="display:inline-block; text-decoration:none;">Edit</a></td>
-          </tr>
+        const cards = list.map(course => \`
+          <div class="course-card">
+            \${course.imageDataUrl
+              ? \`<img class="course-card-image" src="\${course.imageDataUrl}" alt="" />\`
+              : '<div class="course-card-image-placeholder">No Image</div>'}
+            <div class="course-card-body">
+              <div class="course-card-title">\${course.title}</div>
+              <div class="course-card-category">\${course.category || 'Uncategorized'}</div>
+              <div class="course-card-description">\${course.description}</div>
+              <a class="btn" href="/course-development/\${course.id}" style="display:inline-block; text-decoration:none; text-align:center;">Edit</a>
+            </div>
+          </div>
         \`).join('');
 
-        wrap.innerHTML = \`
-          <table>
-            <thead><tr><th>Course</th><th>Category</th><th>Description</th><th></th></tr></thead>
-            <tbody>\${rows}</tbody>
-          </table>
-        \`;
+        wrap.innerHTML = \`<div class="course-card-grid">\${cards}</div>\`;
       })
       .catch(() => {
         document.getElementById('catalogue-wrap').innerHTML = '<div class="empty-state">Could not reach /api/courses.</div>';

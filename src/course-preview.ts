@@ -8,6 +8,9 @@ const bodyHtml = `
       <div class="panel-title" id="preview-course-title">Course Preview</div>
       <div class="panel-sub">This is a simulation of what a learner will see — not the real learner experience yet</div>
     </div>
+    <div style="padding: 16px 20px 0;">
+      <img id="preview-course-banner" class="course-banner" style="display:none; margin-bottom: 0;" alt="" />
+    </div>
     <div style="padding: 12px 20px 0; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;" id="page-indicator"></div>
     <div class="panel-body" id="preview-course-body">
       <div class="empty-state">Loading&hellip;</div>
@@ -509,6 +512,12 @@ const scripts = `
     const blocks = contentData.blocks || [];
 
     document.getElementById('preview-course-title').textContent = course ? course.title : 'Course Preview';
+
+    const bannerEl = document.getElementById('preview-course-banner');
+    if (course && course.bannerDataUrl) {
+      bannerEl.src = course.bannerDataUrl;
+      bannerEl.style.display = 'block';
+    }
 
     const bodyEl = document.getElementById('preview-course-body');
     if (blocks.length === 0) {

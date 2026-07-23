@@ -67,22 +67,20 @@ const scripts = `
           return;
         }
 
-        const rows = list.map(course => \`
-          <tr>
-            <td>\${course.title}</td>
-            <td>\${course.category || '—'}</td>
-            <td>\${course.description}</td>
-          </tr>
+        const cards = list.map(course => \`
+          <div class="course-card">
+            \${course.imageDataUrl
+              ? \`<img class="course-card-image" src="\${course.imageDataUrl}" alt="" />\`
+              : '<div class="course-card-image-placeholder">No Image</div>'}
+            <div class="course-card-body">
+              <div class="course-card-title">\${course.title}</div>
+              <div class="course-card-category">\${course.category || 'Uncategorized'}</div>
+              <div class="course-card-description">\${course.description}</div>
+            </div>
+          </div>
         \`).join('');
 
-        wrap.innerHTML = \`
-          <table>
-            <thead>
-              <tr><th>Course</th><th>Category</th><th>Description</th></tr>
-            </thead>
-            <tbody>\${rows}</tbody>
-          </table>
-        \`;
+        wrap.innerHTML = \`<div class="course-card-grid">\${cards}</div>\`;
       })
       .catch(() => {
         document.getElementById('my-courses-wrap').innerHTML =
@@ -103,23 +101,21 @@ const scripts = `
           return;
         }
 
-        const rows = list.map(course => \`
-          <tr>
-            <td>\${course.title}</td>
-            <td>\${course.category || '—'}</td>
-            <td>\${course.description}</td>
-            <td><button class="btn enroll-btn" data-course-id="\${course.id}">Enroll</button></td>
-          </tr>
+        const cards = list.map(course => \`
+          <div class="course-card">
+            \${course.imageDataUrl
+              ? \`<img class="course-card-image" src="\${course.imageDataUrl}" alt="" />\`
+              : '<div class="course-card-image-placeholder">No Image</div>'}
+            <div class="course-card-body">
+              <div class="course-card-title">\${course.title}</div>
+              <div class="course-card-category">\${course.category || 'Uncategorized'}</div>
+              <div class="course-card-description">\${course.description}</div>
+              <button class="btn enroll-btn" data-course-id="\${course.id}">Enroll</button>
+            </div>
+          </div>
         \`).join('');
 
-        wrap.innerHTML = \`
-          <table>
-            <thead>
-              <tr><th>Course</th><th>Category</th><th>Description</th><th></th></tr>
-            </thead>
-            <tbody>\${rows}</tbody>
-          </table>
-        \`;
+        wrap.innerHTML = \`<div class="course-card-grid">\${cards}</div>\`;
 
         document.querySelectorAll('.enroll-btn').forEach(btn => {
           btn.addEventListener('click', () => {

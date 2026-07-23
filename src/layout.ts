@@ -309,6 +309,86 @@ export const SHARED_STYLES = `
 
   .lookup-item button:hover { color: var(--risk); }
 
+  /* ---------- Course cards ---------- */
+  .course-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+  }
+
+  .course-card {
+    background: var(--panel);
+    border: 1px solid var(--grid-line);
+    border-radius: 3px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .course-card-image {
+    width: 100%;
+    height: 130px;
+    object-fit: cover;
+    display: block;
+  }
+
+  .course-card-image-placeholder {
+    width: 100%;
+    height: 130px;
+    background: var(--panel-alt);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .course-card-body {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+
+  .course-card-title {
+    font-family: 'Big Shoulders Display', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+
+  .course-card-category {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--hazard);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 8px;
+  }
+
+  .course-card-description {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: var(--text-muted);
+    flex: 1;
+    margin-bottom: 12px;
+  }
+
+  /* ---------- Course header banner ---------- */
+  .course-banner {
+    width: 100%;
+    max-height: 220px;
+    object-fit: cover;
+    border-radius: 3px;
+    margin-bottom: 20px;
+    display: block;
+  }
+
   /* ---------- Course Design tool palette + content blocks ---------- */
   .tool-palette {
     display: flex;
