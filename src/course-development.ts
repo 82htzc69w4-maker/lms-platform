@@ -716,6 +716,7 @@ const scripts = `
     const isTable = block.type === 'table';
     const isRichText = block.type === 'text' || block.type === 'textImage';
     const isFontSelectable = isHeading || block.type === 'subtitle' || isRichText || isTable;
+    let pendingFontFamily = settings.fontFamily || '';
 
     let layoutHtml = '';
     if (isHeading) {
@@ -856,7 +857,6 @@ const scripts = `
     let pendingFileName = settings.fileName || null;
     let pendingFileMimeType = settings.fileMimeType || null;
     let tableState = settings.tableData ? JSON.parse(JSON.stringify(settings.tableData)) : null;
-    let pendingFontFamily = settings.fontFamily || '';
 
     pendingPreviewOverride = {
       blockId: block.id,
