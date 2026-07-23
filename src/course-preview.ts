@@ -480,6 +480,12 @@ const scripts = `
         current = [b];
       } else {
         current.push(b);
+        if (b.type === 'forwardButton') {
+          // A Forward button ends the current page right where it sits —
+          // clicking it should always have somewhere new to go.
+          pages.push(current);
+          current = [];
+        }
       }
     });
     if (current.length > 0) pages.push(current);
