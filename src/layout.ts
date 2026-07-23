@@ -18,6 +18,7 @@ export const SHARED_STYLES = `
     --text-primary: #ECE8DF;
     --text-muted: #8B9199;
     --hazard: #F2B705;
+    --hazard-badge-text: #F2B705;
     --risk: #C1443A;
     --refresher: #D98E2A;
     --competent: #3E9B54;
@@ -30,6 +31,7 @@ export const SHARED_STYLES = `
     --grid-line: #D9D2C3;
     --text-primary: #14171A;
     --text-muted: #6B6459;
+    --hazard-badge-text: #8A6600;
   }
 
   * { box-sizing: border-box; }
@@ -435,7 +437,7 @@ export const SHARED_STYLES = `
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--hazard);
+    color: var(--hazard-badge-text);
     background: rgba(242, 183, 5, 0.12);
     padding: 4px 8px;
     border-radius: 2px;
