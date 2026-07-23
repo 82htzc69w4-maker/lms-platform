@@ -151,13 +151,29 @@ const scripts = `
               <div class="course-card-category">\${course.category || 'Uncategorized'}</div>
               <div class="course-card-description">\${course.description}</div>
               \${canEditCourse(course)
-                ? \`<a class="btn" href="/course-development/\${course.id}" style="display:inline-block; text-decoration:none; text-align:center;">Edit</a>\`
-                : '<div class="stat-label" style="text-transform:none; letter-spacing:0; text-align:center;">Owned by another instructor</div>'}
+                ? \`<a class="btn" href="/course-development/\${course.id}" style="display:inline-block; text-decoration:none; text-align:center; margin-bottom:6px;">Edit</a>\`
+                : '<div class="stat-label" style="text-transform:none; letter-spacing:0; margin-bottom:6px;">Owned by another instructor</div>'}
+              <button class="btn enroll-btn" data-course-id="\${course.id}" style="width:100%;">Enroll</button>
             </div>
           </div>
         \`).join('');
 
         wrap.innerHTML = \`<div class="course-card-grid">\${cards}</div>\`;
+
+        document.querySelectorAll('.enroll-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const courseId = btn.dataset.courseId;
+            btn.textContent = 'Enrolling…';
+            btn.disabled = true;
+            fetch('/api/courses/' + courseId + '/enroll', { method: 'POST' })
+              .then(r => r.json())
+              .then(() => { btn.textContent = 'Enrolled'; })
+              .catch(() => {
+                btn.textContent = 'Enroll';
+                btn.disabled = false;
+              });
+          });
+        });
       })
       .catch(() => {
         document.getElementById('catalogue-wrap').innerHTML = '<div class="empty-state">Could not reach /api/courses.</div>';
