@@ -9,6 +9,8 @@ export type Course = {
   outcomes: string;
   linkedStandards: string;
   status: 'draft' | 'published';
+  imageDataUrl?: string;
+  bannerDataUrl?: string;
 };
 
 export type Enrollment = {

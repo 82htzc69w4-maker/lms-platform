@@ -38,6 +38,30 @@ const bodyHtml = `
           <textarea id="course-linkedStandards" placeholder="Linked Standards" rows="2" style="width:100%; background: var(--panel-alt); border: 1px solid var(--grid-line); color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13px; padding: 10px 12px; border-radius: 2px;"></textarea>
         </div>
 
+        <div style="margin-bottom: 20px; margin-top: 8px;">
+          <div class="stat-label" style="margin-bottom: 8px;">Course Image</div>
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <img id="course-image-preview" src="" alt="Course image preview"
+                 style="height: 90px; width: 140px; object-fit: cover; display: none; background: var(--panel-alt); border: 1px solid var(--grid-line); border-radius: 3px;" />
+            <div id="course-image-empty" class="stat-label" style="text-transform: none; letter-spacing: 0;">No course image uploaded yet</div>
+          </div>
+          <div class="form-row" style="margin-top: 12px;">
+            <input type="file" id="course-image-input" accept="image/*" />
+          </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <div class="stat-label" style="margin-bottom: 8px;">Course Banner</div>
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <img id="course-banner-preview" src="" alt="Course banner preview"
+                 style="height: 70px; width: 220px; object-fit: cover; display: none; background: var(--panel-alt); border: 1px solid var(--grid-line); border-radius: 3px;" />
+            <div id="course-banner-empty" class="stat-label" style="text-transform: none; letter-spacing: 0;">No banner uploaded yet</div>
+          </div>
+          <div class="form-row" style="margin-top: 12px;">
+            <input type="file" id="course-banner-input" accept="image/*" />
+          </div>
+        </div>
+
         <button class="btn" id="save-course-btn">Save Changes</button>
         <button class="btn" id="publish-course-btn" style="margin-left: 8px;">Publish</button>
         <div id="course-save-message" style="margin-top: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
@@ -204,6 +228,9 @@ const scripts = `
       });
   }
 
+  let pendingCourseImageDataUrl = null;
+  let pendingCourseBannerDataUrl = null;
+
   function loadCourse() {
     fetch('/api/courses/' + COURSE_ID)
       .then(r => r.json())
@@ -225,6 +252,20 @@ const scripts = `
         document.getElementById('course-linkedStandards').value = course.linkedStandards || '';
         loadCategoryOptions(course.category);
 
+        pendingCourseImageDataUrl = course.imageDataUrl || null;
+        if (course.imageDataUrl) {
+          document.getElementById('course-image-preview').src = course.imageDataUrl;
+          document.getElementById('course-image-preview').style.display = 'block';
+          document.getElementById('course-image-empty').style.display = 'none';
+        }
+
+        pendingCourseBannerDataUrl = course.bannerDataUrl || null;
+        if (course.bannerDataUrl) {
+          document.getElementById('course-banner-preview').src = course.bannerDataUrl;
+          document.getElementById('course-banner-preview').style.display = 'block';
+          document.getElementById('course-banner-empty').style.display = 'none';
+        }
+
         document.getElementById('publish-course-btn').style.display = course.status === 'published' ? 'none' : 'inline-block';
       })
       .catch(() => {
@@ -232,6 +273,40 @@ const scripts = `
       });
   }
   loadCourse();
+
+  document.getElementById('course-image-input').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      document.getElementById('course-save-message').textContent = 'Image is too large — please use one under 2MB.';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      pendingCourseImageDataUrl = reader.result;
+      document.getElementById('course-image-preview').src = pendingCourseImageDataUrl;
+      document.getElementById('course-image-preview').style.display = 'block';
+      document.getElementById('course-image-empty').style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById('course-banner-input').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      document.getElementById('course-save-message').textContent = 'Image is too large — please use one under 2MB.';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      pendingCourseBannerDataUrl = reader.result;
+      document.getElementById('course-banner-preview').src = pendingCourseBannerDataUrl;
+      document.getElementById('course-banner-preview').style.display = 'block';
+      document.getElementById('course-banner-empty').style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+  });
 
   document.getElementById('save-course-btn').addEventListener('click', () => {
     const msgEl = document.getElementById('course-save-message');
@@ -244,6 +319,8 @@ const scripts = `
       description: document.getElementById('course-description').value.trim(),
       outcomes: document.getElementById('course-outcomes').value.trim(),
       linkedStandards: document.getElementById('course-linkedStandards').value.trim(),
+      imageDataUrl: pendingCourseImageDataUrl,
+      bannerDataUrl: pendingCourseBannerDataUrl,
     };
 
     fetch('/api/courses/' + COURSE_ID, {

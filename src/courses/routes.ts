@@ -66,6 +66,8 @@ courses.put('/:id', async (c) => {
     category: body.category ?? existing.category,
     outcomes: body.outcomes ?? existing.outcomes,
     linkedStandards: body.linkedStandards ?? existing.linkedStandards,
+    imageDataUrl: body.imageDataUrl !== undefined ? body.imageDataUrl : existing.imageDataUrl,
+    bannerDataUrl: body.bannerDataUrl !== undefined ? body.bannerDataUrl : existing.bannerDataUrl,
   };
 
   await kvPutJSON(c.env, `course:def:${courseId}`, updated);
