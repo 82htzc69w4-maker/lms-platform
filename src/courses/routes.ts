@@ -52,6 +52,7 @@ courses.post('/', async (c) => {
     status: body.status ?? 'draft',
     developmentStartDate: new Date().toISOString(),
     instructorUsername: session?.username,
+    validityMonths: body.validityMonths,
   };
   await kvPutJSON(c.env, `course:def:${course.id}`, course);
   return c.json({ ok: true, course });
@@ -91,6 +92,7 @@ courses.put('/:id', async (c) => {
     bannerDataUrl: body.bannerDataUrl !== undefined ? body.bannerDataUrl : existing.bannerDataUrl,
     bannerFit: body.bannerFit ?? existing.bannerFit,
     bannerHeight: body.bannerHeight ?? existing.bannerHeight,
+    validityMonths: body.validityMonths ?? existing.validityMonths,
     // Claim ownership for whichever instructor first edits an unclaimed course.
     instructorUsername:
       existing.instructorUsername || (session?.role === 'instructor' ? session.username : existing.instructorUsername),

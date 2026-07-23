@@ -15,6 +15,7 @@ export type Course = {
   bannerHeight?: number;
   developmentStartDate?: string;
   instructorUsername?: string;
+  validityMonths?: number;
 };
 
 export type Enrollment = {

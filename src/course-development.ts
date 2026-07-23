@@ -30,6 +30,13 @@ const bodyHtml = `
           <input type="text" id="course-duration" placeholder="Duration (e.g. 4 weeks, 12 hours)" />
           <select id="course-category"><option value="">Category</option></select>
         </div>
+        <div style="margin-bottom: 20px;">
+          <div class="stat-label" style="margin-bottom: 8px;">Validity Period After Completion</div>
+          <div class="form-row">
+            <input type="number" id="course-validity-months" placeholder="e.g. 24" min="0" style="max-width: 160px;" />
+            <div class="stat-label" style="text-transform: none; letter-spacing: 0; align-self: center;">months</div>
+          </div>
+        </div>
         <div class="form-row">
           <textarea id="course-description" placeholder="Description" rows="3" style="width:100%; background: var(--panel-alt); border: 1px solid var(--grid-line); color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13px; padding: 10px 12px; border-radius: 2px;"></textarea>
         </div>
@@ -307,6 +314,7 @@ const scripts = `
         document.getElementById('course-name').value = course.title || '';
         document.getElementById('course-instructor').value = course.instructor || '';
         document.getElementById('course-duration').value = course.duration || '';
+        document.getElementById('course-validity-months').value = course.validityMonths != null ? course.validityMonths : '';
         document.getElementById('course-description').value = course.description || '';
         document.getElementById('course-outcomes').value = course.outcomes || '';
         document.getElementById('course-linkedStandards').value = course.linkedStandards || '';
@@ -401,6 +409,9 @@ const scripts = `
       instructor: document.getElementById('course-instructor').value.trim(),
       duration: document.getElementById('course-duration').value.trim(),
       category: document.getElementById('course-category').value,
+      validityMonths: document.getElementById('course-validity-months').value
+        ? parseInt(document.getElementById('course-validity-months').value, 10)
+        : undefined,
       description: document.getElementById('course-description').value.trim(),
       outcomes: document.getElementById('course-outcomes').value.trim(),
       linkedStandards: document.getElementById('course-linkedStandards').value.trim(),
