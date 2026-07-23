@@ -7,6 +7,19 @@ import { getSessionUser } from '../auth/session';
 
 const courses = new Hono<{ Bindings: Env }>();
 
+// Instructors may only edit/publish courses they created. Administrators (and
+// any other role) have full access. If a course has no recorded owner yet
+// (e.g. it predates this field), any instructor may edit it — and doing so
+// claims ownership for them going forward.
+function canEditCourse(
+  session: { username: string; role: string } | null,
+  course: Course
+): boolean {
+  if (!session) return false;
+  if (session.role !== 'instructor') return true;
+  return !course.instructorUsername || course.instructorUsername === session.username;
+}
+
 // GET /api/courses — the full catalogue, every course registered on the platform
 courses.get('/', async (c) => {
   const list = await kvListByPrefix(c.env, 'course:def:');
@@ -25,6 +38,7 @@ courses.post('/', async (c) => {
   if (!body.id || !body.title || !body.description) {
     return c.json({ error: 'id, title, and description are required' }, 400);
   }
+  const session = await getSessionUser(c);
   const course: Course = {
     id: body.id,
     courseNumber: body.courseNumber ?? '',
@@ -37,6 +51,7 @@ courses.post('/', async (c) => {
     linkedStandards: body.linkedStandards ?? '',
     status: body.status ?? 'draft',
     developmentStartDate: new Date().toISOString(),
+    instructorUsername: session?.username,
   };
   await kvPutJSON(c.env, `course:def:${course.id}`, course);
   return c.json({ ok: true, course });
@@ -56,6 +71,11 @@ courses.put('/:id', async (c) => {
   const existing = await kvGetJSON<Course>(c.env, `course:def:${courseId}`);
   if (!existing) return c.json({ error: 'Course not found' }, 404);
 
+  const session = await getSessionUser(c);
+  if (!canEditCourse(session, existing)) {
+    return c.json({ error: 'You can only edit courses you created' }, 403);
+  }
+
   const body = await c.req.json<Partial<Course>>();
   const updated: Course = {
     ...existing,
@@ -71,6 +91,9 @@ courses.put('/:id', async (c) => {
     bannerDataUrl: body.bannerDataUrl !== undefined ? body.bannerDataUrl : existing.bannerDataUrl,
     bannerFit: body.bannerFit ?? existing.bannerFit,
     bannerHeight: body.bannerHeight ?? existing.bannerHeight,
+    // Claim ownership for whichever instructor first edits an unclaimed course.
+    instructorUsername:
+      existing.instructorUsername || (session?.role === 'instructor' ? session.username : existing.instructorUsername),
   };
 
   await kvPutJSON(c.env, `course:def:${courseId}`, updated);
@@ -83,7 +106,17 @@ courses.post('/:id/publish', async (c) => {
   const course = await kvGetJSON<Course>(c.env, `course:def:${courseId}`);
   if (!course) return c.json({ error: 'Course not found' }, 404);
 
-  const updated: Course = { ...course, status: 'published' };
+  const session = await getSessionUser(c);
+  if (!canEditCourse(session, course)) {
+    return c.json({ error: 'You can only publish courses you created' }, 403);
+  }
+
+  const updated: Course = {
+    ...course,
+    status: 'published',
+    instructorUsername:
+      course.instructorUsername || (session?.role === 'instructor' ? session.username : course.instructorUsername),
+  };
   await kvPutJSON(c.env, `course:def:${courseId}`, updated);
   return c.json({ ok: true, course: updated });
 });
@@ -137,6 +170,14 @@ courses.get('/:id/content', async (c) => {
 // POST /api/courses/:id/content — add a new block from the tool palette
 courses.post('/:id/content', async (c) => {
   const courseId = c.req.param('id');
+  const course = await kvGetJSON<Course>(c.env, `course:def:${courseId}`);
+  if (!course) return c.json({ error: 'Course not found' }, 404);
+
+  const session = await getSessionUser(c);
+  if (!canEditCourse(session, course)) {
+    return c.json({ error: 'You can only edit courses you created' }, 403);
+  }
+
   const body = await c.req.json<{ type: ContentBlockType; title?: string }>();
   if (!body.type) return c.json({ error: 'type is required' }, 400);
 
@@ -160,6 +201,15 @@ courses.post('/:id/content', async (c) => {
 courses.put('/:id/content/:blockId', async (c) => {
   const courseId = c.req.param('id');
   const blockId = c.req.param('blockId');
+
+  const course = await kvGetJSON<Course>(c.env, `course:def:${courseId}`);
+  if (!course) return c.json({ error: 'Course not found' }, 404);
+
+  const session = await getSessionUser(c);
+  if (!canEditCourse(session, course)) {
+    return c.json({ error: 'You can only edit courses you created' }, 403);
+  }
+
   const body = await c.req.json<{ title?: string; settings?: ContentBlock['settings'] }>();
 
   const content = await kvGetJSON<CourseContent>(c.env, `course:content:${courseId}`);
@@ -180,6 +230,14 @@ courses.delete('/:id/content/:blockId', async (c) => {
   const courseId = c.req.param('id');
   const blockId = c.req.param('blockId');
 
+  const course = await kvGetJSON<Course>(c.env, `course:def:${courseId}`);
+  if (!course) return c.json({ error: 'Course not found' }, 404);
+
+  const session = await getSessionUser(c);
+  if (!canEditCourse(session, course)) {
+    return c.json({ error: 'You can only edit courses you created' }, 403);
+  }
+
   const content = await kvGetJSON<CourseContent>(c.env, `course:content:${courseId}`);
   if (!content) return c.json({ error: 'Course content not found' }, 404);
 
@@ -191,6 +249,15 @@ courses.delete('/:id/content/:blockId', async (c) => {
 // PUT /api/courses/:id/content-reorder — persists a new block order
 courses.put('/:id/content-reorder', async (c) => {
   const courseId = c.req.param('id');
+
+  const course = await kvGetJSON<Course>(c.env, `course:def:${courseId}`);
+  if (!course) return c.json({ error: 'Course not found' }, 404);
+
+  const session = await getSessionUser(c);
+  if (!canEditCourse(session, course)) {
+    return c.json({ error: 'You can only edit courses you created' }, 403);
+  }
+
   const body = await c.req.json<{ blockIds: string[] }>();
 
   const content = await kvGetJSON<CourseContent>(c.env, `course:content:${courseId}`);

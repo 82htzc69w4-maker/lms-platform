@@ -65,6 +65,7 @@ const bodyHtml = `
 
 const scripts = `
   // ---------- Role gate: Instructor and Administrator only ----------
+  let currentSession = null;
   fetch('/api/auth/me')
     .then(r => {
       if (!r.ok) throw new Error('not logged in');
@@ -74,11 +75,22 @@ const scripts = `
       const role = data.user.role;
       if (role !== 'instructor' && role !== 'administrator') {
         window.location.href = '/';
+        return;
       }
+      currentSession = data.user;
+      loadCatalogue();
+      loadDevelopment();
+      loadCoaching();
     })
     .catch(() => {
       window.location.href = '/login';
     });
+
+  function canEditCourse(course) {
+    if (!currentSession) return false;
+    if (currentSession.role !== 'instructor') return true;
+    return !course.instructorUsername || course.instructorUsername === currentSession.username;
+  }
 
   // ---------- Populate Category dropdown from lookup list ----------
   function loadCategoryOptions() {
@@ -138,7 +150,9 @@ const scripts = `
               <div class="course-card-title">\${course.title}</div>
               <div class="course-card-category">\${course.category || 'Uncategorized'}</div>
               <div class="course-card-description">\${course.description}</div>
-              <a class="btn" href="/course-development/\${course.id}" style="display:inline-block; text-decoration:none; text-align:center;">Edit</a>
+              \${canEditCourse(course)
+                ? \`<a class="btn" href="/course-development/\${course.id}" style="display:inline-block; text-decoration:none; text-align:center;">Edit</a>\`
+                : '<div class="stat-label" style="text-transform:none; letter-spacing:0; text-align:center;">Owned by another instructor</div>'}
             </div>
           </div>
         \`).join('');
@@ -171,8 +185,10 @@ const scripts = `
             <td>\${course.developmentStartDate ? new Date(course.developmentStartDate).toLocaleDateString() : '—'}</td>
             <td>\${course.description}</td>
             <td>
-              <a class="btn" href="/course-development/\${course.id}" style="display:inline-block; text-decoration:none; margin-right: 6px;">Edit</a>
-              <button class="btn publish-btn" data-course-id="\${course.id}">Publish</button>
+              \${canEditCourse(course)
+                ? \`<a class="btn" href="/course-development/\${course.id}" style="display:inline-block; text-decoration:none; margin-right: 6px;">Edit</a>
+                   <button class="btn publish-btn" data-course-id="\${course.id}">Publish</button>\`
+                : '<span class="stat-label" style="text-transform:none; letter-spacing:0;">Owned by another instructor</span>'}
             </td>
           </tr>
         \`).join('');
@@ -277,10 +293,6 @@ const scripts = `
         document.getElementById('coaching-wrap').innerHTML = '<div class="empty-state">Could not reach /api/users.</div>';
       });
   }
-
-  loadCatalogue();
-  loadDevelopment();
-  loadCoaching();
 `;
 
 export const courseDeliveryHtml = renderLayout({

@@ -191,6 +191,7 @@ const bodyHtml = `
 
 const scripts = `
   // ---------- Role gate: Instructor and Administrator only ----------
+  let currentSession = null;
   fetch('/api/auth/me')
     .then(r => {
       if (!r.ok) throw new Error('not logged in');
@@ -200,11 +201,40 @@ const scripts = `
       const role = data.user.role;
       if (role !== 'instructor' && role !== 'administrator') {
         window.location.href = '/';
+        return;
       }
+      currentSession = data.user;
+      checkOwnershipAndLock();
     })
     .catch(() => {
       window.location.href = '/login';
     });
+
+  function checkOwnershipAndLock() {
+    if (!currentSession || currentSession.role !== 'instructor') return;
+    fetch('/api/courses/' + COURSE_ID)
+      .then(r => r.json())
+      .then(data => {
+        const course = data.course;
+        if (!course) return;
+        const owned = !course.instructorUsername || course.instructorUsername === currentSession.username;
+        if (!owned) applyReadOnlyMode();
+      })
+      .catch(() => { /* if this fails, the save/publish calls themselves will still be blocked server-side */ });
+  }
+
+  function applyReadOnlyMode() {
+    const banner = document.createElement('div');
+    banner.style.cssText = 'margin-bottom: 16px; padding: 12px 16px; background: rgba(193,68,58,0.12); border-left: 3px solid var(--risk); border-radius: 2px; font-family: \\'IBM Plex Mono\\', monospace; font-size: 13px; color: var(--text-primary);';
+    banner.textContent = 'This course belongs to another instructor — you can view it but cannot make changes.';
+    document.querySelector('.tabbar').insertAdjacentElement('beforebegin', banner);
+
+    document.querySelectorAll('#save-course-btn, #publish-course-btn, .tool-btn').forEach(el => {
+      el.disabled = true;
+      el.style.opacity = '0.4';
+      el.style.cursor = 'not-allowed';
+    });
+  }
 
   // ---------- Tab switching (only one tab today, ready for more later) ----------
   document.querySelectorAll('.tab-btn').forEach(btn => {
