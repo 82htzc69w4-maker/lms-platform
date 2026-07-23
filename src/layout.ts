@@ -196,6 +196,8 @@ export const SHARED_STYLES = `
   /* ---------- Stat tiles ---------- */
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 32px; }
   .stat-tile { background: var(--panel); border: 1px solid var(--grid-line); padding: 18px 20px; border-radius: 3px; }
+  .stat-tile-clickable { cursor: pointer; text-decoration: none; display: block; transition: border-color 0.15s ease; }
+  .stat-tile-clickable:hover { border-color: var(--hazard); }
   .stat-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
   .stat-value { font-family: 'IBM Plex Mono', monospace; font-size: 38px; font-weight: 600; line-height: 1; }
   .stat-value.risk { color: var(--risk); }

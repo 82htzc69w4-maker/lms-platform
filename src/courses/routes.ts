@@ -36,6 +36,7 @@ courses.post('/', async (c) => {
     outcomes: body.outcomes ?? '',
     linkedStandards: body.linkedStandards ?? '',
     status: body.status ?? 'draft',
+    developmentStartDate: new Date().toISOString(),
   };
   await kvPutJSON(c.env, `course:def:${course.id}`, course);
   return c.json({ ok: true, course });

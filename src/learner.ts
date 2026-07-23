@@ -54,6 +54,13 @@ const scripts = `
     });
   });
 
+  // Allow deep-linking to a specific tab via URL hash, e.g. /learner#catalogue
+  const hashTab = window.location.hash.replace('#', '');
+  if (hashTab) {
+    const targetBtn = document.querySelector('.tab-btn[data-tab="' + hashTab + '"]');
+    if (targetBtn) targetBtn.click();
+  }
+
   // ---------- My Courses ----------
   function loadMyCourses() {
     fetch('/api/courses/mine')

@@ -109,6 +109,13 @@ const scripts = `
     });
   });
 
+  // Allow deep-linking to a specific tab via URL hash, e.g. /course-delivery#development
+  const hashTab = window.location.hash.replace('#', '');
+  if (hashTab) {
+    const targetBtn = document.querySelector('.tab-btn[data-tab="' + hashTab + '"]');
+    if (targetBtn) targetBtn.click();
+  }
+
   // ---------- Course Catalogue (published only) ----------
   function loadCatalogue() {
     fetch('/api/courses')
@@ -160,6 +167,8 @@ const scripts = `
           <tr>
             <td>\${course.title}</td>
             <td>\${course.category || '—'}</td>
+            <td>\${course.instructor || '—'}</td>
+            <td>\${course.developmentStartDate ? new Date(course.developmentStartDate).toLocaleDateString() : '—'}</td>
             <td>\${course.description}</td>
             <td>
               <a class="btn" href="/course-development/\${course.id}" style="display:inline-block; text-decoration:none; margin-right: 6px;">Edit</a>
@@ -170,7 +179,7 @@ const scripts = `
 
         wrap.innerHTML = \`
           <table>
-            <thead><tr><th>Course</th><th>Category</th><th>Description</th><th></th></tr></thead>
+            <thead><tr><th>Course</th><th>Category</th><th>Instructor</th><th>Start Date</th><th>Description</th><th></th></tr></thead>
             <tbody>\${rows}</tbody>
           </table>
         \`;

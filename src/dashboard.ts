@@ -22,6 +22,14 @@ const bodyHtml = `
       <div class="stat-label">Registered Admins</div>
       <div class="stat-value total" id="stat-admins">0</div>
     </div>
+    <a href="/learner#catalogue" class="stat-tile stat-tile-clickable">
+      <div class="stat-label">Courses Available</div>
+      <div class="stat-value total" id="stat-courses-available">0</div>
+    </a>
+    <a href="/course-delivery#development" class="stat-tile stat-tile-clickable" id="stat-tile-development" style="display: none;">
+      <div class="stat-label">Courses in Development</div>
+      <div class="stat-value total" id="stat-courses-development">0</div>
+    </a>
   </div>
 
   <div class="panel">
@@ -73,6 +81,32 @@ const scripts = `
       document.getElementById('stat-learners').textContent = '—';
       document.getElementById('stat-admins').textContent = '—';
     });
+
+  // ---------- Course counts ----------
+  fetch('/api/courses')
+    .then(r => r.json())
+    .then(data => {
+      const list = data.courses || [];
+      const availableCount = list.filter(c => c.status === 'published').length;
+      const developmentCount = list.filter(c => c.status !== 'published').length;
+      countUp(document.getElementById('stat-courses-available'), availableCount);
+      countUp(document.getElementById('stat-courses-development'), developmentCount);
+    })
+    .catch(() => {
+      document.getElementById('stat-courses-available').textContent = '—';
+      document.getElementById('stat-courses-development').textContent = '—';
+    });
+
+  // "Courses in Development" tile is only shown to Admin, Administrator, and Instructor
+  fetch('/api/auth/me')
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      const role = data && data.user ? data.user.role : null;
+      if (role === 'admin' || role === 'administrator' || role === 'instructor') {
+        document.getElementById('stat-tile-development').style.display = 'block';
+      }
+    })
+    .catch(() => { /* leave hidden if we can't confirm role */ });
 
   // ---------- Heat map: real department risk ----------
   fetch('/api/competency/risk-by-department')

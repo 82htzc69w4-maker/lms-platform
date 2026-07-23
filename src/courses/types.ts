@@ -13,6 +13,7 @@ export type Course = {
   bannerDataUrl?: string;
   bannerFit?: 'cover' | 'contain';
   bannerHeight?: number;
+  developmentStartDate?: string;
 };
 
 export type Enrollment = {
