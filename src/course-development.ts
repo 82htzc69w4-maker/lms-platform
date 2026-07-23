@@ -642,35 +642,39 @@ const scripts = `
 
     if (block.type === 'heading') {
       const headingFont = settings.fontFamily || "'Big Shoulders Display', sans-serif";
+      const headingSize = settings.fontSize || 24;
       if (layout === 'imageLeft') {
         return \`<div style="display:flex; gap:16px; align-items:center; margin-bottom:20px;" data-preview-block-id="\${block.id}">
           \${imageDataUrl ? \`<img src="\${imageDataUrl}" style="width:120px; height:80px; object-fit:cover; border-radius:2px; flex-shrink:0;" />\` : NO_IMAGE_PLACEHOLDER}
-          <h2 style="margin:0; font-family:\${headingFont}; font-size:24px; text-transform:uppercase; color:var(--text-primary);">\${safeTitle}</h2>
+          <h2 style="margin:0; font-family:\${headingFont}; font-size:\${headingSize}px; text-transform:uppercase; color:var(--text-primary);">\${safeTitle}</h2>
         </div>\`;
       } else if (layout === 'bannerTop') {
         return \`<div style="margin-bottom:20px;" data-preview-block-id="\${block.id}">
           \${imageDataUrl ? \`<img src="\${imageDataUrl}" style="width:100%; max-height:140px; object-fit:cover; border-radius:2px; margin-bottom:12px;" />\` : NO_BANNER_PLACEHOLDER}
-          <h2 style="margin:0; font-family:\${headingFont}; font-size:24px; text-transform:uppercase; color:var(--text-primary);">\${safeTitle}</h2>
+          <h2 style="margin:0; font-family:\${headingFont}; font-size:\${headingSize}px; text-transform:uppercase; color:var(--text-primary);">\${safeTitle}</h2>
         </div>\`;
       }
-      return \`<h2 style="margin:0 0 20px; font-family:\${headingFont}; font-size:24px; text-transform:uppercase; color:var(--text-primary);" data-preview-block-id="\${block.id}">\${safeTitle}</h2>\`;
+      return \`<h2 style="margin:0 0 20px; font-family:\${headingFont}; font-size:\${headingSize}px; text-transform:uppercase; color:var(--text-primary);" data-preview-block-id="\${block.id}">\${safeTitle}</h2>\`;
     }
 
     if (block.type === 'subtitle') {
       const subtitleFont = settings.fontFamily || "'Inter', sans-serif";
-      return \`<div style="font-family:\${subtitleFont}; font-size:15px; color:var(--text-muted); font-style:italic; margin-bottom:20px;" data-preview-block-id="\${block.id}">\${safeTitle}</div>\`;
+      const subtitleSize = settings.fontSize || 15;
+      return \`<div style="font-family:\${subtitleFont}; font-size:\${subtitleSize}px; color:var(--text-muted); font-style:italic; margin-bottom:20px;" data-preview-block-id="\${block.id}">\${safeTitle}</div>\`;
     }
 
     if (block.type === 'text') {
       const textFont = settings.fontFamily || "'Inter', sans-serif";
+      const textSize = settings.fontSize || 14;
       const html = block.title && block.title.trim()
         ? block.title
         : '<span style="color:var(--text-muted);">Empty text field</span>';
-      return \`<div style="margin-bottom:20px; font-family:\${textFont}; font-size:14px; color:var(--text-primary); line-height:1.6;" data-preview-block-id="\${block.id}">\${html}</div>\`;
+      return \`<div style="margin-bottom:20px; font-family:\${textFont}; font-size:\${textSize}px; color:var(--text-primary); line-height:1.6;" data-preview-block-id="\${block.id}">\${html}</div>\`;
     }
 
     if (block.type === 'textImage') {
       const textImageFont = settings.fontFamily || "'Inter', sans-serif";
+      const textImageSize = settings.fontSize || 14;
       const position = settings.imagePosition || 'left';
       const imgWidth = settings.imageWidth || 160;
       const imageEl = imageDataUrl
@@ -679,7 +683,7 @@ const scripts = `
       const textHtml = block.title && block.title.trim()
         ? block.title
         : '<span style="color:var(--text-muted);">Empty text</span>';
-      const textEl = \`<div style="flex:1; font-family:\${textImageFont}; font-size:14px; color:var(--text-primary); line-height:1.6;">\${textHtml}</div>\`;
+      const textEl = \`<div style="flex:1; font-family:\${textImageFont}; font-size:\${textImageSize}px; color:var(--text-primary); line-height:1.6;">\${textHtml}</div>\`;
       const rowContent = position === 'right' ? textEl + imageEl : imageEl + textEl;
       return \`<div style="display:flex; gap:16px; align-items:flex-start; margin-bottom:20px;" data-preview-block-id="\${block.id}">\${rowContent}</div>\`;
     }
@@ -700,12 +704,13 @@ const scripts = `
 
     if (block.type === 'table') {
       const tableFont = settings.fontFamily || "'Inter', sans-serif";
+      const tableSize = settings.fontSize || 13;
       const tableData = settings.tableData;
       if (!tableData) {
         return \`<div style="margin-bottom:20px; padding:20px; border:1px dashed var(--grid-line); border-radius:2px; text-align:center; color:var(--text-muted); font-family:'IBM Plex Mono',monospace; font-size:12px;" data-preview-block-id="\${block.id}">Table — not yet created</div>\`;
       }
       const rowsHtml = tableData.cells.map(row => \`
-        <tr>\${row.map(cell => \`<td style="border:1px solid var(--grid-line); padding:8px; font-family:\${tableFont}; font-size:13px; color:var(--text-primary);">\${escapeHtml(cell)}</td>\`).join('')}</tr>
+        <tr>\${row.map(cell => \`<td style="border:1px solid var(--grid-line); padding:8px; font-family:\${tableFont}; font-size:\${tableSize}px; color:var(--text-primary);">\${escapeHtml(cell)}</td>\`).join('')}</tr>
       \`).join('');
       return \`<div style="margin-bottom:20px; overflow-x:auto;" data-preview-block-id="\${block.id}">
         <table style="border-collapse:collapse; width:100%;">\${rowsHtml}</table>
@@ -827,6 +832,7 @@ const scripts = `
             fileName: pendingPreviewOverride.fileName,
             fileMimeType: pendingPreviewOverride.fileMimeType,
             fontFamily: pendingPreviewOverride.fontFamily,
+            fontSize: pendingPreviewOverride.fontSize,
           },
         };
       }
@@ -867,6 +873,7 @@ const scripts = `
     const isRichText = block.type === 'text' || block.type === 'textImage';
     const isFontSelectable = isHeading || block.type === 'subtitle' || isRichText || isTable;
     let pendingFontFamily = settings.fontFamily || '';
+    let pendingFontSize = settings.fontSize || '';
 
     let layoutHtml = '';
     if (isHeading) {
@@ -987,14 +994,28 @@ const scripts = `
 
     const fontFieldHtml = isFontSelectable ? \`
       <div class="stat-label" style="margin-bottom: 4px; margin-top: 12px;">Font</div>
-      <select id="block-font-select" style="margin-bottom: 4px;">
-        <option value="">Default</option>
-        <option value="'Big Shoulders Display', sans-serif">Big Shoulders Display</option>
-        <option value="'Inter', sans-serif">Inter</option>
-        <option value="'IBM Plex Mono', monospace">IBM Plex Mono</option>
-        <option value="'Playfair Display', serif">Playfair Display</option>
-        <option value="'Merriweather', serif">Merriweather</option>
-      </select>
+      <div class="form-row" style="margin-bottom: 4px;">
+        <select id="block-font-select">
+          <option value="">Default</option>
+          <option value="'Big Shoulders Display', sans-serif">Big Shoulders Display</option>
+          <option value="'Inter', sans-serif">Inter</option>
+          <option value="'IBM Plex Mono', monospace">IBM Plex Mono</option>
+          <option value="'Playfair Display', serif">Playfair Display</option>
+          <option value="'Merriweather', serif">Merriweather</option>
+        </select>
+        <select id="block-font-size-select">
+          <option value="">Default Size</option>
+          <option value="12">12px</option>
+          <option value="14">14px</option>
+          <option value="16">16px</option>
+          <option value="18">18px</option>
+          <option value="20">20px</option>
+          <option value="24">24px</option>
+          <option value="28">28px</option>
+          <option value="32">32px</option>
+          <option value="36">36px</option>
+        </select>
+      </div>
     \` : '';
 
     editorWrap.innerHTML = \`
@@ -1013,6 +1034,13 @@ const scripts = `
       document.getElementById('block-font-select').addEventListener('change', (e) => {
         pendingFontFamily = e.target.value;
         pendingPreviewOverride.fontFamily = pendingFontFamily;
+        renderFullPreview();
+      });
+
+      document.getElementById('block-font-size-select').value = pendingFontSize;
+      document.getElementById('block-font-size-select').addEventListener('change', (e) => {
+        pendingFontSize = e.target.value;
+        pendingPreviewOverride.fontSize = pendingFontSize;
         renderFullPreview();
       });
     }
@@ -1037,6 +1065,7 @@ const scripts = `
       fileName: pendingFileName,
       fileMimeType: pendingFileMimeType,
       fontFamily: pendingFontFamily,
+      fontSize: pendingFontSize,
     };
     renderFullPreview();
 
@@ -1618,17 +1647,17 @@ const scripts = `
       const titleEl = document.getElementById('block-title-input');
       const payload = { title: isRichText ? titleEl.innerHTML : titleEl.value.trim() };
       if (isHeading) {
-        payload.settings = { layout: pendingLayout, imageDataUrl: pendingImageDataUrl, fontFamily: pendingFontFamily };
+        payload.settings = { layout: pendingLayout, imageDataUrl: pendingImageDataUrl, fontFamily: pendingFontFamily, fontSize: pendingFontSize };
       } else if (isTextImage) {
-        payload.settings = { imagePosition: pendingImagePosition, imageDataUrl: pendingImageDataUrl, imageWidth: pendingImageWidth, fontFamily: pendingFontFamily };
+        payload.settings = { imagePosition: pendingImagePosition, imageDataUrl: pendingImageDataUrl, imageWidth: pendingImageWidth, fontFamily: pendingFontFamily, fontSize: pendingFontSize };
       } else if (isPictureOnly) {
         payload.settings = { imageDataUrl: pendingImageDataUrl, imageWidth: pendingImageWidth };
       } else if (isFileBlock) {
         payload.settings = { fileDataUrl: pendingFileDataUrl, fileName: pendingFileName, fileMimeType: pendingFileMimeType };
       } else if (isTable) {
-        payload.settings = { tableData: tableState, fontFamily: pendingFontFamily };
+        payload.settings = { tableData: tableState, fontFamily: pendingFontFamily, fontSize: pendingFontSize };
       } else if (isFontSelectable) {
-        payload.settings = { fontFamily: pendingFontFamily };
+        payload.settings = { fontFamily: pendingFontFamily, fontSize: pendingFontSize };
       }
 
       runBlockOp(
