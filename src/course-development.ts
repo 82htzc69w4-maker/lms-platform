@@ -98,6 +98,7 @@ const bodyHtml = `
               <button class="tool-btn" data-block-type="text">+ Text Field</button>
               <button class="tool-btn" data-block-type="textImage">+ Text + Image</button>
               <button class="tool-btn" data-block-type="webContent">+ Web Content</button>
+              <button class="tool-btn" data-block-type="table">+ Table</button>
               <button class="tool-btn" data-block-type="presentation">+ Presentation</button>
               <button class="tool-btn" data-block-type="document">+ Document</button>
               <button class="tool-btn" data-block-type="videoUpload">+ Video Upload</button>
@@ -360,6 +361,7 @@ const scripts = `
     text: 'Text Field',
     textImage: 'Text + Image',
     webContent: 'Web Content',
+    table: 'Table',
     presentation: 'Presentation',
     document: 'Document',
     videoUpload: 'Video Upload',
@@ -569,6 +571,19 @@ const scripts = `
       return \`<div style="display:flex; gap:16px; align-items:flex-start; margin-bottom:20px;" data-preview-block-id="\${block.id}">\${rowContent}</div>\`;
     }
 
+    if (block.type === 'table') {
+      const tableData = settings.tableData;
+      if (!tableData) {
+        return \`<div style="margin-bottom:20px; padding:20px; border:1px dashed var(--grid-line); border-radius:2px; text-align:center; color:var(--text-muted); font-family:'IBM Plex Mono',monospace; font-size:12px;" data-preview-block-id="\${block.id}">Table — not yet created</div>\`;
+      }
+      const rowsHtml = tableData.cells.map(row => \`
+        <tr>\${row.map(cell => \`<td style="border:1px solid var(--grid-line); padding:8px; font-family:'Inter',sans-serif; font-size:13px; color:var(--text-primary);">\${escapeHtml(cell)}</td>\`).join('')}</tr>
+      \`).join('');
+      return \`<div style="margin-bottom:20px; overflow-x:auto;" data-preview-block-id="\${block.id}">
+        <table style="border-collapse:collapse; width:100%;">\${rowsHtml}</table>
+      </div>\`;
+    }
+
     if (block.type === 'presentation' || block.type === 'document') {
       const fileDataUrl = settings.fileDataUrl;
       const fileName = settings.fileName;
@@ -671,6 +686,7 @@ const scripts = `
     const isFileBlock = block.type === 'presentation' || block.type === 'document' || block.type === 'videoUpload';
     const isYoutubeLink = block.type === 'youtubeLink';
     const isTest = block.type === 'test';
+    const isTable = block.type === 'table';
 
     let layoutHtml = '';
     if (isHeading) {
@@ -734,6 +750,10 @@ const scripts = `
       \`;
     }
 
+    if (isTable) {
+      layoutHtml = '<div class="stat-label" style="margin-bottom: 4px; margin-top: 12px;">Table</div><div id="table-section-wrap"></div>';
+    }
+
     const TITLE_PLACEHOLDERS = {
       module: 'Module Name (e.g. "Module 1: Introduction")',
       forwardButton: 'Button label (default: Next)',
@@ -775,6 +795,7 @@ const scripts = `
     let pendingFileDataUrl = settings.fileDataUrl || null;
     let pendingFileName = settings.fileName || null;
     let pendingFileMimeType = settings.fileMimeType || null;
+    let tableState = settings.tableData ? JSON.parse(JSON.stringify(settings.tableData)) : null;
 
     pendingPreviewOverride = {
       blockId: block.id,
@@ -815,6 +836,87 @@ const scripts = `
         };
         reader.readAsDataURL(file);
       });
+    }
+
+    if (isTable) {
+      function renderTableSection() {
+        const wrap = document.getElementById('table-section-wrap');
+        if (!tableState) {
+          wrap.innerHTML = \`
+            <div class="form-row">
+              <input type="number" id="table-init-rows" placeholder="Rows" min="1" value="2" style="max-width:100px;" />
+              <input type="number" id="table-init-cols" placeholder="Columns" min="1" value="2" style="max-width:100px;" />
+              <button type="button" class="btn" id="create-table-btn">Create Table</button>
+            </div>
+          \`;
+          document.getElementById('create-table-btn').addEventListener('click', () => {
+            const rows = Math.max(1, parseInt(document.getElementById('table-init-rows').value, 10) || 2);
+            const cols = Math.max(1, parseInt(document.getElementById('table-init-cols').value, 10) || 2);
+            tableState = { rows, cols, cells: Array.from({ length: rows }, () => new Array(cols).fill('')) };
+            renderTableSection();
+          });
+          return;
+        }
+
+        let html = '<div style="overflow-x:auto;"><table style="border-collapse:collapse; width:100%;">';
+        html += '<tr><td></td>';
+        for (let c = 0; c < tableState.cols; c++) {
+          html += \`<td style="text-align:center; padding:4px;"><button type="button" class="table-col-remove-btn" data-col="\${c}" \${tableState.cols <= 1 ? 'disabled' : ''} style="background:none;border:1px solid var(--grid-line);color:var(--text-muted);padding:2px 6px;border-radius:2px;cursor:pointer;font-size:11px;">&times;</button></td>\`;
+        }
+        html += '</tr>';
+        for (let r = 0; r < tableState.rows; r++) {
+          html += '<tr>';
+          html += \`<td style="padding:4px;"><button type="button" class="table-row-remove-btn" data-row="\${r}" \${tableState.rows <= 1 ? 'disabled' : ''} style="background:none;border:1px solid var(--grid-line);color:var(--text-muted);padding:2px 6px;border-radius:2px;cursor:pointer;font-size:11px;">&times;</button></td>\`;
+          for (let c = 0; c < tableState.cols; c++) {
+            const val = (tableState.cells[r] && tableState.cells[r][c]) || '';
+            html += \`<td style="padding:2px; border:1px solid var(--grid-line);"><input type="text" class="table-cell-input" data-row="\${r}" data-col="\${c}" value="\${val.replace(/"/g, '&quot;')}" style="width:100%; min-width:80px; background:var(--panel); border:none; color:var(--text-primary); font-family:'Inter',sans-serif; font-size:13px; padding:6px;" /></td>\`;
+          }
+          html += '</tr>';
+        }
+        html += '</table></div>';
+        html += '<div style="margin-top:8px;"><button type="button" class="btn" id="table-add-row-btn" style="margin-right:6px;">+ Add Row</button><button type="button" class="btn" id="table-add-col-btn">+ Add Column</button></div>';
+
+        wrap.innerHTML = html;
+
+        wrap.querySelectorAll('.table-cell-input').forEach(inp => {
+          inp.addEventListener('input', () => {
+            const r = parseInt(inp.dataset.row, 10);
+            const c = parseInt(inp.dataset.col, 10);
+            if (!tableState.cells[r]) tableState.cells[r] = [];
+            tableState.cells[r][c] = inp.value;
+          });
+        });
+        document.getElementById('table-add-row-btn').addEventListener('click', () => {
+          tableState.rows += 1;
+          tableState.cells.push(new Array(tableState.cols).fill(''));
+          renderTableSection();
+        });
+        document.getElementById('table-add-col-btn').addEventListener('click', () => {
+          tableState.cols += 1;
+          tableState.cells.forEach(row => row.push(''));
+          renderTableSection();
+        });
+        wrap.querySelectorAll('.table-row-remove-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            if (tableState.rows <= 1) return;
+            const r = parseInt(btn.dataset.row, 10);
+            tableState.cells.splice(r, 1);
+            tableState.rows -= 1;
+            renderTableSection();
+          });
+        });
+        wrap.querySelectorAll('.table-col-remove-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            if (tableState.cols <= 1) return;
+            const c = parseInt(btn.dataset.col, 10);
+            tableState.cells.forEach(row => row.splice(c, 1));
+            tableState.cols -= 1;
+            renderTableSection();
+          });
+        });
+      }
+
+      renderTableSection();
     }
 
     if (isHeading) {
@@ -1241,6 +1343,8 @@ const scripts = `
         payload.settings = { imagePosition: pendingImagePosition, imageDataUrl: pendingImageDataUrl };
       } else if (isFileBlock) {
         payload.settings = { fileDataUrl: pendingFileDataUrl, fileName: pendingFileName, fileMimeType: pendingFileMimeType };
+      } else if (isTable) {
+        payload.settings = { tableData: tableState };
       }
 
       runBlockOp(

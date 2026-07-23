@@ -1,3 +1,9 @@
+export type TableData = {
+  rows: number;
+  cols: number;
+  cells: string[][];
+};
+
 export type ContentBlockType =
   // Modules — a container marker; every block type below can sit inside one
   | 'module'
@@ -11,6 +17,7 @@ export type ContentBlockType =
   | 'document'
   | 'videoUpload'
   | 'youtubeLink'
+  | 'table'
   // Learning Activity
   | 'mobileUpload' // SCORM/HTML/CMI5
   | 'test'
@@ -32,6 +39,7 @@ export type ContentBlockSettings = {
   fileDataUrl?: string;
   fileName?: string;
   fileMimeType?: string;
+  tableData?: TableData;
 };
 
 export type ContentBlock = {

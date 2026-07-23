@@ -42,6 +42,7 @@ const scripts = `
     text: 'Text Field',
     textImage: 'Text + Image',
     webContent: 'Web Content',
+    table: 'Table',
     presentation: 'Presentation',
     document: 'Document',
     videoUpload: 'Video Upload',
@@ -351,6 +352,19 @@ const scripts = `
       const textEl = \`<div style="flex:1; font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); line-height:1.6; white-space:pre-wrap;">\${safeTitle}</div>\`;
       const rowContent = position === 'right' ? textEl + imageEl : imageEl + textEl;
       return \`<div style="display:flex; gap:16px; align-items:flex-start; margin-bottom:20px;">\${rowContent}</div>\`;
+    }
+
+    if (block.type === 'table') {
+      const tableData = settings.tableData;
+      if (!tableData) {
+        return '<div style="margin-bottom:20px; padding:20px; border:1px dashed var(--grid-line); border-radius:2px; text-align:center; color:var(--text-muted); font-family:\\'IBM Plex Mono\\',monospace; font-size:12px;">Table — not yet created</div>';
+      }
+      const rowsHtml = tableData.cells.map(row => \`
+        <tr>\${row.map(cell => \`<td style="border:1px solid var(--grid-line); padding:8px; font-family:'Inter',sans-serif; font-size:13px; color:var(--text-primary);">\${escapeHtml(cell)}</td>\`).join('')}</tr>
+      \`).join('');
+      return \`<div style="margin-bottom:20px; overflow-x:auto;">
+        <table style="border-collapse:collapse; width:100%;">\${rowsHtml}</table>
+      </div>\`;
     }
 
     if (block.type === 'presentation' || block.type === 'document') {
