@@ -171,7 +171,7 @@ const bodyHtml = `
       </div>
 
       <div class="design-right">
-        <div class="panel">
+        <div class="panel" id="block-editor-panel" style="border-width: 2px;">
           <div class="panel-header">
             <div class="panel-title" id="editor-panel-title">Block Editor</div>
             <div class="panel-sub" id="editor-panel-sub">Select a block on the left to edit it</div>
@@ -575,12 +575,21 @@ const scripts = `
     renderFullPreview();
   }
 
+  function markEditorEditing() {
+    document.getElementById('block-editor-panel').style.borderColor = 'var(--risk)';
+  }
+
+  function markEditorSaved() {
+    document.getElementById('block-editor-panel').style.borderColor = 'var(--competent)';
+  }
+
   function closeBlockEditor() {
     selectedBlockId = null;
     pendingPreviewOverride = null;
     document.getElementById('editor-panel-title').textContent = 'Block Editor';
     document.getElementById('editor-panel-sub').textContent = 'Select a block on the left to edit it';
     document.getElementById('block-editor-wrap').innerHTML = '<div class="empty-state">Nothing selected yet.</div>';
+    document.getElementById('block-editor-panel').style.borderColor = 'var(--grid-line)';
     renderFullPreview();
   }
 
@@ -856,6 +865,7 @@ const scripts = `
   function openBlockEditor(block) {
     selectedBlockId = block.id;
     renderBlocks(currentBlocks); // refresh to show selection highlight
+    markEditorEditing();
 
     const typeLabel = BLOCK_TYPE_LABELS[block.type] || block.type;
     document.getElementById('editor-panel-title').textContent = typeLabel;
@@ -1034,6 +1044,7 @@ const scripts = `
       document.getElementById('block-font-select').addEventListener('change', (e) => {
         pendingFontFamily = e.target.value;
         pendingPreviewOverride.fontFamily = pendingFontFamily;
+        markEditorEditing();
         renderFullPreview();
       });
 
@@ -1041,6 +1052,7 @@ const scripts = `
       document.getElementById('block-font-size-select').addEventListener('change', (e) => {
         pendingFontSize = e.target.value;
         pendingPreviewOverride.fontSize = pendingFontSize;
+        markEditorEditing();
         renderFullPreview();
       });
     }
@@ -1071,6 +1083,7 @@ const scripts = `
 
     document.getElementById('block-title-input').addEventListener('input', (e) => {
       pendingPreviewOverride.title = isRichText ? e.target.innerHTML : e.target.value;
+      markEditorEditing();
       renderFullPreview();
     });
 
@@ -1199,6 +1212,7 @@ const scripts = `
           pendingPreviewOverride.layout = pendingLayout;
           editorWrap.querySelectorAll('.layout-option').forEach(o => o.classList.toggle('selected', o === opt));
           document.getElementById('image-upload-area').style.display = pendingLayout === 'textOnly' ? 'none' : 'block';
+          markEditorEditing();
           renderFullPreview();
         });
       });
@@ -1217,6 +1231,7 @@ const scripts = `
           const preview = document.getElementById('block-image-preview');
           preview.src = pendingImageDataUrl;
           preview.style.display = 'block';
+          markEditorEditing();
           renderFullPreview();
         };
         reader.readAsDataURL(file);
@@ -1229,6 +1244,7 @@ const scripts = `
           pendingImagePosition = opt.dataset.position;
           pendingPreviewOverride.imagePosition = pendingImagePosition;
           editorWrap.querySelectorAll('.layout-option').forEach(o => o.classList.toggle('selected', o === opt));
+          markEditorEditing();
           renderFullPreview();
         });
       });
@@ -1670,6 +1686,7 @@ const scripts = `
           msgEl.textContent = 'Saved.';
           msgEl.style.color = 'var(--competent)';
           renderBlocks(data.blocks || []);
+          markEditorSaved();
         }
       );
     });
