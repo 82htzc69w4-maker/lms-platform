@@ -986,6 +986,8 @@ const scripts = `
           <button type="button" class="richtext-btn" data-cmd="underline" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:#000;padding:6px 12px;border-radius:2px;cursor:pointer;text-decoration:underline;">U</button>
           <button type="button" class="richtext-btn" data-cmd="insertUnorderedList" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:#000;padding:6px 12px;border-radius:2px;cursor:pointer;">&bull; List</button>
           <button type="button" class="richtext-btn" data-cmd="insertOrderedList" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:#000;padding:6px 12px;border-radius:2px;cursor:pointer;">1. List</button>
+          <button type="button" class="richtext-btn" data-cmd="outdent" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:#000;padding:6px 12px;border-radius:2px;cursor:pointer;" title="Decrease indent">&larr;&#124;</button>
+          <button type="button" class="richtext-btn" data-cmd="indent" style="background:var(--panel-alt);border:1px solid var(--grid-line);color:#000;padding:6px 12px;border-radius:2px;cursor:pointer;" title="Increase indent">&#124;&rarr;</button>
         </div>
         <div id="block-title-input" contenteditable="true" style="width:100%; min-height:100px; background: var(--panel-alt); border: 1px solid var(--grid-line); color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13px; padding: 10px 12px; border-radius: 2px;">\${block.title || ''}</div>
       \`
