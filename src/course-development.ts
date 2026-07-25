@@ -1038,6 +1038,7 @@ const scripts = `
       \${layoutHtml}
       <button class="btn" id="save-block-btn" style="margin-top: 8px;">Save</button>
       \${isTest ? '<span id="test-total-marks" style="margin-left: 12px; font-family: \\'IBM Plex Mono\\', monospace; font-size: 13px; color: var(--text-muted); vertical-align: middle;">Total: 0 marks</span>' : ''}
+      \${isTest ? '<span style="margin-left: 16px; font-family: \\'IBM Plex Mono\\', monospace; font-size: 13px; color: var(--text-muted); vertical-align: middle;">Passing Rate: <input type="number" id="test-passing-rate" min="0" max="100" placeholder="e.g. 70" style="width: 70px; margin-left: 6px;" />%</span>' : ''}
       <div id="block-save-message" style="margin-top: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
       \${questionsSectionHtml}
     \`;
@@ -1657,7 +1658,13 @@ const scripts = `
       function loadQuestions() {
         fetch('/api/tests/' + block.id)
           .then(r => r.json())
-          .then(data => renderQuestionsList(data.questions || []))
+          .then(data => {
+            renderQuestionsList(data.questions || []);
+            const rateInput = document.getElementById('test-passing-rate');
+            if (rateInput && data.passingRatePercent != null) {
+              rateInput.value = data.passingRatePercent;
+            }
+          })
           .catch(() => {
             document.getElementById('questions-list-wrap').innerHTML = '<div class="empty-state">Could not load questions.</div>';
           });
@@ -1666,6 +1673,18 @@ const scripts = `
       document.getElementById('add-question-btn').addEventListener('click', () => {
         openQuestionForm(null);
       });
+
+      const passingRateInput = document.getElementById('test-passing-rate');
+      if (passingRateInput) {
+        passingRateInput.addEventListener('change', (e) => {
+          const value = e.target.value === '' ? null : Math.max(0, Math.min(100, parseInt(e.target.value, 10)));
+          fetch('/api/tests/' + block.id + '/passing-rate', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ passingRatePercent: value })
+          });
+        });
+      }
 
       loadQuestions();
     }

@@ -32,6 +32,7 @@ export type Question = {
 export type Test = {
   blockId: string;
   questions: Question[];
+  passingRatePercent?: number;
 };
 
 export type QuestionResult = {
@@ -49,5 +50,7 @@ export type Attempt = {
   results: QuestionResult[];
   score: number;
   maxScore: number;
+  passingRatePercent?: number;
+  passed: boolean | null;
   submittedAt: string;
 };

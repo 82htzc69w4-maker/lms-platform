@@ -10,7 +10,18 @@ const tests = new Hono<{ Bindings: Env }>();
 tests.get('/:blockId', async (c) => {
   const blockId = c.req.param('blockId');
   const test = await kvGetJSON<Test>(c.env, `course:test:${blockId}`);
-  return c.json({ questions: test?.questions ?? [] });
+  return c.json({ questions: test?.questions ?? [], passingRatePercent: test?.passingRatePercent });
+});
+
+// PUT /api/tests/:blockId/passing-rate — set the minimum score (%) to pass
+tests.put('/:blockId/passing-rate', async (c) => {
+  const blockId = c.req.param('blockId');
+  const body = await c.req.json<{ passingRatePercent: number | null }>();
+
+  const test: Test = (await kvGetJSON<Test>(c.env, `course:test:${blockId}`)) ?? { blockId, questions: [] };
+  test.passingRatePercent = body.passingRatePercent ?? undefined;
+  await kvPutJSON(c.env, `course:test:${blockId}`, test);
+  return c.json({ ok: true, passingRatePercent: test.passingRatePercent });
 });
 
 // POST /api/tests/:blockId/questions — add a new question
@@ -175,6 +186,9 @@ tests.post('/:blockId/submit', async (c) => {
 
   const score = results.reduce((sum, r) => sum + r.pointsEarned, 0);
   const maxScore = results.reduce((sum, r) => sum + r.pointsPossible, 0);
+  const passingRatePercent = test.passingRatePercent;
+  const passed =
+    maxScore > 0 && passingRatePercent != null ? (score / maxScore) * 100 >= passingRatePercent : null;
 
   const attempt: Attempt = {
     blockId,
@@ -182,6 +196,8 @@ tests.post('/:blockId/submit', async (c) => {
     results,
     score,
     maxScore,
+    passingRatePercent,
+    passed,
     submittedAt: new Date().toISOString(),
   };
   await kvPutJSON(c.env, `test:attempt:${blockId}:${session.username}`, attempt);

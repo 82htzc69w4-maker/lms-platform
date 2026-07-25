@@ -218,6 +218,16 @@ const scripts = `
     const summaryPct = attempt.maxScore > 0 ? Math.round((100 * attempt.score) / attempt.maxScore) : null;
     const summaryText = 'Score: ' + attempt.score + ' / ' + attempt.maxScore + (summaryPct !== null ? ' (' + summaryPct + '%)' : '');
 
+    let passFailHtml = '';
+    if (attempt.passed === true) {
+      passFailHtml = '<span style="color:var(--competent); margin-left:12px;">&check; PASS</span>';
+    } else if (attempt.passed === false) {
+      passFailHtml = '<span style="color:var(--risk); margin-left:12px;">&times; FAIL</span>';
+    }
+    const passingRateNote = attempt.passingRatePercent != null
+      ? \`<div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-muted); margin-bottom:12px;">Passing rate: \${attempt.passingRatePercent}%</div>\`
+      : '';
+
     const rows = attempt.results.map((r, i) => {
       if (r.correct === null) {
         return \`<div style="margin-bottom:10px; padding:10px; border:1px solid var(--grid-line); border-radius:2px; font-family:'IBM Plex Mono',monospace; font-size:13px;">\${i + 1}. Submitted for review</div>\`;
@@ -233,7 +243,8 @@ const scripts = `
     }).join('');
 
     resultsEl.innerHTML = \`
-      <div style="font-family:'Big Shoulders Display',sans-serif; font-size:20px; text-transform:uppercase; color:var(--text-primary); margin-bottom:12px;">\${summaryText}</div>
+      <div style="font-family:'Big Shoulders Display',sans-serif; font-size:20px; text-transform:uppercase; color:var(--text-primary); margin-bottom:4px;">\${summaryText}\${passFailHtml}</div>
+      \${passingRateNote}
       \${rows}
       <button type="button" class="btn retake-test-btn" style="margin-top:8px;">Retake Test</button>
     \`;
@@ -260,8 +271,13 @@ const scripts = `
       }
 
       const questionsHtml = questions.map((q, i) => buildTestQuestionHtml(q, i)).join('');
+      const prevPassFail = previousAttempt && previousAttempt.passed === true
+        ? ' — <span style="color:var(--competent);">PASS</span>'
+        : previousAttempt && previousAttempt.passed === false
+        ? ' — <span style="color:var(--risk);">FAIL</span>'
+        : '';
       const bannerHtml = previousAttempt
-        ? \`<div style="margin-bottom:16px; padding:12px; background:rgba(62,155,84,0.12); border-left:3px solid var(--competent); border-radius:2px; font-family:'IBM Plex Mono',monospace; font-size:13px;">Previous score: \${previousAttempt.score} / \${previousAttempt.maxScore}</div>\`
+        ? \`<div style="margin-bottom:16px; padding:12px; background:rgba(62,155,84,0.12); border-left:3px solid var(--competent); border-radius:2px; font-family:'IBM Plex Mono',monospace; font-size:13px;">Previous score: \${previousAttempt.score} / \${previousAttempt.maxScore}\${prevPassFail}</div>\`
         : '';
 
       container.innerHTML = \`
