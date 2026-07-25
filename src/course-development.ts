@@ -9,6 +9,7 @@ const bodyHtml = `
   <div class="tabbar">
     <button class="tab-btn active" data-tab="information">Course Information</button>
     <button class="tab-btn" data-tab="design">Course Design</button>
+    <button class="tab-btn" data-tab="certificate">Certificate Design</button>
   </div>
 
   <div class="tab-panel active" data-tab-panel="information">
@@ -202,6 +203,89 @@ const bodyHtml = `
         </div>
       </div>
 
+    </div>
+  </div>
+
+  <div class="tab-panel" data-tab-panel="certificate">
+    <div class="design-layout">
+      <div class="design-left">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Certificate Elements</div>
+            <div class="panel-sub">Choose what appears on the certificate for this course</div>
+          </div>
+          <div class="panel-body">
+            <div class="form-row">
+              <select id="cert-type-select">
+                <option value="completion">Certificate of Completion</option>
+                <option value="competency">Certificate of Competency</option>
+              </select>
+            </div>
+
+            <div class="stat-label" style="margin: 16px 0 8px;">Include on Certificate</div>
+            <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text-primary);">
+              <input type="checkbox" id="cert-include-logo" /> Logo
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text-primary);">
+              <input type="checkbox" id="cert-include-student-name" /> Student Name
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text-primary);">
+              <input type="checkbox" id="cert-include-course-name" /> Course Name
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text-primary);">
+              <input type="checkbox" id="cert-include-course-date" /> Course Date
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text-primary);">
+              <input type="checkbox" id="cert-include-course-number" /> Course Number
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text-primary);">
+              <input type="checkbox" id="cert-include-signatory" /> Signatory
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text-primary);">
+              <input type="checkbox" id="cert-include-expiry-date" /> Expiry Date
+            </label>
+
+            <div id="cert-signatory-fields" style="margin-top:16px;">
+              <div class="form-row">
+                <input type="text" id="cert-signatory-name" placeholder="Signatory Name" />
+                <input type="text" id="cert-signatory-title" placeholder="Signatory Title (e.g. Training Manager)" />
+              </div>
+              <div class="stat-label" style="margin-bottom:8px;">Signature</div>
+              <div class="image-upload-area" id="signature-upload-area">
+                <img id="signature-preview" class="image-upload-preview" src="" style="display:none;" />
+                <input type="file" id="signature-input" accept="image/*" />
+              </div>
+            </div>
+
+            <div style="margin-top: 20px;">
+              <div class="stat-label" style="margin-bottom: 8px;">Background Image</div>
+              <div class="image-upload-area" id="cert-background-upload-area">
+                <img id="cert-background-preview" class="image-upload-preview" src="" style="display:none;" />
+                <input type="file" id="cert-background-input" accept="image/*" />
+              </div>
+              <div class="stat-label" style="margin-bottom: 4px; margin-top: 12px;">Brightness: <span id="cert-brightness-label">100%</span></div>
+              <input type="range" id="cert-brightness-slider" min="20" max="180" value="100" style="width:100%;" />
+              <div class="stat-label" style="margin-bottom: 4px; margin-top: 12px;">Opacity: <span id="cert-opacity-label">100%</span></div>
+              <input type="range" id="cert-opacity-slider" min="0" max="100" value="100" style="width:100%;" />
+            </div>
+
+            <button class="btn" id="save-certificate-btn" style="margin-top: 16px;">Save Certificate Design</button>
+            <div id="certificate-save-message" style="margin-top: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="design-right">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Certificate Preview</div>
+            <div class="panel-sub">Updates live as you configure the design</div>
+          </div>
+          <div class="panel-body">
+            <div id="certificate-preview-wrap"></div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 `;
@@ -1768,6 +1852,209 @@ const scripts = `
   });
 
   loadContentBlocks();
+
+  // ---------- Certificate Design ----------
+  let pendingSignatureDataUrl = null;
+  let pendingCertBackgroundDataUrl = null;
+  let brandingLogoDataUrl = null;
+  let currentCourseTitle = '';
+  let currentCourseNumber = '';
+
+  function escapeHtmlCert(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+
+  function renderCertificatePreview() {
+    const type = document.getElementById('cert-type-select').value;
+    const includeLogo = document.getElementById('cert-include-logo').checked;
+    const includeStudentName = document.getElementById('cert-include-student-name').checked;
+    const includeCourseName = document.getElementById('cert-include-course-name').checked;
+    const includeCourseDate = document.getElementById('cert-include-course-date').checked;
+    const includeCourseNumber = document.getElementById('cert-include-course-number').checked;
+    const includeSignatory = document.getElementById('cert-include-signatory').checked;
+    const includeExpiryDate = document.getElementById('cert-include-expiry-date').checked;
+    const signatoryName = document.getElementById('cert-signatory-name').value.trim();
+    const signatoryTitle = document.getElementById('cert-signatory-title').value.trim();
+    const brightness = document.getElementById('cert-brightness-slider').value;
+    const opacity = document.getElementById('cert-opacity-slider').value;
+
+    document.getElementById('cert-signatory-fields').style.display = includeSignatory ? 'block' : 'none';
+    document.getElementById('cert-brightness-label').textContent = brightness + '%';
+    document.getElementById('cert-opacity-label').textContent = opacity + '%';
+
+    const title = type === 'competency' ? 'Certificate of Competency' : 'Certificate of Completion';
+    const bodyText = type === 'competency' ? 'has been assessed as competent in' : 'has successfully completed';
+
+    const logoHtml = includeLogo && brandingLogoDataUrl
+      ? '<img src="' + brandingLogoDataUrl + '" style="max-height:60px; margin-bottom:16px; position:relative; z-index:1;" />'
+      : '';
+
+    const courseNameHtml = includeCourseName
+      ? '<div style="font-family:\\'Big Shoulders Display\\',sans-serif; font-size:22px; text-transform:uppercase; color:#B8860B; margin:8px 0; position:relative; z-index:1;">' + (escapeHtmlCert(currentCourseTitle) || 'Course Name') + '</div>'
+      : '';
+    const courseNumberHtml = includeCourseNumber
+      ? '<div style="font-family:\\'IBM Plex Mono\\',monospace; font-size:12px; color:#6B6459; position:relative; z-index:1;">Course No: ' + (escapeHtmlCert(currentCourseNumber) || '—') + '</div>'
+      : '';
+    const courseDateHtml = includeCourseDate
+      ? '<div style="font-family:\\'IBM Plex Mono\\',monospace; font-size:12px; color:#6B6459; margin-top:8px; position:relative; z-index:1;">Completed: [Course Date]</div>'
+      : '';
+    const expiryHtml = includeExpiryDate
+      ? '<div style="font-family:\\'IBM Plex Mono\\',monospace; font-size:12px; color:#6B6459; position:relative; z-index:1;">Valid Until: [Expiry Date]</div>'
+      : '';
+
+    const signatoryHtml = includeSignatory ? \`
+      <div style="margin-top:32px; display:flex; flex-direction:column; align-items:center; position:relative; z-index:1;">
+        \${pendingSignatureDataUrl ? '<img src="' + pendingSignatureDataUrl + '" style="height:50px; margin-bottom:4px;" />' : '<div style="height:50px;"></div>'}
+        <div style="width:180px; border-top:1px solid #D9D2C3; padding-top:4px; font-family:'Inter',sans-serif; font-size:13px; color:#14171A;">\${escapeHtmlCert(signatoryName) || 'Signatory Name'}</div>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:#6B6459;">\${escapeHtmlCert(signatoryTitle) || 'Title'}</div>
+      </div>
+    \` : '';
+
+    const backgroundLayerHtml = pendingCertBackgroundDataUrl
+      ? '<img src="' + pendingCertBackgroundDataUrl + '" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; filter: brightness(' + brightness + '%); opacity:' + (opacity / 100) + '; z-index:0;" />'
+      : '';
+
+    document.getElementById('certificate-preview-wrap').innerHTML = \`
+      <div style="position:relative; overflow:hidden; background:#fff; color:#14171A; border:8px solid #F2B705; border-radius:4px; padding:40px; text-align:center; font-family:'Inter',sans-serif;">
+        \${backgroundLayerHtml}
+        <div style="position:relative; z-index:1;">
+          \${logoHtml}
+          <div style="font-family:'Big Shoulders Display',sans-serif; font-size:28px; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:16px;">\${title}</div>
+          <div style="font-size:13px; color:#6B6459;">This certifies that</div>
+          \${includeStudentName ? '<div style="font-family:\\'Playfair Display\\',serif; font-size:26px; margin:12px 0; border-bottom:1px solid #D9D2C3; display:inline-block; padding-bottom:6px;">[Student Name]</div>' : ''}
+          <div style="font-size:13px; color:#6B6459; margin-top:8px;">\${bodyText}</div>
+          \${courseNameHtml}
+          \${courseNumberHtml}
+          \${courseDateHtml}
+          \${expiryHtml}
+          \${signatoryHtml}
+        </div>
+      </div>
+    \`;
+  }
+
+  document.querySelectorAll('#cert-type-select, #cert-include-logo, #cert-include-student-name, #cert-include-course-name, #cert-include-course-date, #cert-include-course-number, #cert-include-signatory, #cert-include-expiry-date, #cert-signatory-name, #cert-signatory-title').forEach(el => {
+    el.addEventListener('input', renderCertificatePreview);
+    el.addEventListener('change', renderCertificatePreview);
+  });
+
+  document.getElementById('cert-brightness-slider').addEventListener('input', renderCertificatePreview);
+  document.getElementById('cert-opacity-slider').addEventListener('input', renderCertificatePreview);
+
+  document.getElementById('signature-input').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      document.getElementById('certificate-save-message').textContent = 'Image is too large — please use one under 2MB.';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      pendingSignatureDataUrl = reader.result;
+      document.getElementById('signature-preview').src = pendingSignatureDataUrl;
+      document.getElementById('signature-preview').style.display = 'block';
+      renderCertificatePreview();
+    };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById('cert-background-input').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) {
+      document.getElementById('certificate-save-message').textContent = 'Image is too large — please use one under 3MB.';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      pendingCertBackgroundDataUrl = reader.result;
+      document.getElementById('cert-background-preview').src = pendingCertBackgroundDataUrl;
+      document.getElementById('cert-background-preview').style.display = 'block';
+      renderCertificatePreview();
+    };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById('save-certificate-btn').addEventListener('click', () => {
+    const msgEl = document.getElementById('certificate-save-message');
+    const payload = {
+      certificateType: document.getElementById('cert-type-select').value,
+      includeLogo: document.getElementById('cert-include-logo').checked,
+      includeStudentName: document.getElementById('cert-include-student-name').checked,
+      includeCourseName: document.getElementById('cert-include-course-name').checked,
+      includeCourseDate: document.getElementById('cert-include-course-date').checked,
+      includeCourseNumber: document.getElementById('cert-include-course-number').checked,
+      includeSignatory: document.getElementById('cert-include-signatory').checked,
+      includeExpiryDate: document.getElementById('cert-include-expiry-date').checked,
+      signatoryName: document.getElementById('cert-signatory-name').value.trim(),
+      signatoryTitle: document.getElementById('cert-signatory-title').value.trim(),
+      signatureDataUrl: pendingSignatureDataUrl,
+      backgroundImageDataUrl: pendingCertBackgroundDataUrl,
+      backgroundBrightness: parseInt(document.getElementById('cert-brightness-slider').value, 10),
+      backgroundOpacity: parseInt(document.getElementById('cert-opacity-slider').value, 10),
+    };
+
+    fetch('/api/certificate-templates/' + COURSE_ID, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+      .then(r => r.json())
+      .then(() => {
+        msgEl.textContent = 'Certificate design saved.';
+        msgEl.style.color = 'var(--competent)';
+      })
+      .catch(() => {
+        msgEl.textContent = 'Failed to save certificate design.';
+        msgEl.style.color = 'var(--risk)';
+      });
+  });
+
+  Promise.all([
+    fetch('/api/courses/' + COURSE_ID).then(r => r.json()),
+    fetch('/api/settings').then(r => r.json()),
+    fetch('/api/certificate-templates/' + COURSE_ID).then(r => r.json()),
+  ]).then(([courseData, settingsData, templateData]) => {
+    const course = courseData.course;
+    if (course) {
+      currentCourseTitle = course.title || '';
+      currentCourseNumber = course.courseNumber || '';
+    }
+    brandingLogoDataUrl = settingsData.logoDataUrl || null;
+
+    const t = templateData.template;
+    if (t) {
+      document.getElementById('cert-type-select').value = t.certificateType || 'completion';
+      document.getElementById('cert-include-logo').checked = !!t.includeLogo;
+      document.getElementById('cert-include-student-name').checked = !!t.includeStudentName;
+      document.getElementById('cert-include-course-name').checked = !!t.includeCourseName;
+      document.getElementById('cert-include-course-date').checked = !!t.includeCourseDate;
+      document.getElementById('cert-include-course-number').checked = !!t.includeCourseNumber;
+      document.getElementById('cert-include-signatory').checked = !!t.includeSignatory;
+      document.getElementById('cert-include-expiry-date').checked = !!t.includeExpiryDate;
+      document.getElementById('cert-signatory-name').value = t.signatoryName || '';
+      document.getElementById('cert-signatory-title').value = t.signatoryTitle || '';
+
+      if (t.signatureDataUrl) {
+        pendingSignatureDataUrl = t.signatureDataUrl;
+        document.getElementById('signature-preview').src = t.signatureDataUrl;
+        document.getElementById('signature-preview').style.display = 'block';
+      }
+      if (t.backgroundImageDataUrl) {
+        pendingCertBackgroundDataUrl = t.backgroundImageDataUrl;
+        document.getElementById('cert-background-preview').src = t.backgroundImageDataUrl;
+        document.getElementById('cert-background-preview').style.display = 'block';
+      }
+      document.getElementById('cert-brightness-slider').value = t.backgroundBrightness || 100;
+      document.getElementById('cert-opacity-slider').value = t.backgroundOpacity != null ? t.backgroundOpacity : 100;
+    }
+
+    renderCertificatePreview();
+  }).catch(() => {
+    document.getElementById('certificate-preview-wrap').innerHTML = '<div class="empty-state">Could not load certificate design.</div>';
+  });
 `;
 
 export const courseDevelopmentHtml = renderLayout({
