@@ -394,6 +394,130 @@ const scripts = `
     });
   }
 
+  function renderCertificateSubmitted(container, blockId, submission) {
+    const expiryLine = submission.expiryDate
+      ? \`<div>Expires: \${new Date(submission.expiryDate).toLocaleDateString()}</div>\`
+      : '';
+    container.innerHTML = \`
+      <div style="margin-bottom:12px; padding:12px; background:rgba(62,155,84,0.12); border-left:3px solid var(--competent); border-radius:2px; font-family:'IBM Plex Mono',monospace; font-size:13px;">
+        <div>\${escapeHtml(submission.certificateName)}</div>
+        <div>Issued: \${new Date(submission.issuedDate).toLocaleDateString()}</div>
+        \${expiryLine}
+      </div>
+      <a href="\${submission.fileDataUrl}" download="\${escapeHtml(submission.fileName)}" class="btn" style="text-decoration:none; display:inline-block; margin-right:8px;">Open Certificate</a>
+      <button type="button" class="btn replace-certificate-btn" style="background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line);">Replace Certificate</button>
+    \`;
+
+    container.querySelector('.replace-certificate-btn').addEventListener('click', () => {
+      renderCertificateUploadForm(container, blockId);
+    });
+  }
+
+  function renderCertificateUploadForm(container, blockId) {
+    container.innerHTML = \`
+      <div class="form-row">
+        <input type="text" id="certificate-name-\${blockId}" placeholder="Certificate Name" />
+      </div>
+      <div class="form-row">
+        <div style="flex:1;">
+          <div class="stat-label" style="margin-bottom:4px;">Date Issued</div>
+          <input type="date" id="certificate-issued-\${blockId}" style="width:100%;" />
+        </div>
+        <div style="flex:1;">
+          <div class="stat-label" style="margin-bottom:4px;">Expiry Date (optional)</div>
+          <input type="date" id="certificate-expiry-\${blockId}" style="width:100%;" />
+        </div>
+      </div>
+      <div class="form-row">
+        <input type="file" id="certificate-file-\${blockId}" accept=".pdf,application/pdf" />
+      </div>
+      <button type="button" class="btn submit-certificate-btn">Upload Certificate</button>
+      <div class="certificate-message" style="margin-top:10px; font-family:'IBM Plex Mono',monospace; font-size:13px;"></div>
+    \`;
+
+    container.querySelector('.submit-certificate-btn').addEventListener('click', () => {
+      const nameInput = document.getElementById('certificate-name-' + blockId);
+      const issuedInput = document.getElementById('certificate-issued-' + blockId);
+      const expiryInput = document.getElementById('certificate-expiry-' + blockId);
+      const fileInput = document.getElementById('certificate-file-' + blockId);
+      const file = fileInput.files[0];
+      const msgEl = container.querySelector('.certificate-message');
+
+      if (!nameInput.value.trim()) {
+        msgEl.textContent = 'Certificate name is required.';
+        msgEl.style.color = 'var(--risk)';
+        return;
+      }
+      if (!issuedInput.value) {
+        msgEl.textContent = 'Date issued is required.';
+        msgEl.style.color = 'var(--risk)';
+        return;
+      }
+      if (!file) {
+        msgEl.textContent = 'Please choose a PDF file.';
+        msgEl.style.color = 'var(--risk)';
+        return;
+      }
+      if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+        msgEl.textContent = 'Only PDF files are accepted.';
+        msgEl.style.color = 'var(--risk)';
+        return;
+      }
+      if (file.size > 4 * 1024 * 1024) {
+        msgEl.textContent = 'File is too large — please use one under 4MB.';
+        msgEl.style.color = 'var(--risk)';
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        fetch('/api/certificate-uploads/' + blockId + '/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            certificateName: nameInput.value.trim(),
+            issuedDate: issuedInput.value,
+            expiryDate: expiryInput.value,
+            fileName: file.name,
+            fileDataUrl: reader.result
+          })
+        })
+          .then(async (r) => {
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error || 'Upload failed');
+            return data;
+          })
+          .then(data => renderCertificateSubmitted(container, blockId, data.submission))
+          .catch((err) => {
+            msgEl.textContent = err.message;
+            msgEl.style.color = 'var(--risk)';
+          });
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function initCertificateUpload(blockId, container) {
+    fetch('/api/certificate-uploads/' + blockId + '/my-submission')
+      .then(r => r.json())
+      .then(data => {
+        if (data.submission) {
+          renderCertificateSubmitted(container, blockId, data.submission);
+        } else {
+          renderCertificateUploadForm(container, blockId);
+        }
+      })
+      .catch(() => {
+        container.innerHTML = '<div class="empty-state">Could not load this certificate upload.</div>';
+      });
+  }
+
+  function mountCertificateUploads() {
+    document.querySelectorAll('[data-certificate-upload-block-id]').forEach(el => {
+      initCertificateUpload(el.dataset.certificateUploadBlockId, el);
+    });
+  }
+
   function renderBlockHtml(block) {
     const safeTitle = escapeHtml(block.title) || 'Untitled';
     const settings = block.settings || {};
@@ -579,6 +703,18 @@ const scripts = `
       </div>\`;
     }
 
+    if (block.type === 'externalCertificate') {
+      return \`<div class="panel" style="margin-bottom:20px;">
+        <div class="panel-header">
+          <div class="panel-title">\${block.title ? safeTitle : 'External Certificate Upload'}</div>
+          <div class="panel-sub">Upload proof of an existing certificate — PDF only</div>
+        </div>
+        <div class="panel-body" data-certificate-upload-block-id="\${block.id}">
+          <div class="empty-state">Loading&hellip;</div>
+        </div>
+      </div>\`;
+    }
+
     return \`<div style="margin-bottom:20px; padding:12px; border:1px dashed var(--grid-line); border-radius:2px;">
       <span class="content-block-type" style="display:inline-block; margin-bottom:6px;">\${BLOCK_TYPE_LABELS[block.type] || block.type}</span>
       <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary);">\${safeTitle}</div>
@@ -690,6 +826,7 @@ const scripts = `
 
     mountTests();
     mountAssignments();
+    mountCertificateUploads();
   }
 
   Promise.all([
