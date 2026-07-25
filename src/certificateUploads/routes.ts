@@ -62,4 +62,33 @@ certificateUploads.post('/:blockId/submit', async (c) => {
   return c.json({ ok: true, submission });
 });
 
+// GET /api/certificate-uploads/expired — every uploaded certificate whose
+// expiry date has passed (certificates without an expiry date never expire)
+certificateUploads.get('/expired', async (c) => {
+  const list = await kvListByPrefix(c.env, 'certificate-upload:');
+  const expired: Array<{
+    username: string;
+    blockId: string;
+    certificateName: string;
+    expiryDate: string;
+  }> = [];
+  const now = Date.now();
+
+  for (const key of list.keys) {
+    const submission = await kvGetJSON<CertificateUploadSubmission>(c.env, key.name);
+    if (!submission || !submission.expiryDate) continue;
+
+    if (new Date(submission.expiryDate).getTime() <= now) {
+      expired.push({
+        username: submission.username,
+        blockId: submission.blockId,
+        certificateName: submission.certificateName,
+        expiryDate: submission.expiryDate,
+      });
+    }
+  }
+
+  return c.json({ expired });
+});
+
 export default certificateUploads;

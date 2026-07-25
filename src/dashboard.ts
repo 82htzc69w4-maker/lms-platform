@@ -145,15 +145,18 @@ const scripts = `
         '<div class="empty-state" style="grid-column: 1 / -1;">Could not reach /api/competency/risk-by-department.</div>';
     });
 
-  // ---------- Live gap log ----------
-  fetch('/api/competency/gaps')
-    .then(r => r.json())
-    .then(data => {
-      const gaps = data.gaps || [];
+  // ---------- Live gap log (plus external certificate upload expiry) ----------
+  Promise.all([
+    fetch('/api/competency/gaps').then(r => r.json()),
+    fetch('/api/certificate-uploads/expired').then(r => r.json()).catch(() => ({ expired: [] })),
+  ])
+    .then(([gapData, certUploadData]) => {
+      const gaps = gapData.gaps || [];
+      const expiredCertUploads = certUploadData.expired || [];
       const wrap = document.getElementById('gap-log-wrap');
 
       const notCompetentCount = gaps.filter(g => g.status === 'not_competent').length;
-      const expiredCertCount = gaps.filter(g => g.status === 'expired').length;
+      const expiredCertCount = gaps.filter(g => g.status === 'expired').length + expiredCertUploads.length;
 
       countUp(document.getElementById('stat-not-competent'), notCompetentCount);
       countUp(document.getElementById('stat-expired-certifications'), expiredCertCount);
