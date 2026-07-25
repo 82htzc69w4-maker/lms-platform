@@ -24,4 +24,5 @@ export type Enrollment = {
   registeredAt: string;
   status: 'active' | 'completed';
   completedAt?: string;
+  blocked?: boolean;
 };

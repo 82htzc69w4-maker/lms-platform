@@ -296,10 +296,18 @@ const scripts = `
         fetch('/api/tests/' + blockId + '/submit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ answers: answers })
+          body: JSON.stringify({ answers: answers, courseId: COURSE_ID })
         })
           .then(r => r.json())
-          .then(data => renderTestResults(container, data.attempt));
+          .then(data => {
+            renderTestResults(container, data.attempt);
+            if (data.blocked) {
+              const blockedNote = document.createElement('div');
+              blockedNote.style.cssText = 'margin-top:12px; padding:12px; background:rgba(193,68,58,0.12); border-left:3px solid var(--risk); border-radius:2px; font-family:\\'IBM Plex Mono\\',monospace; font-size:13px; color:var(--text-primary);';
+              blockedNote.textContent = 'You have used up your allowed attempts without passing. This course is now blocked and a coach has been notified. Reload the page to see the block message.';
+              container.querySelector('.test-results').appendChild(blockedNote);
+            }
+          });
       });
     }).catch(() => {
       container.innerHTML = '<div class="empty-state">Could not load this test.</div>';
@@ -832,7 +840,8 @@ const scripts = `
   Promise.all([
     fetch('/api/courses/' + COURSE_ID).then(r => r.json()),
     fetch('/api/courses/' + COURSE_ID + '/content').then(r => r.json()),
-  ]).then(([courseData, contentData]) => {
+    fetch('/api/courses/' + COURSE_ID + '/enrollment-status').then(r => r.json()).catch(() => ({ blocked: false })),
+  ]).then(([courseData, contentData, enrollmentData]) => {
     const course = courseData.course;
     const blocks = contentData.blocks || [];
 
@@ -849,6 +858,18 @@ const scripts = `
     }
 
     const bodyEl = document.getElementById('preview-course-body');
+
+    if (enrollmentData.blocked) {
+      document.getElementById('page-indicator').textContent = '';
+      bodyEl.innerHTML = \`
+        <div style="padding:20px; background:rgba(193,68,58,0.12); border-left:3px solid var(--risk); border-radius:2px; font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--text-primary);">
+          This course is currently blocked. You have used up your allowed attempts on a required test without passing.
+          A coach has been notified and will assist you — this course will reopen once a coaching session has been recorded.
+        </div>
+      \`;
+      return;
+    }
+
     if (blocks.length === 0) {
       bodyEl.innerHTML = '<div class="empty-state">This course has no content yet.</div>';
       return;

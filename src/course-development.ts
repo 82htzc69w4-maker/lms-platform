@@ -1039,6 +1039,7 @@ const scripts = `
       <button class="btn" id="save-block-btn" style="margin-top: 8px;">Save</button>
       \${isTest ? '<span id="test-total-marks" style="margin-left: 12px; font-family: \\'IBM Plex Mono\\', monospace; font-size: 13px; color: var(--text-muted); vertical-align: middle;">Total: 0 marks</span>' : ''}
       \${isTest ? '<span style="margin-left: 16px; font-family: \\'IBM Plex Mono\\', monospace; font-size: 13px; color: var(--text-muted); vertical-align: middle;">Passing Rate: <input type="number" id="test-passing-rate" min="0" max="100" placeholder="e.g. 70" style="width: 70px; margin-left: 6px;" />%</span>' : ''}
+      \${isTest ? '<span style="margin-left: 16px; font-family: \\'IBM Plex Mono\\', monospace; font-size: 13px; color: var(--text-muted); vertical-align: middle;">Max Attempts: <input type="number" id="test-max-attempts" min="1" placeholder="e.g. 3" style="width: 60px; margin-left: 6px;" /></span>' : ''}
       <div id="block-save-message" style="margin-top: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
       \${questionsSectionHtml}
     \`;
@@ -1664,6 +1665,10 @@ const scripts = `
             if (rateInput && data.passingRatePercent != null) {
               rateInput.value = data.passingRatePercent;
             }
+            const attemptsInput = document.getElementById('test-max-attempts');
+            if (attemptsInput && data.maxAttempts != null) {
+              attemptsInput.value = data.maxAttempts;
+            }
           })
           .catch(() => {
             document.getElementById('questions-list-wrap').innerHTML = '<div class="empty-state">Could not load questions.</div>';
@@ -1682,6 +1687,18 @@ const scripts = `
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ passingRatePercent: value })
+          });
+        });
+      }
+
+      const maxAttemptsInput = document.getElementById('test-max-attempts');
+      if (maxAttemptsInput) {
+        maxAttemptsInput.addEventListener('change', (e) => {
+          const value = e.target.value === '' ? null : Math.max(1, parseInt(e.target.value, 10));
+          fetch('/api/tests/' + block.id + '/max-attempts', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ maxAttempts: value })
           });
         });
       }

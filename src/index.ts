@@ -25,6 +25,7 @@ import lookups from './lookups/routes';
 import tests from './tests/routes';
 import assignments from './assignments/routes';
 import certificateUploads from './certificateUploads/routes';
+import coaching from './coaching/routes';
 import { learnerHtml } from './learner';
 import { courseDeliveryHtml } from './course-delivery';
 import { courseDevelopmentHtml } from './course-development';
@@ -62,5 +63,6 @@ app.route('/api/lookups', lookups);
 app.route('/api/tests', tests);
 app.route('/api/assignments', assignments);
 app.route('/api/certificate-uploads', certificateUploads);
+app.route('/api/coaching', coaching);
 
 export default app;

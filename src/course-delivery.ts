@@ -53,8 +53,18 @@ const bodyHtml = `
   <div class="tab-panel" data-tab-panel="coaching">
     <div class="panel">
       <div class="panel-header">
-        <div class="panel-title">Learner Coaching</div>
-        <div class="panel-sub">Registered learners — coaching notes and interactions coming soon</div>
+        <div class="panel-title">Pending Coaching Notifications</div>
+        <div class="panel-sub">Learners who have failed a test the maximum allowed number of times</div>
+      </div>
+      <div id="coaching-notifications-wrap">
+        <div class="empty-state">Loading&hellip;</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Learner Roster</div>
+        <div class="panel-sub">All registered learners</div>
       </div>
       <div id="coaching-wrap">
         <div class="empty-state">Loading&hellip;</div>
@@ -81,6 +91,7 @@ const scripts = `
       loadCatalogue();
       loadDevelopment();
       loadCoaching();
+      loadCoachingNotifications();
     })
     .catch(() => {
       window.location.href = '/login';
@@ -276,6 +287,92 @@ const scripts = `
         msgEl.style.color = 'var(--risk)';
       });
   });
+
+  // ---------- Pending Coaching Notifications ----------
+  function loadCoachingNotifications() {
+    fetch('/api/coaching/notifications')
+      .then(r => r.json())
+      .then(data => {
+        const notifications = (data.notifications || []).filter(n => !n.resolved);
+        const wrap = document.getElementById('coaching-notifications-wrap');
+
+        if (notifications.length === 0) {
+          wrap.innerHTML = '<div class="empty-state">No learners currently need coaching.</div>';
+          return;
+        }
+
+        wrap.innerHTML = notifications.map(n => {
+          const attemptRows = n.attempts.map(a => \`
+            <tr>
+              <td>\${a.attemptNumber}</td>
+              <td>\${a.score} / \${a.maxScore}\${a.percentage != null ? ' (' + a.percentage + '%)' : ''}</td>
+              <td>\${a.failedQuestionTexts.length > 0 ? a.failedQuestionTexts.map(t => escapeHtml(t)).join('; ') : '—'}</td>
+              <td>\${new Date(a.submittedAt).toLocaleString()}</td>
+            </tr>
+          \`).join('');
+
+          return \`
+            <div class="panel" style="border-color: var(--risk);">
+              <div class="panel-header">
+                <div class="panel-title">\${escapeHtml(n.learnerName)}</div>
+                <div class="panel-sub">\${escapeHtml(n.courseTitle)} — failed \${n.attempts.length} time\${n.attempts.length === 1 ? '' : 's'} — flagged \${new Date(n.createdAt).toLocaleString()}</div>
+              </div>
+              <div class="panel-body">
+                <table style="margin-bottom: 16px;">
+                  <thead><tr><th>Attempt</th><th>Score</th><th>Sections Failed</th><th>Date</th></tr></thead>
+                  <tbody>\${attemptRows}</tbody>
+                </table>
+                <div class="stat-label" style="margin-bottom: 6px;">Coaching Notes</div>
+                <textarea id="coaching-notes-\${n.id}" rows="3" placeholder="What did you do to help this learner?" style="width:100%; background: var(--panel-alt); border: 1px solid var(--grid-line); color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13px; padding: 10px 12px; border-radius: 2px; margin-bottom: 10px;"></textarea>
+                <button class="btn resolve-coaching-btn" data-notification-id="\${n.id}">Complete Coaching &amp; Reset Course</button>
+                <div class="coaching-resolve-message-\${n.id}" style="margin-top: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
+              </div>
+            </div>
+          \`;
+        }).join('');
+
+        function escapeHtml(str) {
+          const div = document.createElement('div');
+          div.textContent = str || '';
+          return div.innerHTML;
+        }
+
+        wrap.querySelectorAll('.resolve-coaching-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const notificationId = btn.dataset.notificationId;
+            const notesEl = document.getElementById('coaching-notes-' + notificationId);
+            const msgEl = document.querySelector('.coaching-resolve-message-' + notificationId);
+
+            if (!notesEl.value.trim()) {
+              msgEl.textContent = 'Please describe what coaching was provided.';
+              msgEl.style.color = 'var(--risk)';
+              return;
+            }
+
+            fetch('/api/coaching/notifications/' + notificationId + '/resolve', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ notes: notesEl.value.trim() })
+            })
+              .then(async (r) => {
+                const data = await r.json();
+                if (!r.ok) throw new Error(data.error || 'Failed to resolve');
+                return data;
+              })
+              .then(() => {
+                loadCoachingNotifications();
+              })
+              .catch((err) => {
+                msgEl.textContent = err.message;
+                msgEl.style.color = 'var(--risk)';
+              });
+          });
+        });
+      })
+      .catch(() => {
+        document.getElementById('coaching-notifications-wrap').innerHTML = '<div class="empty-state">Could not reach /api/coaching/notifications.</div>';
+      });
+  }
 
   // ---------- Learner Coaching (roster) ----------
   function loadCoaching() {

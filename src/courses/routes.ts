@@ -124,6 +124,16 @@ courses.post('/:id/publish', async (c) => {
 });
 
 // GET /api/courses/mine — courses the logged-in learner is registered to
+// GET /api/courses/:id/enrollment-status — is the logged-in learner blocked on this course?
+courses.get('/:id/enrollment-status', async (c) => {
+  const session = await getSessionUser(c);
+  if (!session) return c.json({ error: 'Not logged in' }, 401);
+
+  const courseId = c.req.param('id');
+  const enrollment = await kvGetJSON<Enrollment>(c.env, `enrollment:${session.username}:${courseId}`);
+  return c.json({ enrolled: !!enrollment, blocked: enrollment?.blocked ?? false });
+});
+
 courses.get('/mine', async (c) => {
   const session = await getSessionUser(c);
   if (!session) return c.json({ error: 'Not logged in' }, 401);

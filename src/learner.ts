@@ -5,6 +5,7 @@ const bodyHtml = `
     <button class="tab-btn active" data-tab="my-courses">My Courses</button>
     <button class="tab-btn" data-tab="catalogue">Course Catalogue</button>
     <button class="tab-btn" data-tab="certificates">My Certificates</button>
+    <button class="tab-btn" data-tab="coaching">Coaching</button>
   </div>
 
   <div class="tab-panel active" data-tab-panel="my-courses">
@@ -38,6 +39,18 @@ const bodyHtml = `
         <div class="panel-sub">Certificates issued to you — pulled from /api/certificates/mine</div>
       </div>
       <div id="certificates-wrap">
+        <div class="empty-state">Loading&hellip;</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" data-tab-panel="coaching">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Coaching</div>
+        <div class="panel-sub">A record of every coaching session held with you</div>
+      </div>
+      <div id="coaching-sessions-wrap">
         <div class="empty-state">Loading&hellip;</div>
       </div>
     </div>
@@ -205,9 +218,38 @@ const scripts = `
       });
   }
 
+  function loadCoachingSessions() {
+    fetch('/api/coaching/sessions/mine')
+      .then(r => r.json())
+      .then(data => {
+        const list = data.sessions || [];
+        const wrap = document.getElementById('coaching-sessions-wrap');
+
+        if (list.length === 0) {
+          wrap.innerHTML = '<div class="empty-state">No coaching sessions on record.</div>';
+          return;
+        }
+
+        wrap.innerHTML = list.map(s => \`
+          <div class="content-block-row" style="align-items:flex-start; cursor:default; margin-bottom:8px;">
+            <div style="flex:1;">
+              <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:4px;">\${s.courseTitle}</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); margin-bottom:8px;">Coach: \${s.coachName} — \${new Date(s.createdAt).toLocaleString()}</div>
+              <div style="font-family:'Inter',sans-serif; font-size:13px; color:var(--text-primary);">\${s.notes}</div>
+            </div>
+          </div>
+        \`).join('');
+      })
+      .catch(() => {
+        document.getElementById('coaching-sessions-wrap').innerHTML =
+          '<div class="empty-state">Could not reach /api/coaching/sessions/mine.</div>';
+      });
+  }
+
   loadMyCourses();
   loadCatalogue();
   loadCertificates();
+  loadCoachingSessions();
 `;
 
 export const learnerHtml = renderLayout({
