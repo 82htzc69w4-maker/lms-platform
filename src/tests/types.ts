@@ -16,6 +16,7 @@ export type Question = {
   id: string;
   type: QuestionType;
   text: string;
+  marks?: number;
   // Multiple choice
   options?: MultipleChoiceOption[];
   // True / False

@@ -107,14 +107,14 @@ const scripts = `
         </label>
       \`).join('');
       return \`<div class="test-question" data-question-id="\${q.id}" style="margin-bottom:20px;">
-        <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:8px;">\${num}. \${escapeHtml(q.text)}</div>
+        <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:8px;">\${num}. \${escapeHtml(q.text)} <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); text-transform:uppercase;">(\${q.marks || 1} \${(q.marks || 1) === 1 ? 'mark' : 'marks'})</span></div>
         \${optionsHtml}
       </div>\`;
     }
 
     if (q.type === 'trueFalse') {
       return \`<div class="test-question" data-question-id="\${q.id}" style="margin-bottom:20px;">
-        <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:8px;">\${num}. \${escapeHtml(q.text)}</div>
+        <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:8px;">\${num}. \${escapeHtml(q.text)} <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); text-transform:uppercase;">(\${q.marks || 1} \${(q.marks || 1) === 1 ? 'mark' : 'marks'})</span></div>
         <label style="display:flex; align-items:center; gap:8px; margin-bottom:6px; font-family:'Inter',sans-serif; font-size:14px; cursor:pointer;">
           <input type="radio" name="q-\${q.id}" value="true" /> True
         </label>
@@ -126,7 +126,7 @@ const scripts = `
 
     if (q.type === 'written') {
       return \`<div class="test-question" data-question-id="\${q.id}" style="margin-bottom:20px;">
-        <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:8px;">\${num}. \${escapeHtml(q.text)}</div>
+        <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:8px;">\${num}. \${escapeHtml(q.text)} <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); text-transform:uppercase;">(\${q.marks || 1} \${(q.marks || 1) === 1 ? 'mark' : 'marks'})</span></div>
         <textarea rows="3" style="width:100%; background:var(--panel-alt); border:1px solid var(--grid-line); color:var(--text-primary); font-family:'Inter',sans-serif; font-size:13px; padding:10px 12px; border-radius:2px;"></textarea>
       </div>\`;
     }
@@ -143,7 +143,7 @@ const scripts = `
         </div>
       \`).join('');
       return \`<div class="test-question" data-question-id="\${q.id}" style="margin-bottom:20px;">
-        <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:8px;">\${num}. \${escapeHtml(q.text)}</div>
+        <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:8px;">\${num}. \${escapeHtml(q.text)} <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); text-transform:uppercase;">(\${q.marks || 1} \${(q.marks || 1) === 1 ? 'mark' : 'marks'})</span></div>
         \${pairsHtml}
       </div>\`;
     }
@@ -158,7 +158,7 @@ const scripts = `
         </div>
       \`).join('');
       return \`<div class="test-question" data-question-id="\${q.id}" style="margin-bottom:20px;">
-        <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:8px;">\${num}. \${escapeHtml(q.text)}</div>
+        <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:8px;">\${num}. \${escapeHtml(q.text)} <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); text-transform:uppercase;">(\${q.marks || 1} \${(q.marks || 1) === 1 ? 'mark' : 'marks'})</span></div>
         <div class="ordering-list">\${itemsHtml}</div>
       </div>\`;
     }

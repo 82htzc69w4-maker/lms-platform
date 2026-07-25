@@ -81,6 +81,8 @@ tests.put('/:blockId/questions-reorder', async (c) => {
 });
 
 function gradeQuestion(question: Question, answer: any): QuestionResult {
+  const marks = question.marks ?? 1;
+
   if (question.type === 'multipleChoice') {
     const correctOption = question.options?.find((o) => o.isCorrect);
     const selectedOptionId = answer?.selectedOptionId;
@@ -89,8 +91,8 @@ function gradeQuestion(question: Question, answer: any): QuestionResult {
       questionId: question.id,
       type: 'multipleChoice',
       correct,
-      pointsEarned: correct ? 1 : 0,
-      pointsPossible: 1,
+      pointsEarned: correct ? marks : 0,
+      pointsPossible: marks,
       correctAnswerSummary: correctOption ? `Correct answer: ${correctOption.text}` : undefined,
     };
   }
@@ -101,8 +103,8 @@ function gradeQuestion(question: Question, answer: any): QuestionResult {
       questionId: question.id,
       type: 'trueFalse',
       correct,
-      pointsEarned: correct ? 1 : 0,
-      pointsPossible: 1,
+      pointsEarned: correct ? marks : 0,
+      pointsPossible: marks,
       correctAnswerSummary: `Correct answer: ${question.correctBoolean ? 'True' : 'False'}`,
     };
   }
@@ -120,17 +122,18 @@ function gradeQuestion(question: Question, answer: any): QuestionResult {
   if (question.type === 'matching') {
     const pairs = question.pairs ?? [];
     const submittedMatches: Array<{ pairId: string; selectedRight: string }> = answer?.matches ?? [];
-    let earned = 0;
+    let correctPairs = 0;
     for (const pair of pairs) {
       const submitted = submittedMatches.find((m) => m.pairId === pair.id);
-      if (submitted && submitted.selectedRight === pair.right) earned += 1;
+      if (submitted && submitted.selectedRight === pair.right) correctPairs += 1;
     }
+    const earned = pairs.length > 0 ? (correctPairs / pairs.length) * marks : 0;
     return {
       questionId: question.id,
       type: 'matching',
-      correct: earned === pairs.length,
-      pointsEarned: earned,
-      pointsPossible: pairs.length,
+      correct: correctPairs === pairs.length,
+      pointsEarned: Math.round(earned * 100) / 100,
+      pointsPossible: marks,
       correctAnswerSummary: pairs.map((p) => `${p.left} \u2194 ${p.right}`).join('; '),
     };
   }
@@ -138,16 +141,17 @@ function gradeQuestion(question: Question, answer: any): QuestionResult {
   if (question.type === 'ordering') {
     const correctOrder = question.orderedItems ?? [];
     const submittedOrder: string[] = answer?.orderedTexts ?? [];
-    let earned = 0;
+    let correctPositions = 0;
     correctOrder.forEach((item, i) => {
-      if (submittedOrder[i] === item) earned += 1;
+      if (submittedOrder[i] === item) correctPositions += 1;
     });
+    const earned = correctOrder.length > 0 ? (correctPositions / correctOrder.length) * marks : 0;
     return {
       questionId: question.id,
       type: 'ordering',
-      correct: earned === correctOrder.length,
-      pointsEarned: earned,
-      pointsPossible: correctOrder.length,
+      correct: correctPositions === correctOrder.length,
+      pointsEarned: Math.round(earned * 100) / 100,
+      pointsPossible: marks,
       correctAnswerSummary: 'Correct order: ' + correctOrder.join(' \u2192 '),
     };
   }

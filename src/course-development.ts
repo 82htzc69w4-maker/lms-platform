@@ -1493,6 +1493,7 @@ const scripts = `
           </div>
           <div class="form-row">
             <input type="text" id="new-question-text" placeholder="Question text" value="\${existingQuestion ? escapeHtml(existingQuestion.text).replace(/"/g, '&quot;') : ''}" />
+            <input type="number" id="new-question-marks" placeholder="Marks" min="1" step="1" value="\${existingQuestion && existingQuestion.marks ? existingQuestion.marks : 1}" style="max-width: 100px;" />
           </div>
           <div id="question-type-fields"></div>
           <button class="btn" id="save-question-btn" style="margin-top: 8px;">\${existingQuestion ? 'Update Question' : 'Save Question'}</button>
@@ -1517,6 +1518,7 @@ const scripts = `
       function saveQuestion() {
         const type = document.getElementById('new-question-type').value;
         const text = document.getElementById('new-question-text').value.trim();
+        const marks = Math.max(1, parseInt(document.getElementById('new-question-marks').value, 10) || 1);
         const msgEl = document.getElementById('question-save-message');
 
         if (!text) {
@@ -1525,7 +1527,7 @@ const scripts = `
           return;
         }
 
-        const payload = { type, text };
+        const payload = { type, text, marks };
 
         if (type === 'multipleChoice') {
           const validOptions = mcOptions.filter(o => o.text.trim());
@@ -1617,6 +1619,7 @@ const scripts = `
             <div class="content-block-row" style="align-items:flex-start; cursor:default;">
               <div style="flex:1;">
                 <span class="content-block-type">\${TYPE_LABELS[q.type]}</span>
+                <span class="content-block-type" style="background:rgba(62,155,84,0.12); color:var(--competent); margin-left:6px;">\${q.marks || 1} \${(q.marks || 1) === 1 ? 'mark' : 'marks'}</span>
                 <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-top:6px;">\${i + 1}. \${escapeHtml(q.text)}</div>
                 \${detail}
               </div>
