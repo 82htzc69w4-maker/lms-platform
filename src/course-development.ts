@@ -1037,6 +1037,7 @@ const scripts = `
       \${fontFieldHtml}
       \${layoutHtml}
       <button class="btn" id="save-block-btn" style="margin-top: 8px;">Save</button>
+      \${isTest ? '<span id="test-total-marks" style="margin-left: 12px; font-family: \\'IBM Plex Mono\\', monospace; font-size: 13px; color: var(--text-muted); vertical-align: middle;">Total: 0 marks</span>' : ''}
       <div id="block-save-message" style="margin-top: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
       \${questionsSectionHtml}
     \`;
@@ -1589,6 +1590,12 @@ const scripts = `
       function renderQuestionsList(questions) {
         questionsState = questions;
         const wrap = document.getElementById('questions-list-wrap');
+
+        const totalMarksEl = document.getElementById('test-total-marks');
+        if (totalMarksEl) {
+          const totalMarks = questions.reduce((sum, q) => sum + (q.marks || 1), 0);
+          totalMarksEl.textContent = 'Total: ' + totalMarks + (totalMarks === 1 ? ' mark' : ' marks');
+        }
 
         if (questions.length === 0) {
           wrap.innerHTML = '<div class="empty-state">No questions added yet.</div>';
