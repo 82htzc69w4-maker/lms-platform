@@ -702,18 +702,42 @@ const CLOCK_SCRIPT = `
 `;
 
 export const THEME_ONLY_SCRIPT = `
+  function applyThemeColors(settings) {
+    const root = document.documentElement;
+    if (settings.theme === 'custom' && settings.customColors) {
+      const c = settings.customColors;
+      if (c.bg) root.style.setProperty('--bg', c.bg);
+      if (c.panel) root.style.setProperty('--panel', c.panel);
+      if (c.panelAlt) root.style.setProperty('--panel-alt', c.panelAlt);
+      if (c.gridLine) root.style.setProperty('--grid-line', c.gridLine);
+      if (c.textPrimary) root.style.setProperty('--text-primary', c.textPrimary);
+      if (c.textMuted) root.style.setProperty('--text-muted', c.textMuted);
+      if (c.hazard) {
+        root.style.setProperty('--hazard', c.hazard);
+        root.style.setProperty('--hazard-badge-text', c.hazard);
+      }
+      if (c.risk) root.style.setProperty('--risk', c.risk);
+      if (c.refresher) root.style.setProperty('--refresher', c.refresher);
+      if (c.competent) root.style.setProperty('--competent', c.competent);
+      document.body.removeAttribute('data-theme');
+      return;
+    }
+
+    let effectiveTheme = settings.theme || 'dark';
+    if (effectiveTheme === 'system') {
+      effectiveTheme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    if (effectiveTheme === 'light') {
+      document.body.setAttribute('data-theme', 'light');
+    } else {
+      document.body.removeAttribute('data-theme');
+    }
+  }
+
   fetch('/api/settings')
     .then(r => r.json())
     .then(settings => {
-      let effectiveTheme = settings.theme || 'dark';
-      if (effectiveTheme === 'system') {
-        effectiveTheme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-      }
-      if (effectiveTheme === 'light') {
-        document.body.setAttribute('data-theme', 'light');
-      } else {
-        document.body.removeAttribute('data-theme');
-      }
+      applyThemeColors(settings);
 
       const logoEl = document.getElementById('login-logo');
       if (logoEl && settings.logoDataUrl) {
@@ -727,6 +751,38 @@ export const THEME_ONLY_SCRIPT = `
 `;
 
 const BRANDING_SCRIPT = `
+  function applyThemeColors(settings) {
+    const root = document.documentElement;
+    if (settings.theme === 'custom' && settings.customColors) {
+      const c = settings.customColors;
+      if (c.bg) root.style.setProperty('--bg', c.bg);
+      if (c.panel) root.style.setProperty('--panel', c.panel);
+      if (c.panelAlt) root.style.setProperty('--panel-alt', c.panelAlt);
+      if (c.gridLine) root.style.setProperty('--grid-line', c.gridLine);
+      if (c.textPrimary) root.style.setProperty('--text-primary', c.textPrimary);
+      if (c.textMuted) root.style.setProperty('--text-muted', c.textMuted);
+      if (c.hazard) {
+        root.style.setProperty('--hazard', c.hazard);
+        root.style.setProperty('--hazard-badge-text', c.hazard);
+      }
+      if (c.risk) root.style.setProperty('--risk', c.risk);
+      if (c.refresher) root.style.setProperty('--refresher', c.refresher);
+      if (c.competent) root.style.setProperty('--competent', c.competent);
+      document.body.removeAttribute('data-theme');
+      return;
+    }
+
+    let effectiveTheme = settings.theme || 'dark';
+    if (effectiveTheme === 'system') {
+      effectiveTheme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    if (effectiveTheme === 'light') {
+      document.body.setAttribute('data-theme', 'light');
+    } else {
+      document.body.removeAttribute('data-theme');
+    }
+  }
+
   fetch('/api/settings')
     .then(r => r.json())
     .then(settings => {
@@ -744,17 +800,7 @@ const BRANDING_SCRIPT = `
 
       document.title = document.title.replace('Bohs LMS', settings.systemName);
 
-      // Apply theme: 'dark' (default, no attribute needed), 'light', or 'system'
-      // (follow the OS preference at load time).
-      let effectiveTheme = settings.theme || 'dark';
-      if (effectiveTheme === 'system') {
-        effectiveTheme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-      }
-      if (effectiveTheme === 'light') {
-        document.body.setAttribute('data-theme', 'light');
-      } else {
-        document.body.removeAttribute('data-theme');
-      }
+      applyThemeColors(settings);
     })
     .catch(() => { /* keep static defaults if settings can't be reached */ });
 `;

@@ -23,6 +23,7 @@ settings.post('/', async (c) => {
     systemName: body.systemName?.trim() || current.systemName,
     logoDataUrl: body.logoDataUrl !== undefined ? body.logoDataUrl : current.logoDataUrl,
     theme: body.theme || current.theme,
+    customColors: body.customColors !== undefined ? body.customColors : current.customColors,
   };
 
   await kvPutJSON(c.env, 'settings:branding', updated);

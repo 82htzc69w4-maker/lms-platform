@@ -40,8 +40,46 @@ const bodyHtml = `
               <option value="dark">Dark</option>
               <option value="light">Light</option>
               <option value="system">Match System Settings</option>
+              <option value="custom">Custom</option>
             </select>
           </div>
+        </div>
+
+        <div id="custom-colors-section" style="display: none; margin-bottom: 20px;">
+          <div class="stat-label" style="margin-bottom: 8px;">Custom Colors</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; padding: 16px; background: var(--panel-alt); border: 1px solid var(--grid-line); border-radius: 3px;">
+            <label style="display:flex; flex-direction:column; gap:6px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); text-transform:uppercase;">Background
+              <input type="color" id="color-bg" value="#14171A" style="width:100%; height:36px; border:1px solid var(--grid-line); border-radius:2px; cursor:pointer;" />
+            </label>
+            <label style="display:flex; flex-direction:column; gap:6px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); text-transform:uppercase;">Panel
+              <input type="color" id="color-panel" value="#1B1F23" style="width:100%; height:36px; border:1px solid var(--grid-line); border-radius:2px; cursor:pointer;" />
+            </label>
+            <label style="display:flex; flex-direction:column; gap:6px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); text-transform:uppercase;">Panel Alt
+              <input type="color" id="color-panelAlt" value="#21262B" style="width:100%; height:36px; border:1px solid var(--grid-line); border-radius:2px; cursor:pointer;" />
+            </label>
+            <label style="display:flex; flex-direction:column; gap:6px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); text-transform:uppercase;">Grid Line
+              <input type="color" id="color-gridLine" value="#2E3438" style="width:100%; height:36px; border:1px solid var(--grid-line); border-radius:2px; cursor:pointer;" />
+            </label>
+            <label style="display:flex; flex-direction:column; gap:6px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); text-transform:uppercase;">Text Primary
+              <input type="color" id="color-textPrimary" value="#ECE8DF" style="width:100%; height:36px; border:1px solid var(--grid-line); border-radius:2px; cursor:pointer;" />
+            </label>
+            <label style="display:flex; flex-direction:column; gap:6px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); text-transform:uppercase;">Text Muted
+              <input type="color" id="color-textMuted" value="#8B9199" style="width:100%; height:36px; border:1px solid var(--grid-line); border-radius:2px; cursor:pointer;" />
+            </label>
+            <label style="display:flex; flex-direction:column; gap:6px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); text-transform:uppercase;">Accent
+              <input type="color" id="color-hazard" value="#F2B705" style="width:100%; height:36px; border:1px solid var(--grid-line); border-radius:2px; cursor:pointer;" />
+            </label>
+            <label style="display:flex; flex-direction:column; gap:6px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); text-transform:uppercase;">Risk / Danger
+              <input type="color" id="color-risk" value="#C1443A" style="width:100%; height:36px; border:1px solid var(--grid-line); border-radius:2px; cursor:pointer;" />
+            </label>
+            <label style="display:flex; flex-direction:column; gap:6px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); text-transform:uppercase;">Refresher / Warning
+              <input type="color" id="color-refresher" value="#D98E2A" style="width:100%; height:36px; border:1px solid var(--grid-line); border-radius:2px; cursor:pointer;" />
+            </label>
+            <label style="display:flex; flex-direction:column; gap:6px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); text-transform:uppercase;">Competent / Success
+              <input type="color" id="color-competent" value="#3E9B54" style="width:100%; height:36px; border:1px solid var(--grid-line); border-radius:2px; cursor:pointer;" />
+            </label>
+          </div>
+          <div class="panel-sub" style="margin-top: 10px;">Changes apply live to this page as you pick colors, so you can preview before saving.</div>
         </div>
 
         <button class="btn" id="save-branding-btn">Save Changes</button>
@@ -363,6 +401,49 @@ const scripts = `
   // ---------- Branding ----------
   let pendingLogoDataUrl = null;
 
+  const COLOR_INPUT_IDS = {
+    bg: 'color-bg',
+    panel: 'color-panel',
+    panelAlt: 'color-panelAlt',
+    gridLine: 'color-gridLine',
+    textPrimary: 'color-textPrimary',
+    textMuted: 'color-textMuted',
+    hazard: 'color-hazard',
+    risk: 'color-risk',
+    refresher: 'color-refresher',
+    competent: 'color-competent',
+  };
+
+  function toggleCustomColorsSection() {
+    const isCustom = document.getElementById('theme-select').value === 'custom';
+    document.getElementById('custom-colors-section').style.display = isCustom ? 'block' : 'none';
+  }
+
+  function applyLiveColorPreview() {
+    if (document.getElementById('theme-select').value !== 'custom') return;
+    const root = document.documentElement;
+    root.style.setProperty('--bg', document.getElementById('color-bg').value);
+    root.style.setProperty('--panel', document.getElementById('color-panel').value);
+    root.style.setProperty('--panel-alt', document.getElementById('color-panelAlt').value);
+    root.style.setProperty('--grid-line', document.getElementById('color-gridLine').value);
+    root.style.setProperty('--text-primary', document.getElementById('color-textPrimary').value);
+    root.style.setProperty('--text-muted', document.getElementById('color-textMuted').value);
+    root.style.setProperty('--hazard', document.getElementById('color-hazard').value);
+    root.style.setProperty('--hazard-badge-text', document.getElementById('color-hazard').value);
+    root.style.setProperty('--risk', document.getElementById('color-risk').value);
+    root.style.setProperty('--refresher', document.getElementById('color-refresher').value);
+    root.style.setProperty('--competent', document.getElementById('color-competent').value);
+  }
+
+  document.getElementById('theme-select').addEventListener('change', () => {
+    toggleCustomColorsSection();
+    applyLiveColorPreview();
+  });
+
+  Object.values(COLOR_INPUT_IDS).forEach(id => {
+    document.getElementById(id).addEventListener('input', applyLiveColorPreview);
+  });
+
   function loadSettings() {
     fetch('/api/settings')
       .then(r => r.json())
@@ -376,6 +457,14 @@ const scripts = `
           document.getElementById('logo-empty').style.display = 'none';
           pendingLogoDataUrl = settings.logoDataUrl;
         }
+        if (settings.customColors) {
+          Object.keys(COLOR_INPUT_IDS).forEach(key => {
+            if (settings.customColors[key]) {
+              document.getElementById(COLOR_INPUT_IDS[key]).value = settings.customColors[key];
+            }
+          });
+        }
+        toggleCustomColorsSection();
       })
       .catch(() => {
         document.getElementById('save-message').textContent = 'Could not load current settings.';
@@ -412,6 +501,11 @@ const scripts = `
       return;
     }
 
+    const customColors = {};
+    Object.keys(COLOR_INPUT_IDS).forEach(key => {
+      customColors[key] = document.getElementById(COLOR_INPUT_IDS[key]).value;
+    });
+
     fetch('/api/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -419,7 +513,8 @@ const scripts = `
         companyName,
         systemName,
         logoDataUrl: pendingLogoDataUrl,
-        theme
+        theme,
+        customColors
       })
     })
       .then(r => r.json())
