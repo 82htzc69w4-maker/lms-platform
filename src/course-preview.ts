@@ -312,6 +312,88 @@ const scripts = `
     });
   }
 
+  function renderAssignmentSubmitted(container, blockId, submission) {
+    container.innerHTML = \`
+      <div style="margin-bottom:12px; padding:12px; background:rgba(62,155,84,0.12); border-left:3px solid var(--competent); border-radius:2px; font-family:'IBM Plex Mono',monospace; font-size:13px;">
+        Submitted: \${escapeHtml(submission.fileName)} on \${new Date(submission.submittedAt).toLocaleString()}
+      </div>
+      <a href="\${submission.fileDataUrl}" download="\${escapeHtml(submission.fileName)}" class="btn" style="text-decoration:none; display:inline-block; margin-right:8px;">Open My Submission</a>
+      <button type="button" class="btn replace-assignment-btn" style="background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line);">Replace Submission</button>
+    \`;
+
+    container.querySelector('.replace-assignment-btn').addEventListener('click', () => {
+      renderAssignmentUploadForm(container, blockId);
+    });
+  }
+
+  function renderAssignmentUploadForm(container, blockId) {
+    container.innerHTML = \`
+      <div class="form-row">
+        <input type="file" id="assignment-file-input-\${blockId}" accept=".xls,.xlsx,.doc,.docx,.pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf" />
+      </div>
+      <button type="button" class="btn submit-assignment-btn">Upload Assignment</button>
+      <div class="assignment-message" style="margin-top:10px; font-family:'IBM Plex Mono',monospace; font-size:13px;"></div>
+    \`;
+
+    container.querySelector('.submit-assignment-btn').addEventListener('click', () => {
+      const fileInput = document.getElementById('assignment-file-input-' + blockId);
+      const file = fileInput.files[0];
+      const msgEl = container.querySelector('.assignment-message');
+
+      if (!file) {
+        msgEl.textContent = 'Please choose a file first.';
+        msgEl.style.color = 'var(--risk)';
+        return;
+      }
+      if (file.size > 4 * 1024 * 1024) {
+        msgEl.textContent = 'File is too large — please use one under 4MB.';
+        msgEl.style.color = 'var(--risk)';
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        fetch('/api/assignments/' + blockId + '/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileName: file.name,
+            fileDataUrl: reader.result,
+            fileMimeType: file.type
+          })
+        })
+          .then(r => r.json())
+          .then(data => renderAssignmentSubmitted(container, blockId, data.submission))
+          .catch(() => {
+            msgEl.textContent = 'Failed to upload. Please try again.';
+            msgEl.style.color = 'var(--risk)';
+          });
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function initAssignment(blockId, container) {
+    fetch('/api/assignments/' + blockId + '/my-submission')
+      .then(r => r.json())
+      .then(data => {
+        if (data.submission) {
+          renderAssignmentSubmitted(container, blockId, data.submission);
+        } else {
+          renderAssignmentUploadForm(container, blockId);
+        }
+      })
+      .catch(() => {
+        container.innerHTML = '<div class="empty-state">Could not load this assignment.</div>';
+      });
+  }
+
+  function mountAssignments() {
+    document.querySelectorAll('[data-assignment-block-id]').forEach(el => {
+      initAssignment(el.dataset.assignmentBlockId, el);
+    });
+  }
+
   function renderBlockHtml(block) {
     const safeTitle = escapeHtml(block.title) || 'Untitled';
     const settings = block.settings || {};
@@ -485,6 +567,18 @@ const scripts = `
       </div>\`;
     }
 
+    if (block.type === 'assignmentUpload') {
+      return \`<div class="panel" style="margin-bottom:20px;">
+        <div class="panel-header">
+          <div class="panel-title">\${block.title ? safeTitle : 'Assignment Upload'}</div>
+          <div class="panel-sub">Upload your completed assignment — XLS, DOCX, or PDF</div>
+        </div>
+        <div class="panel-body" data-assignment-block-id="\${block.id}">
+          <div class="empty-state">Loading&hellip;</div>
+        </div>
+      </div>\`;
+    }
+
     return \`<div style="margin-bottom:20px; padding:12px; border:1px dashed var(--grid-line); border-radius:2px;">
       <span class="content-block-type" style="display:inline-block; margin-bottom:6px;">\${BLOCK_TYPE_LABELS[block.type] || block.type}</span>
       <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary);">\${safeTitle}</div>
@@ -595,6 +689,7 @@ const scripts = `
     });
 
     mountTests();
+    mountAssignments();
   }
 
   Promise.all([
