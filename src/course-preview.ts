@@ -6,7 +6,7 @@ const bodyHtml = `
   <div class="panel">
     <div class="panel-header">
       <div class="panel-title" id="preview-course-title">Course Preview</div>
-      <div class="panel-sub">This is a simulation of what a learner will see — not the real learner experience yet</div>
+      <div class="panel-sub" id="preview-course-sub">This is a simulation of what a learner will see — not the real learner experience yet</div>
     </div>
     <div style="padding: 16px 20px 0;">
       <img id="preview-course-banner" class="course-banner" style="display:none; margin-bottom: 0;" alt="" />
@@ -19,16 +19,19 @@ const bodyHtml = `
 `;
 
 const scripts = `
-  // ---------- Role gate: Instructor and Administrator only ----------
+  // ---------- Role gate: any logged-in role may view a course ----------
+  let viewerRole = null;
   fetch('/api/auth/me')
     .then(r => {
       if (!r.ok) throw new Error('not logged in');
       return r.json();
     })
     .then(data => {
-      const role = data.user.role;
-      if (role !== 'instructor' && role !== 'administrator') {
-        window.location.href = '/';
+      viewerRole = data.user.role;
+      if (viewerRole === 'learner') {
+        document.getElementById('preview-course-sub').textContent = 'Work through the course below';
+        document.getElementById('back-link').textContent = '\u2190 Back to My Courses';
+        document.getElementById('back-link').href = '/learner#my-courses';
       }
     })
     .catch(() => {

@@ -93,7 +93,7 @@ const scripts = `
             ? \`<div class="stat-label" style="text-transform:none; letter-spacing:0; color:var(--competent); margin-bottom:6px;">Completed \${course.completedAt ? new Date(course.completedAt).toLocaleDateString() : ''}</div>\`
             : \`<div class="progress-wrap-\${course.id}" style="margin-top:8px;"><div class="stat-label" style="text-transform:none; letter-spacing:0;">Loading progress&hellip;</div></div>\`;
           return \`
-          <div class="course-card">
+          <a href="/course-preview/\${course.id}" class="course-card" style="text-decoration:none; color:inherit; cursor:pointer;">
             \${course.imageDataUrl
               ? \`<img class="course-card-image" src="\${course.imageDataUrl}" alt="" />\`
               : course.bannerDataUrl
@@ -105,7 +105,7 @@ const scripts = `
               <div class="course-card-description">\${course.description}</div>
               \${statusHtml}
             </div>
-          </div>
+          </a>
         \`;
         }).join('');
 
