@@ -35,13 +35,23 @@ const bodyHtml = `
     </div>
   </div>
 
-  <div class="panel">
+  <div class="panel" style="margin-bottom: 20px;">
     <div class="panel-header">
-      <div class="panel-title">Human Resources and Management Reporting</div>
+      <div class="panel-title">Human Resources</div>
       <div class="panel-sub">Coming soon</div>
     </div>
     <div class="panel-body">
-      <div class="empty-state">Reporting tools for HR and management will appear here in a future update.</div>
+      <div class="empty-state">HR tools will appear here in a future update.</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title">Management Reporting</div>
+      <div class="panel-sub">Coming soon</div>
+    </div>
+    <div class="panel-body">
+      <div class="empty-state">Management reporting tools will appear here in a future update.</div>
     </div>
   </div>
 `;
