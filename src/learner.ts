@@ -154,9 +154,11 @@ const scripts = `
     Promise.all([
       fetch('/api/courses').then(r => r.json()),
       fetch('/api/course-applications/mine').then(r => r.json()).catch(() => ({ applications: [] })),
-    ]).then(([coursesData, applicationsData]) => {
+      fetch('/api/courses/mine').then(r => r.json()).catch(() => ({ courses: [] })),
+    ]).then(([coursesData, applicationsData, myCoursesData]) => {
       const list = (coursesData.courses || []).filter(course => course.status === 'published');
       const applications = applicationsData.applications || [];
+      const enrolledCourseIds = new Set((myCoursesData.courses || []).map(c => c.id));
       const wrap = document.getElementById('catalogue-wrap');
 
       if (list.length === 0) {
@@ -172,13 +174,14 @@ const scripts = `
       }
 
       const cards = list.map(course => {
+        const isEnrolled = enrolledCourseIds.has(course.id);
         const application = latestApplicationFor(course.id);
         let actionHtml;
 
-        if (application && application.status === 'pending') {
+        if (isEnrolled) {
+          actionHtml = '<div class="btn" style="width:100%; background:var(--competent); color:#000; text-align:center; cursor:default;">Enrolled</div>';
+        } else if (application && application.status === 'pending') {
           actionHtml = '<div class="stat-label" style="text-transform:none; letter-spacing:0; text-align:center; color:var(--refresher);">Application Pending Review</div>';
-        } else if (application && application.status === 'approved') {
-          actionHtml = '<div class="stat-label" style="text-transform:none; letter-spacing:0; text-align:center; color:var(--competent);">Enrolled</div>';
         } else {
           const rejectedNoteHtml = application && application.status === 'rejected'
             ? '<div class="stat-label" style="text-transform:none; letter-spacing:0; text-align:center; color:var(--risk); margin-bottom:6px;">Previous application was not approved</div>'
