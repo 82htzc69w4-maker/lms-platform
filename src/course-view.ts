@@ -19,16 +19,13 @@ const bodyHtml = `
 `;
 
 const scripts = `
-  // ---------- Role gate: Learners only ----------
+  // ---------- Role gate: must be logged in (any role) ----------
+  // Staff can self-enroll too (see Course Delivery's "Enroll Myself"), so
+  // access here is based on being logged in, not a specific job role.
   fetch('/api/auth/me')
     .then(r => {
       if (!r.ok) throw new Error('not logged in');
       return r.json();
-    })
-    .then(data => {
-      if (data.user.role !== 'learner') {
-        window.location.href = '/';
-      }
     })
     .catch(() => {
       window.location.href = '/login';
