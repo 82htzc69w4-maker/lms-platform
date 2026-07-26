@@ -186,8 +186,10 @@ const scripts = `
 
         const cards = list.map(course => \`
           <div class="course-card">
-            \${(course.imageDataUrl || course.bannerDataUrl)
-              ? \`<img class="course-card-image" src="\${course.imageDataUrl || course.bannerDataUrl}" alt="" />\`
+            \${course.imageDataUrl
+              ? \`<img class="course-card-image" src="\${course.imageDataUrl}" alt="" />\`
+              : course.bannerDataUrl
+              ? \`<img class="course-card-image" src="\${course.bannerDataUrl}" style="object-fit: contain; background: var(--panel-alt);" alt="" />\`
               : '<div class="course-card-image-placeholder">No Image</div>'}
             <div class="course-card-body">
               <div class="course-card-title">\${course.title}</div>
