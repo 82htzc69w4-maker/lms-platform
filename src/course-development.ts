@@ -267,6 +267,8 @@ const bodyHtml = `
               <input type="range" id="cert-brightness-slider" min="20" max="180" value="100" style="width:100%;" />
               <div class="stat-label" style="margin-bottom: 4px; margin-top: 12px;">Opacity: <span id="cert-opacity-label">100%</span></div>
               <input type="range" id="cert-opacity-slider" min="0" max="100" value="100" style="width:100%;" />
+              <div class="stat-label" style="margin-bottom: 4px; margin-top: 12px;">Border Color</div>
+              <input type="color" id="cert-border-color" value="#F2B705" style="width:100%; height:36px; border:1px solid var(--grid-line); border-radius:2px; cursor:pointer;" />
             </div>
 
             <button class="btn" id="save-certificate-btn" style="margin-top: 16px;">Save Certificate Design</button>
@@ -1879,6 +1881,7 @@ const scripts = `
     const signatoryTitle = document.getElementById('cert-signatory-title').value.trim();
     const brightness = document.getElementById('cert-brightness-slider').value;
     const opacity = document.getElementById('cert-opacity-slider').value;
+    const borderColor = document.getElementById('cert-border-color').value;
 
     document.getElementById('cert-signatory-fields').style.display = includeSignatory ? 'block' : 'none';
     document.getElementById('cert-brightness-label').textContent = brightness + '%';
@@ -1917,7 +1920,7 @@ const scripts = `
       : '';
 
     document.getElementById('certificate-preview-wrap').innerHTML = \`
-      <div style="position:relative; overflow:hidden; background:#fff; color:#14171A; border:8px solid #F2B705; border-radius:4px; padding:40px; text-align:center; font-family:'Inter',sans-serif;">
+      <div style="position:relative; overflow:hidden; background:#fff; color:#14171A; border:8px solid \${borderColor}; border-radius:4px; padding:40px; text-align:center; font-family:'Inter',sans-serif;">
         \${backgroundLayerHtml}
         <div style="position:relative; z-index:1;">
           \${logoHtml}
@@ -1942,6 +1945,7 @@ const scripts = `
 
   document.getElementById('cert-brightness-slider').addEventListener('input', renderCertificatePreview);
   document.getElementById('cert-opacity-slider').addEventListener('input', renderCertificatePreview);
+  document.getElementById('cert-border-color').addEventListener('input', renderCertificatePreview);
 
   document.getElementById('signature-input').addEventListener('change', (e) => {
     const file = e.target.files[0];
@@ -1994,6 +1998,7 @@ const scripts = `
       backgroundImageDataUrl: pendingCertBackgroundDataUrl,
       backgroundBrightness: parseInt(document.getElementById('cert-brightness-slider').value, 10),
       backgroundOpacity: parseInt(document.getElementById('cert-opacity-slider').value, 10),
+      borderColor: document.getElementById('cert-border-color').value,
     };
 
     fetch('/api/certificate-templates/' + COURSE_ID, {
@@ -2049,6 +2054,7 @@ const scripts = `
       }
       document.getElementById('cert-brightness-slider').value = t.backgroundBrightness || 100;
       document.getElementById('cert-opacity-slider').value = t.backgroundOpacity != null ? t.backgroundOpacity : 100;
+      document.getElementById('cert-border-color').value = t.borderColor || '#F2B705';
     }
 
     renderCertificatePreview();

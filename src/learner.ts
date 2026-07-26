@@ -184,37 +184,82 @@ const scripts = `
   }
 
   // ---------- My Certificates ----------
+  function escapeHtmlLearner(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+
+  function renderIssuedCertificateCard(cert) {
+    const title = cert.certificateType === 'competency' ? 'Certificate of Competency' : 'Certificate of Completion';
+    const bodyText = cert.certificateType === 'competency' ? 'has been assessed as competent in' : 'has successfully completed';
+    const borderColor = cert.borderColor || '#F2B705';
+
+    const logoHtml = cert.includeLogo && cert.logoDataUrl
+      ? '<img src="' + cert.logoDataUrl + '" style="max-height:60px; margin-bottom:16px; position:relative; z-index:1;" />'
+      : '';
+    const studentNameHtml = cert.includeStudentName
+      ? '<div style="font-family:\\'Playfair Display\\',serif; font-size:26px; margin:12px 0; border-bottom:1px solid #D9D2C3; display:inline-block; padding-bottom:6px; position:relative; z-index:1;">' + escapeHtmlLearner(cert.studentName) + '</div>'
+      : '';
+    const courseNameHtml = cert.includeCourseName
+      ? '<div style="font-family:\\'Big Shoulders Display\\',sans-serif; font-size:22px; text-transform:uppercase; color:#B8860B; margin:8px 0; position:relative; z-index:1;">' + escapeHtmlLearner(cert.courseTitle) + '</div>'
+      : '';
+    const courseNumberHtml = cert.includeCourseNumber
+      ? '<div style="font-family:\\'IBM Plex Mono\\',monospace; font-size:12px; color:#6B6459; position:relative; z-index:1;">Course No: ' + escapeHtmlLearner(cert.courseNumber) + '</div>'
+      : '';
+    const courseDateHtml = cert.includeCourseDate
+      ? '<div style="font-family:\\'IBM Plex Mono\\',monospace; font-size:12px; color:#6B6459; margin-top:8px; position:relative; z-index:1;">Completed: ' + new Date(cert.issuedDate).toLocaleDateString() + '</div>'
+      : '';
+    const expiryHtml = cert.includeExpiryDate && cert.expiryDate
+      ? '<div style="font-family:\\'IBM Plex Mono\\',monospace; font-size:12px; color:#6B6459; position:relative; z-index:1;">Valid Until: ' + new Date(cert.expiryDate).toLocaleDateString() + '</div>'
+      : '';
+    const signatoryHtml = cert.includeSignatory ? \`
+      <div style="margin-top:32px; display:flex; flex-direction:column; align-items:center; position:relative; z-index:1;">
+        \${cert.signatureDataUrl ? '<img src="' + cert.signatureDataUrl + '" style="height:50px; margin-bottom:4px;" />' : '<div style="height:50px;"></div>'}
+        <div style="width:180px; border-top:1px solid #D9D2C3; padding-top:4px; font-family:'Inter',sans-serif; font-size:13px; color:#14171A;">\${escapeHtmlLearner(cert.signatoryName) || ''}</div>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:#6B6459;">\${escapeHtmlLearner(cert.signatoryTitle) || ''}</div>
+      </div>
+    \` : '';
+    const backgroundLayerHtml = cert.backgroundImageDataUrl
+      ? '<img src="' + cert.backgroundImageDataUrl + '" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; filter: brightness(' + (cert.backgroundBrightness || 100) + '%); opacity:' + ((cert.backgroundOpacity != null ? cert.backgroundOpacity : 100) / 100) + '; z-index:0;" />'
+      : '';
+
+    return \`
+      <div style="position:relative; overflow:hidden; background:#fff; color:#14171A; border:8px solid \${borderColor}; border-radius:4px; padding:40px; text-align:center; font-family:'Inter',sans-serif; margin-bottom:20px;">
+        \${backgroundLayerHtml}
+        <div style="position:relative; z-index:1;">
+          \${logoHtml}
+          <div style="font-family:'Big Shoulders Display',sans-serif; font-size:28px; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:16px;">\${title}</div>
+          <div style="font-size:13px; color:#6B6459;">This certifies that</div>
+          \${studentNameHtml}
+          <div style="font-size:13px; color:#6B6459; margin-top:8px;">\${bodyText}</div>
+          \${courseNameHtml}
+          \${courseNumberHtml}
+          \${courseDateHtml}
+          \${expiryHtml}
+          \${signatoryHtml}
+        </div>
+      </div>
+    \`;
+  }
+
   function loadCertificates() {
-    fetch('/api/certificates/mine')
+    fetch('/api/issued-certificates/mine')
       .then(r => r.json())
       .then(data => {
         const list = data.certificates || [];
         const wrap = document.getElementById('certificates-wrap');
 
         if (list.length === 0) {
-          wrap.innerHTML = '<div class="empty-state">No certificates issued yet.</div>';
+          wrap.innerHTML = '<div class="empty-state">No certificates issued yet. Complete a course to earn one.</div>';
           return;
         }
 
-        const rows = list.map(cert => \`
-          <tr>
-            <td>\${cert.title}</td>
-            <td>\${new Date(cert.issuedDate).toLocaleDateString()}</td>
-          </tr>
-        \`).join('');
-
-        wrap.innerHTML = \`
-          <table>
-            <thead>
-              <tr><th>Certificate</th><th>Issued</th></tr>
-            </thead>
-            <tbody>\${rows}</tbody>
-          </table>
-        \`;
+        wrap.innerHTML = list.map(renderIssuedCertificateCard).join('');
       })
       .catch(() => {
         document.getElementById('certificates-wrap').innerHTML =
-          '<div class="empty-state">Could not reach /api/certificates/mine.</div>';
+          '<div class="empty-state">Could not reach /api/issued-certificates/mine.</div>';
       });
   }
 

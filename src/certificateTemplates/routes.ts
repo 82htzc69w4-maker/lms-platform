@@ -40,6 +40,7 @@ certificateTemplates.put('/:courseId', async (c) => {
       body.backgroundImageDataUrl !== undefined ? body.backgroundImageDataUrl : existing.backgroundImageDataUrl,
     backgroundBrightness: body.backgroundBrightness ?? existing.backgroundBrightness,
     backgroundOpacity: body.backgroundOpacity ?? existing.backgroundOpacity,
+    borderColor: body.borderColor !== undefined ? body.borderColor : existing.borderColor,
   };
 
   await kvPutJSON(c.env, `certificate-template:${courseId}`, updated);

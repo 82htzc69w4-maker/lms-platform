@@ -4,6 +4,11 @@ import { kvGetJSON, kvPutJSON, kvListByPrefix } from '../lib/kv';
 import type { Course, Enrollment } from './types';
 import type { ContentBlock, ContentBlockType, CourseContent } from './content-types';
 import { getSessionUser } from '../auth/session';
+import type { User } from '../auth/types';
+import type { CertificateTemplate } from '../certificateTemplates/types';
+import { DEFAULT_CERTIFICATE_TEMPLATE } from '../certificateTemplates/types';
+import type { IssuedCertificate } from '../issuedCertificates/types';
+import type { BrandingSettings } from '../settings/types';
 
 const courses = new Hono<{ Bindings: Env }>();
 
@@ -180,9 +185,55 @@ courses.post('/:id/complete', async (c) => {
   const enrollment = await kvGetJSON<Enrollment>(c.env, key);
   if (!enrollment) return c.json({ error: 'Not enrolled in this course' }, 404);
 
-  const updated: Enrollment = { ...enrollment, status: 'completed', completedAt: new Date().toISOString() };
+  const completedAt = new Date().toISOString();
+  const updated: Enrollment = { ...enrollment, status: 'completed', completedAt };
   await kvPutJSON(c.env, key, updated);
-  return c.json({ ok: true, enrollment: updated });
+
+  // Generate the certificate for this completion, using the course's
+  // Certificate Design (or sensible defaults if none has been configured).
+  const course = await kvGetJSON<Course>(c.env, `course:def:${courseId}`);
+  const template =
+    (await kvGetJSON<CertificateTemplate>(c.env, `certificate-template:${courseId}`)) ??
+    ({ courseId, ...DEFAULT_CERTIFICATE_TEMPLATE } as CertificateTemplate);
+  const learnerUser = await kvGetJSON<User>(c.env, `auth:user:${session.username}`);
+  const branding = await kvGetJSON<BrandingSettings>(c.env, 'settings:branding');
+
+  let expiryDate: string | undefined;
+  if (course?.validityMonths) {
+    const expiry = new Date(completedAt);
+    expiry.setMonth(expiry.getMonth() + course.validityMonths);
+    expiryDate = expiry.toISOString();
+  }
+
+  const certificate: IssuedCertificate = {
+    id: crypto.randomUUID(),
+    username: session.username,
+    studentName: learnerUser?.name || session.username,
+    courseId,
+    courseTitle: course?.title || courseId,
+    courseNumber: course?.courseNumber || '',
+    certificateType: template.certificateType,
+    includeLogo: template.includeLogo,
+    includeStudentName: template.includeStudentName,
+    includeCourseName: template.includeCourseName,
+    includeCourseDate: template.includeCourseDate,
+    includeCourseNumber: template.includeCourseNumber,
+    includeSignatory: template.includeSignatory,
+    includeExpiryDate: template.includeExpiryDate,
+    signatoryName: template.signatoryName,
+    signatoryTitle: template.signatoryTitle,
+    signatureDataUrl: template.signatureDataUrl,
+    backgroundImageDataUrl: template.backgroundImageDataUrl,
+    backgroundBrightness: template.backgroundBrightness,
+    backgroundOpacity: template.backgroundOpacity,
+    borderColor: template.borderColor,
+    logoDataUrl: branding?.logoDataUrl || undefined,
+    issuedDate: completedAt,
+    expiryDate,
+  };
+  await kvPutJSON(c.env, `certificate:issued:${courseId}:${session.username}`, certificate);
+
+  return c.json({ ok: true, enrollment: updated, certificate });
 });
 
 // GET /api/courses/expired — every completed enrollment that has passed the

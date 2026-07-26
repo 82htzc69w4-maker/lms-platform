@@ -1,7 +1,12 @@
-export type CertificateType = 'competency' | 'completion';
+import type { CertificateType } from '../certificateTemplates/types';
 
-export type CertificateTemplate = {
+export type IssuedCertificate = {
+  id: string;
+  username: string;
+  studentName: string;
   courseId: string;
+  courseTitle: string;
+  courseNumber: string;
   certificateType: CertificateType;
   includeLogo: boolean;
   includeStudentName: boolean;
@@ -17,15 +22,7 @@ export type CertificateTemplate = {
   backgroundBrightness?: number;
   backgroundOpacity?: number;
   borderColor?: string;
-};
-
-export const DEFAULT_CERTIFICATE_TEMPLATE: Omit<CertificateTemplate, 'courseId'> = {
-  certificateType: 'completion',
-  includeLogo: true,
-  includeStudentName: true,
-  includeCourseName: true,
-  includeCourseDate: true,
-  includeCourseNumber: false,
-  includeSignatory: true,
-  includeExpiryDate: false,
+  logoDataUrl?: string;
+  issuedDate: string;
+  expiryDate?: string;
 };
