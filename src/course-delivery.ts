@@ -186,8 +186,8 @@ const scripts = `
 
         const cards = list.map(course => \`
           <div class="course-card">
-            \${course.imageDataUrl
-              ? \`<img class="course-card-image" src="\${course.imageDataUrl}" alt="" />\`
+            \${(course.imageDataUrl || course.bannerDataUrl)
+              ? \`<img class="course-card-image" src="\${course.imageDataUrl || course.bannerDataUrl}" alt="" />\`
               : '<div class="course-card-image-placeholder">No Image</div>'}
             <div class="course-card-body">
               <div class="course-card-title">\${course.title}</div>

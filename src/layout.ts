@@ -344,6 +344,7 @@ export const SHARED_STYLES = `
     height: 130px;
     object-fit: cover;
     display: block;
+    flex-shrink: 0;
   }
 
   .course-card-image-placeholder {
