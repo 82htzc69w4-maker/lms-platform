@@ -331,9 +331,17 @@ const scripts = `
         wrap.querySelectorAll('[data-lookup-delete]').forEach(btn => {
           btn.addEventListener('click', () => {
             fetch('/api/lookups/' + listName + '/' + encodeURIComponent(btn.dataset.lookupValue), { method: 'DELETE' })
+              .then(async (r) => {
+                const data = await r.json();
+                if (!r.ok) throw new Error(data.error || 'Failed to delete entry');
+                return data;
+              })
               .then(() => {
                 loadLookupList(listName);
                 loadLookupOptionsForSelects();
+              })
+              .catch((err) => {
+                alert(err.message);
               });
           });
         });
@@ -355,10 +363,18 @@ const scripts = `
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ value })
       })
+        .then(async (r) => {
+          const data = await r.json();
+          if (!r.ok) throw new Error(data.error || 'Failed to add entry');
+          return data;
+        })
         .then(() => {
           input.value = '';
           loadLookupList(listName);
           loadLookupOptionsForSelects();
+        })
+        .catch((err) => {
+          alert(err.message);
         });
     });
   });
