@@ -1,33 +1,32 @@
 import { renderLayout } from './layout';
 
 const bodyHtml = `
-  <a href="#" id="back-link" style="display: inline-block; margin-bottom: 16px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">&larr; Back to Course Development</a>
+  <a href="/learner#my-courses" id="back-link" style="display: inline-block; margin-bottom: 16px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">&larr; Back to My Courses</a>
 
   <div class="panel">
     <div class="panel-header">
-      <div class="panel-title" id="preview-course-title">Course Preview</div>
-      <div class="panel-sub">This is a simulation of what a learner will see — not the real learner experience yet</div>
+      <div class="panel-title" id="course-view-title">Course</div>
+      <div class="panel-sub">Work through the course below</div>
     </div>
     <div style="padding: 16px 20px 0;">
-      <img id="preview-course-banner" class="course-banner" style="display:none; margin-bottom: 0;" alt="" />
+      <img id="course-view-banner" class="course-banner" style="display:none; margin-bottom: 0;" alt="" />
     </div>
     <div style="padding: 12px 20px 0; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;" id="page-indicator"></div>
-    <div class="panel-body" id="preview-course-body">
+    <div class="panel-body" id="course-view-body">
       <div class="empty-state">Loading&hellip;</div>
     </div>
   </div>
 `;
 
 const scripts = `
-  // ---------- Role gate: Instructor and Administrator only ----------
+  // ---------- Role gate: Learners only ----------
   fetch('/api/auth/me')
     .then(r => {
       if (!r.ok) throw new Error('not logged in');
       return r.json();
     })
     .then(data => {
-      const role = data.user.role;
-      if (role !== 'instructor' && role !== 'administrator') {
+      if (data.user.role !== 'learner') {
         window.location.href = '/';
       }
     })
@@ -36,7 +35,6 @@ const scripts = `
     });
 
   const COURSE_ID = window.location.pathname.split('/').pop();
-  document.getElementById('back-link').href = '/course-development/' + COURSE_ID;
 
   const BLOCK_TYPE_LABELS = {
     module: 'Module',
@@ -801,7 +799,7 @@ const scripts = `
 
   function renderPage(index) {
     currentPageIndex = index;
-    const bodyEl = document.getElementById('preview-course-body');
+    const bodyEl = document.getElementById('course-view-body');
     const page = pages[index];
 
     // Fully replaces the previous page's content — nothing from the prior
@@ -845,9 +843,9 @@ const scripts = `
     const course = courseData.course;
     const blocks = contentData.blocks || [];
 
-    document.getElementById('preview-course-title').textContent = course ? course.title : 'Course Preview';
+    document.getElementById('course-view-title').textContent = course ? course.title : 'Course';
 
-    const bannerEl = document.getElementById('preview-course-banner');
+    const bannerEl = document.getElementById('course-view-banner');
     if (course && course.bannerDataUrl) {
       bannerEl.src = course.bannerDataUrl;
       bannerEl.style.display = 'block';
@@ -857,7 +855,7 @@ const scripts = `
       bannerEl.style.maxHeight = bannerHeight + 'px';
     }
 
-    const bodyEl = document.getElementById('preview-course-body');
+    const bodyEl = document.getElementById('course-view-body');
 
     if (enrollmentData.blocked) {
       document.getElementById('page-indicator').textContent = '';
@@ -878,15 +876,15 @@ const scripts = `
     pages = splitIntoPages(blocks);
     renderPage(0);
   }).catch(() => {
-    document.getElementById('preview-course-body').innerHTML = '<div class="empty-state">Could not load this course.</div>';
+    document.getElementById('course-view-body').innerHTML = '<div class="empty-state">Could not load this course.</div>';
   });
 `;
 
-export const coursePreviewHtml = renderLayout({
-  title: 'Course Preview',
-  activePath: '/course-delivery',
-  eyebrowSuffix: 'Learner Preview',
-  heading: 'Course Preview',
+export const courseViewHtml = renderLayout({
+  title: 'Course',
+  activePath: '/learner',
+  eyebrowSuffix: 'Learner Section',
+  heading: 'Course',
   bodyHtml,
   scripts,
 });
