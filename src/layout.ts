@@ -6,7 +6,7 @@ const NAV_ITEMS: Array<{ label: string; path: string; roles?: string[] }> = [
   { label: 'Dashboard', path: '/' },
   { label: 'Learner Section', path: '/learner' },
   { label: 'Course Delivery', path: '/course-delivery', roles: ['instructor', 'administrator'] },
-  { label: 'Admin', path: '/admin' },
+  { label: 'Admin', path: '/admin', roles: ['admin', 'administrator'] },
 ];
 
 export const SHARED_STYLES = `

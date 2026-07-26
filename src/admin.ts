@@ -280,6 +280,22 @@ const bodyHtml = `
 `;
 
 const scripts = `
+  // ---------- Role gate: Admin and Administrator only ----------
+  fetch('/api/auth/me')
+    .then(r => {
+      if (!r.ok) throw new Error('not logged in');
+      return r.json();
+    })
+    .then(data => {
+      const role = data.user.role;
+      if (role !== 'admin' && role !== 'administrator') {
+        window.location.href = '/';
+      }
+    })
+    .catch(() => {
+      window.location.href = '/login';
+    });
+
   // ---------- Tab switching ----------
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {

@@ -117,11 +117,16 @@ const scripts = `
             btn.textContent = 'Marking Complete…';
             btn.disabled = true;
             fetch('/api/courses/' + courseId + '/complete', { method: 'POST' })
-              .then(r => r.json())
+              .then(async (r) => {
+                const data = await r.json();
+                if (!r.ok) throw new Error(data.error || 'Failed to mark complete');
+                return data;
+              })
               .then(() => loadMyCourses())
-              .catch(() => {
+              .catch((err) => {
                 btn.textContent = 'Mark as Complete';
                 btn.disabled = false;
+                alert(err.message);
               });
           });
         });
@@ -224,12 +229,16 @@ const scripts = `
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ courseId, motivation })
           })
-            .then(r => r.json())
+            .then(async (r) => {
+              const data = await r.json();
+              if (!r.ok) throw new Error(data.error || 'Failed to submit application');
+              return data;
+            })
             .then(() => {
               loadCatalogue();
             })
-            .catch(() => {
-              msgEl.textContent = 'Failed to submit application.';
+            .catch((err) => {
+              msgEl.textContent = err.message;
               msgEl.style.color = 'var(--risk)';
               btn.textContent = 'Submit Application';
               btn.disabled = false;

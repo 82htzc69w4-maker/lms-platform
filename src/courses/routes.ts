@@ -63,6 +63,63 @@ courses.post('/', async (c) => {
   return c.json({ ok: true, course });
 });
 
+// GET /api/courses/mine — the logged-in learner's enrolled courses.
+// Registered before /:id so "mine" is never mistaken for a course ID.
+courses.get('/mine', async (c) => {
+  const session = await getSessionUser(c);
+  if (!session) return c.json({ error: 'Not logged in' }, 401);
+
+  const list = await kvListByPrefix(c.env, `enrollment:${session.username}:`);
+  const result: Array<Course & { enrollmentStatus: string; completedAt?: string }> = [];
+  for (const key of list.keys) {
+    const enrollment = await kvGetJSON<Enrollment>(c.env, key.name);
+    if (!enrollment) continue;
+    const course = await kvGetJSON<Course>(c.env, `course:def:${enrollment.courseId}`);
+    if (course) {
+      result.push({ ...course, enrollmentStatus: enrollment.status, completedAt: enrollment.completedAt });
+    }
+  }
+  return c.json({ courses: result });
+});
+
+// GET /api/courses/expired — every completed enrollment that has passed the
+// course's Validity Period (courses without a validity period never expire).
+// Also registered before /:id for the same reason.
+courses.get('/expired', async (c) => {
+  const list = await kvListByPrefix(c.env, 'enrollment:');
+  const expired: Array<{
+    username: string;
+    courseId: string;
+    courseTitle: string;
+    completedAt: string;
+    expiredOn: string;
+  }> = [];
+  const now = Date.now();
+
+  for (const key of list.keys) {
+    const enrollment = await kvGetJSON<Enrollment>(c.env, key.name);
+    if (!enrollment || enrollment.status !== 'completed' || !enrollment.completedAt) continue;
+
+    const course = await kvGetJSON<Course>(c.env, `course:def:${enrollment.courseId}`);
+    if (!course || !course.validityMonths) continue;
+
+    const expiryDate = new Date(enrollment.completedAt);
+    expiryDate.setMonth(expiryDate.getMonth() + course.validityMonths);
+
+    if (expiryDate.getTime() <= now) {
+      expired.push({
+        username: enrollment.username,
+        courseId: enrollment.courseId,
+        courseTitle: course.title,
+        completedAt: enrollment.completedAt,
+        expiredOn: expiryDate.toISOString(),
+      });
+    }
+  }
+
+  return c.json({ expired });
+});
+
 // GET /api/courses/:id — full detail for the Course Development screen
 courses.get('/:id', async (c) => {
   const courseId = c.req.param('id');
@@ -137,23 +194,6 @@ courses.get('/:id/enrollment-status', async (c) => {
   const courseId = c.req.param('id');
   const enrollment = await kvGetJSON<Enrollment>(c.env, `enrollment:${session.username}:${courseId}`);
   return c.json({ enrolled: !!enrollment, blocked: enrollment?.blocked ?? false });
-});
-
-courses.get('/mine', async (c) => {
-  const session = await getSessionUser(c);
-  if (!session) return c.json({ error: 'Not logged in' }, 401);
-
-  const list = await kvListByPrefix(c.env, `enrollment:${session.username}:`);
-  const result: Array<Course & { enrollmentStatus: string; completedAt?: string }> = [];
-  for (const key of list.keys) {
-    const enrollment = await kvGetJSON<Enrollment>(c.env, key.name);
-    if (!enrollment) continue;
-    const course = await kvGetJSON<Course>(c.env, `course:def:${enrollment.courseId}`);
-    if (course) {
-      result.push({ ...course, enrollmentStatus: enrollment.status, completedAt: enrollment.completedAt });
-    }
-  }
-  return c.json({ courses: result });
 });
 
 // POST /api/courses/:id/enroll — registers the logged-in learner for a course
@@ -263,43 +303,6 @@ courses.post('/:id/complete', async (c) => {
   await kvPutJSON(c.env, `certificate:issued:${courseId}:${session.username}`, certificate);
 
   return c.json({ ok: true, enrollment: updated, certificate });
-});
-
-// GET /api/courses/expired — every completed enrollment that has passed the
-// course's Validity Period (courses without a validity period never expire)
-courses.get('/expired', async (c) => {
-  const list = await kvListByPrefix(c.env, 'enrollment:');
-  const expired: Array<{
-    username: string;
-    courseId: string;
-    courseTitle: string;
-    completedAt: string;
-    expiredOn: string;
-  }> = [];
-  const now = Date.now();
-
-  for (const key of list.keys) {
-    const enrollment = await kvGetJSON<Enrollment>(c.env, key.name);
-    if (!enrollment || enrollment.status !== 'completed' || !enrollment.completedAt) continue;
-
-    const course = await kvGetJSON<Course>(c.env, `course:def:${enrollment.courseId}`);
-    if (!course || !course.validityMonths) continue;
-
-    const expiryDate = new Date(enrollment.completedAt);
-    expiryDate.setMonth(expiryDate.getMonth() + course.validityMonths);
-
-    if (expiryDate.getTime() <= now) {
-      expired.push({
-        username: enrollment.username,
-        courseId: enrollment.courseId,
-        courseTitle: course.title,
-        completedAt: enrollment.completedAt,
-        expiredOn: expiryDate.toISOString(),
-      });
-    }
-  }
-
-  return c.json({ expired });
 });
 
 // ---------------------------------------------------------------------------
