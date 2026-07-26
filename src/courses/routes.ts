@@ -328,6 +328,7 @@ async function completeEnrollmentAndIssueCertificate(
     courseTitle: course?.title || courseId,
     courseNumber: course?.courseNumber || '',
     certificateType: template.certificateType,
+    orientation: template.orientation,
     includeLogo: template.includeLogo,
     includeStudentName: template.includeStudentName,
     includeCourseName: template.includeCourseName,

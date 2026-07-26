@@ -26,6 +26,7 @@ certificateTemplates.put('/:courseId', async (c) => {
   const updated: CertificateTemplate = {
     ...existing,
     certificateType: body.certificateType ?? existing.certificateType,
+    orientation: body.orientation ?? existing.orientation,
     includeLogo: body.includeLogo ?? existing.includeLogo,
     includeStudentName: body.includeStudentName ?? existing.includeStudentName,
     includeCourseName: body.includeCourseName ?? existing.includeCourseName,

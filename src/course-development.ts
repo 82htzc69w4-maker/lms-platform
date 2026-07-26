@@ -231,6 +231,10 @@ const bodyHtml = `
                 <option value="completion">Certificate of Completion</option>
                 <option value="competency">Certificate of Competency</option>
               </select>
+              <select id="cert-orientation-select">
+                <option value="landscape">Landscape</option>
+                <option value="portrait">Portrait</option>
+              </select>
             </div>
 
             <div class="stat-label" style="margin: 16px 0 8px;">Include on Certificate</div>
@@ -265,6 +269,7 @@ const bodyHtml = `
               <div class="image-upload-area" id="signature-upload-area">
                 <img id="signature-preview" class="image-upload-preview" src="" style="display:none;" />
                 <input type="file" id="signature-input" accept="image/*" />
+                <button type="button" class="btn" id="signature-delete-btn" style="margin-top:8px; background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line); display:none;">Remove Signature</button>
               </div>
             </div>
 
@@ -273,6 +278,7 @@ const bodyHtml = `
               <div class="image-upload-area" id="cert-background-upload-area">
                 <img id="cert-background-preview" class="image-upload-preview" src="" style="display:none;" />
                 <input type="file" id="cert-background-input" accept="image/*" />
+                <button type="button" class="btn" id="cert-background-delete-btn" style="margin-top:8px; background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line); display:none;">Remove Background</button>
               </div>
               <div class="stat-label" style="margin-bottom: 4px; margin-top: 12px;">Brightness: <span id="cert-brightness-label">100%</span></div>
               <input type="range" id="cert-brightness-slider" min="20" max="180" value="100" style="width:100%;" />
@@ -1881,6 +1887,7 @@ const scripts = `
 
   function renderCertificatePreview() {
     const type = document.getElementById('cert-type-select').value;
+    const orientation = document.getElementById('cert-orientation-select').value;
     const includeLogo = document.getElementById('cert-include-logo').checked;
     const includeStudentName = document.getElementById('cert-include-student-name').checked;
     const includeCourseName = document.getElementById('cert-include-course-name').checked;
@@ -1897,9 +1904,12 @@ const scripts = `
     document.getElementById('cert-signatory-fields').style.display = includeSignatory ? 'block' : 'none';
     document.getElementById('cert-brightness-label').textContent = brightness + '%';
     document.getElementById('cert-opacity-label').textContent = opacity + '%';
+    document.getElementById('signature-delete-btn').style.display = pendingSignatureDataUrl ? 'inline-block' : 'none';
+    document.getElementById('cert-background-delete-btn').style.display = pendingCertBackgroundDataUrl ? 'inline-block' : 'none';
 
     const title = type === 'competency' ? 'Certificate of Competency' : 'Certificate of Completion';
     const bodyText = type === 'competency' ? 'has been assessed as competent in' : 'has successfully completed';
+    const sizeStyle = orientation === 'portrait' ? 'width:500px; aspect-ratio:0.707; max-width:100%;' : 'width:700px; aspect-ratio:1.414; max-width:100%;';
 
     const logoHtml = includeLogo && brandingLogoDataUrl
       ? '<img src="' + brandingLogoDataUrl + '" style="max-height:60px; margin-bottom:16px; position:relative; z-index:1;" />'
@@ -1927,11 +1937,11 @@ const scripts = `
     \` : '';
 
     const backgroundLayerHtml = pendingCertBackgroundDataUrl
-      ? '<img src="' + pendingCertBackgroundDataUrl + '" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; filter: brightness(' + brightness + '%); opacity:' + (opacity / 100) + '; z-index:0;" />'
+      ? '<img src="' + pendingCertBackgroundDataUrl + '" style="position:absolute; inset:0; width:100%; height:100%; object-fit:contain; filter: brightness(' + brightness + '%); opacity:' + (opacity / 100) + '; z-index:0;" />'
       : '';
 
     document.getElementById('certificate-preview-wrap').innerHTML = \`
-      <div style="position:relative; overflow:hidden; background:#fff; color:#14171A; border:8px solid \${borderColor}; border-radius:4px; padding:40px; text-align:center; font-family:'Inter',sans-serif;">
+      <div style="position:relative; overflow:hidden; background:#fff; color:#14171A; border:8px solid \${borderColor}; border-radius:4px; padding:40px; text-align:center; font-family:'Inter',sans-serif; \${sizeStyle} margin:0 auto; box-sizing:border-box; display:flex; flex-direction:column; justify-content:center;">
         \${backgroundLayerHtml}
         <div style="position:relative; z-index:1;">
           \${logoHtml}
@@ -1949,7 +1959,7 @@ const scripts = `
     \`;
   }
 
-  document.querySelectorAll('#cert-type-select, #cert-include-logo, #cert-include-student-name, #cert-include-course-name, #cert-include-course-date, #cert-include-course-number, #cert-include-signatory, #cert-include-expiry-date, #cert-signatory-name, #cert-signatory-title').forEach(el => {
+  document.querySelectorAll('#cert-type-select, #cert-orientation-select, #cert-include-logo, #cert-include-student-name, #cert-include-course-name, #cert-include-course-date, #cert-include-course-number, #cert-include-signatory, #cert-include-expiry-date, #cert-signatory-name, #cert-signatory-title').forEach(el => {
     el.addEventListener('input', renderCertificatePreview);
     el.addEventListener('change', renderCertificatePreview);
   });
@@ -1992,10 +2002,27 @@ const scripts = `
     reader.readAsDataURL(file);
   });
 
+  document.getElementById('signature-delete-btn').addEventListener('click', () => {
+    pendingSignatureDataUrl = null;
+    document.getElementById('signature-preview').src = '';
+    document.getElementById('signature-preview').style.display = 'none';
+    document.getElementById('signature-input').value = '';
+    renderCertificatePreview();
+  });
+
+  document.getElementById('cert-background-delete-btn').addEventListener('click', () => {
+    pendingCertBackgroundDataUrl = null;
+    document.getElementById('cert-background-preview').src = '';
+    document.getElementById('cert-background-preview').style.display = 'none';
+    document.getElementById('cert-background-input').value = '';
+    renderCertificatePreview();
+  });
+
   document.getElementById('save-certificate-btn').addEventListener('click', () => {
     const msgEl = document.getElementById('certificate-save-message');
     const payload = {
       certificateType: document.getElementById('cert-type-select').value,
+      orientation: document.getElementById('cert-orientation-select').value,
       includeLogo: document.getElementById('cert-include-logo').checked,
       includeStudentName: document.getElementById('cert-include-student-name').checked,
       includeCourseName: document.getElementById('cert-include-course-name').checked,
@@ -2043,6 +2070,7 @@ const scripts = `
     const t = templateData.template;
     if (t) {
       document.getElementById('cert-type-select').value = t.certificateType || 'completion';
+      document.getElementById('cert-orientation-select').value = t.orientation || 'landscape';
       document.getElementById('cert-include-logo').checked = !!t.includeLogo;
       document.getElementById('cert-include-student-name').checked = !!t.includeStudentName;
       document.getElementById('cert-include-course-name').checked = !!t.includeCourseName;

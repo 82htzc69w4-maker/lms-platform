@@ -304,6 +304,8 @@ const scripts = `
     const title = cert.certificateType === 'competency' ? 'Certificate of Competency' : 'Certificate of Completion';
     const bodyText = cert.certificateType === 'competency' ? 'has been assessed as competent in' : 'has successfully completed';
     const borderColor = cert.borderColor || '#F2B705';
+    const orientation = cert.orientation || 'landscape';
+    const sizeStyle = orientation === 'portrait' ? 'width:500px; aspect-ratio:0.707; max-width:100%;' : 'width:700px; aspect-ratio:1.414; max-width:100%;';
 
     const logoHtml = cert.includeLogo && cert.logoDataUrl
       ? '<img src="' + cert.logoDataUrl + '" style="max-height:60px; margin-bottom:16px; position:relative; z-index:1;" />'
@@ -331,11 +333,11 @@ const scripts = `
       </div>
     \` : '';
     const backgroundLayerHtml = cert.backgroundImageDataUrl
-      ? '<img src="' + cert.backgroundImageDataUrl + '" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; filter: brightness(' + (cert.backgroundBrightness || 100) + '%); opacity:' + ((cert.backgroundOpacity != null ? cert.backgroundOpacity : 100) / 100) + '; z-index:0;" />'
+      ? '<img src="' + cert.backgroundImageDataUrl + '" style="position:absolute; inset:0; width:100%; height:100%; object-fit:contain; filter: brightness(' + (cert.backgroundBrightness || 100) + '%); opacity:' + ((cert.backgroundOpacity != null ? cert.backgroundOpacity : 100) / 100) + '; z-index:0;" />'
       : '';
 
     return \`
-      <div style="position:relative; overflow:hidden; background:#fff; color:#14171A; border:8px solid \${borderColor}; border-radius:4px; padding:40px; text-align:center; font-family:'Inter',sans-serif;">
+      <div style="position:relative; overflow:hidden; background:#fff; color:#14171A; border:8px solid \${borderColor}; border-radius:4px; padding:40px; text-align:center; font-family:'Inter',sans-serif; \${sizeStyle} margin:0 auto; box-sizing:border-box; display:flex; flex-direction:column; justify-content:center;">
         \${backgroundLayerHtml}
         <div style="position:relative; z-index:1;">
           \${logoHtml}
@@ -353,7 +355,7 @@ const scripts = `
     \`;
   }
 
-  function openCertificatePrintWindow(faceHtml) {
+  function openCertificatePrintWindow(faceHtml, orientation) {
     const win = window.open('', '_blank');
     if (!win) return;
     win.document.open();
@@ -363,7 +365,8 @@ const scripts = `
         <title>Certificate</title>
         <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
         <style>
-          body { margin:0; padding:40px; background:#fff; }
+          @page { size: \${orientation === 'portrait' ? 'portrait' : 'landscape'}; margin: 0.5cm; }
+          body { margin:0; padding:40px; background:#fff; display:flex; justify-content:center; }
           @media print { body { padding:0; } }
         </style>
       </head>
@@ -448,7 +451,7 @@ const scripts = `
       wrap.querySelectorAll('.print-cert-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const cert = issuedCertificatesById[btn.dataset.certId];
-          if (cert) openCertificatePrintWindow(buildCertificateFaceHtml(cert));
+          if (cert) openCertificatePrintWindow(buildCertificateFaceHtml(cert), cert.orientation);
         });
       });
     }).catch(() => {

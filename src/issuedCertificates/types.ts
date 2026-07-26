@@ -1,4 +1,4 @@
-import type { CertificateType } from '../certificateTemplates/types';
+import type { CertificateType, CertificateOrientation } from '../certificateTemplates/types';
 
 export type IssuedCertificate = {
   id: string;
@@ -8,6 +8,7 @@ export type IssuedCertificate = {
   courseTitle: string;
   courseNumber: string;
   certificateType: CertificateType;
+  orientation: CertificateOrientation;
   includeLogo: boolean;
   includeStudentName: boolean;
   includeCourseName: boolean;
