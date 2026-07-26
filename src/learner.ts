@@ -122,8 +122,8 @@ const scripts = `
               const el = document.querySelector('.progress-wrap-' + course.id);
               if (!el) return;
 
-              if (progress.totalTrackable === 0) {
-                el.innerHTML = '<div class="stat-label" style="text-transform:none; letter-spacing:0;">No trackable activities in this course yet</div>';
+              if (progress.totalItems === 0) {
+                el.innerHTML = '<div class="stat-label" style="text-transform:none; letter-spacing:0;">No progress recorded yet</div>';
                 return;
               }
 

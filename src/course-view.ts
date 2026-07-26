@@ -804,6 +804,12 @@ const scripts = `
     bodyEl.innerHTML = renderPageBlocks(page);
     window.scrollTo({ top: 0, behavior: 'instant' });
 
+    fetch('/api/courses/' + COURSE_ID + '/view-page', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pageIndex: index, totalPages: pages.length })
+    }).catch(() => { /* progress tracking is best-effort; don't block reading */ });
+
     const pageIndicator = document.getElementById('page-indicator');
     if (pageIndicator) {
       pageIndicator.textContent = pages.length > 1 ? 'Page ' + (index + 1) + ' of ' + pages.length : '';

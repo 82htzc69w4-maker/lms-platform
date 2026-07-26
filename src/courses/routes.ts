@@ -319,6 +319,37 @@ async function completeEnrollmentAndIssueCertificate(
 // records to check — ordinary content blocks (text, images, etc.) have no
 // "viewed" tracking yet, so they can't honestly be included.
 // Reaching 100% automatically completes the course and issues the certificate.
+// POST /api/courses/:id/view-page — records that the learner has viewed a
+// given page of the course (course-view.ts calls this every time a page
+// renders). This is what lets "reading through the course" actually move
+// the progress needle, not just embedded Tests/Assignments/Certificates.
+courses.post('/:id/view-page', async (c) => {
+  const session = await getSessionUser(c);
+  if (!session) return c.json({ error: 'Not logged in' }, 401);
+
+  const courseId = c.req.param('id');
+  const body = await c.req.json<{ pageIndex: number; totalPages: number }>();
+
+  const key = `course-progress:${courseId}:${session.username}`;
+  const existing = (await kvGetJSON<{ viewedPages: number[]; totalPages: number }>(c.env, key)) ?? {
+    viewedPages: [],
+    totalPages: body.totalPages,
+  };
+
+  if (!existing.viewedPages.includes(body.pageIndex)) {
+    existing.viewedPages.push(body.pageIndex);
+  }
+  existing.totalPages = body.totalPages;
+
+  await kvPutJSON(c.env, key, existing);
+  return c.json({ ok: true });
+});
+
+// GET /api/courses/:id/my-progress — real, computed progress combining two
+// genuine signals: how many pages of the course the learner has actually
+// viewed, and how many of the course's Test/Assignment/Certificate blocks
+// they've genuinely submitted. Reaching 100% automatically completes the
+// course and issues the certificate.
 courses.get('/:id/my-progress', async (c) => {
   const session = await getSessionUser(c);
   if (!session) return c.json({ error: 'Not logged in' }, 401);
@@ -330,25 +361,33 @@ courses.get('/:id/my-progress', async (c) => {
     (b) => b.type === 'test' || b.type === 'assignmentUpload' || b.type === 'externalCertificate'
   );
 
-  let completedCount = 0;
+  let completedActivities = 0;
   for (const block of trackableBlocks) {
     if (block.type === 'test') {
       const history = await kvGetJSON<unknown[]>(c.env, `test:attempts:${block.id}:${session.username}`);
-      if (history && history.length > 0) completedCount += 1;
+      if (history && history.length > 0) completedActivities += 1;
     } else if (block.type === 'assignmentUpload') {
       const submission = await kvGetJSON<unknown>(c.env, `assignment:submission:${block.id}:${session.username}`);
-      if (submission) completedCount += 1;
+      if (submission) completedActivities += 1;
     } else if (block.type === 'externalCertificate') {
       const submission = await kvGetJSON<unknown>(c.env, `certificate-upload:${block.id}:${session.username}`);
-      if (submission) completedCount += 1;
+      if (submission) completedActivities += 1;
     }
   }
 
-  const totalTrackable = trackableBlocks.length;
-  const percent = totalTrackable > 0 ? Math.round((completedCount / totalTrackable) * 100) : 0;
+  const pageProgress = await kvGetJSON<{ viewedPages: number[]; totalPages: number }>(
+    c.env,
+    `course-progress:${courseId}:${session.username}`
+  );
+  const totalPages = pageProgress?.totalPages ?? 0;
+  const viewedPages = Math.min(pageProgress?.viewedPages.length ?? 0, totalPages);
+
+  const totalItems = totalPages + trackableBlocks.length;
+  const completedItems = viewedPages + completedActivities;
+  const percent = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
 
   let justCompleted = false;
-  if (totalTrackable > 0 && percent === 100) {
+  if (totalItems > 0 && percent === 100) {
     const enrollment = await kvGetJSON<Enrollment>(c.env, `enrollment:${session.username}:${courseId}`);
     if (enrollment && enrollment.status !== 'completed') {
       await completeEnrollmentAndIssueCertificate(c.env, session.username, courseId);
@@ -357,8 +396,8 @@ courses.get('/:id/my-progress', async (c) => {
   }
 
   return c.json({
-    totalTrackable,
-    completedCount,
+    totalItems,
+    completedItems,
     percent,
     justCompleted,
   });
