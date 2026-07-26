@@ -190,7 +190,11 @@ const scripts = `
     return div.innerHTML;
   }
 
-  function renderIssuedCertificateCard(cert) {
+  function isCertExpired(expiryDate) {
+    return !!expiryDate && new Date(expiryDate).getTime() < Date.now();
+  }
+
+  function buildCertificateFaceHtml(cert) {
     const title = cert.certificateType === 'competency' ? 'Certificate of Competency' : 'Certificate of Completion';
     const bodyText = cert.certificateType === 'competency' ? 'has been assessed as competent in' : 'has successfully completed';
     const borderColor = cert.borderColor || '#F2B705';
@@ -225,7 +229,7 @@ const scripts = `
       : '';
 
     return \`
-      <div style="position:relative; overflow:hidden; background:#fff; color:#14171A; border:8px solid \${borderColor}; border-radius:4px; padding:40px; text-align:center; font-family:'Inter',sans-serif; margin-bottom:20px;">
+      <div style="position:relative; overflow:hidden; background:#fff; color:#14171A; border:8px solid \${borderColor}; border-radius:4px; padding:40px; text-align:center; font-family:'Inter',sans-serif;">
         \${backgroundLayerHtml}
         <div style="position:relative; z-index:1;">
           \${logoHtml}
@@ -243,24 +247,108 @@ const scripts = `
     \`;
   }
 
+  function openCertificatePrintWindow(faceHtml) {
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.open();
+    win.document.write(\`
+      <html>
+      <head>
+        <title>Certificate</title>
+        <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+        <style>
+          body { margin:0; padding:40px; background:#fff; }
+          @media print { body { padding:0; } }
+        </style>
+      </head>
+      <body>\${faceHtml}</body>
+      </html>
+    \`);
+    win.document.close();
+    win.onload = () => {
+      win.focus();
+      win.print();
+    };
+  }
+
+  let issuedCertificatesById = {};
+
+  function renderIssuedCertificateCard(cert) {
+    issuedCertificatesById[cert.id] = cert;
+    const expired = isCertExpired(cert.expiryDate);
+    const faceHtml = buildCertificateFaceHtml(cert);
+    const metaText = 'Issued: ' + new Date(cert.issuedDate).toLocaleDateString() +
+      (cert.expiryDate ? ' — Expires: ' + new Date(cert.expiryDate).toLocaleDateString() : ' — No expiry');
+
+    return \`
+      <div style="margin-bottom:24px; \${expired ? 'border:2px solid var(--risk); border-radius:6px; padding:12px; background:rgba(193,68,58,0.06);' : ''}">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:\${expired ? 'var(--risk)' : 'var(--text-muted)'};">
+            \${expired ? '<strong>EXPIRED</strong> — ' : ''}\${metaText}
+          </div>
+          <button type="button" class="btn print-cert-btn" data-cert-id="\${cert.id}">Print / Download</button>
+        </div>
+        \${faceHtml}
+      </div>
+    \`;
+  }
+
+  function renderExternalCertificateRow(sub) {
+    const expired = isCertExpired(sub.expiryDate);
+    const metaText = 'Issued: ' + new Date(sub.issuedDate).toLocaleDateString() +
+      (sub.expiryDate ? ' — Expires: ' + new Date(sub.expiryDate).toLocaleDateString() : ' — No expiry');
+
+    return \`
+      <div class="content-block-row" style="align-items:center; cursor:default; \${expired ? 'border-color: var(--risk); background: rgba(193,68,58,0.06);' : ''}">
+        <div style="flex:1;">
+          <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:4px;">\${escapeHtmlLearner(sub.certificateName)}</div>
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:\${expired ? 'var(--risk)' : 'var(--text-muted)'};">
+            \${expired ? '<strong>EXPIRED</strong> — ' : ''}\${metaText}
+          </div>
+        </div>
+        <a href="\${sub.fileDataUrl}" download="\${escapeHtmlLearner(sub.fileName)}" class="btn" style="text-decoration:none;">Open / Download</a>
+      </div>
+    \`;
+  }
+
   function loadCertificates() {
-    fetch('/api/issued-certificates/mine')
-      .then(r => r.json())
-      .then(data => {
-        const list = data.certificates || [];
-        const wrap = document.getElementById('certificates-wrap');
+    Promise.all([
+      fetch('/api/issued-certificates/mine').then(r => r.json()).catch(() => ({ certificates: [] })),
+      fetch('/api/certificate-uploads/mine').then(r => r.json()).catch(() => ({ submissions: [] })),
+    ]).then(([issuedData, uploadData]) => {
+      const issued = issuedData.certificates || [];
+      const uploaded = uploadData.submissions || [];
+      const wrap = document.getElementById('certificates-wrap');
 
-        if (list.length === 0) {
-          wrap.innerHTML = '<div class="empty-state">No certificates issued yet. Complete a course to earn one.</div>';
-          return;
-        }
+      if (issued.length === 0 && uploaded.length === 0) {
+        wrap.innerHTML = '<div class="empty-state">No certificates yet. Complete a course or upload an external certificate to see it here.</div>';
+        return;
+      }
 
-        wrap.innerHTML = list.map(renderIssuedCertificateCard).join('');
-      })
-      .catch(() => {
-        document.getElementById('certificates-wrap').innerHTML =
-          '<div class="empty-state">Could not reach /api/issued-certificates/mine.</div>';
+      let html = '';
+
+      html += '<div class="stat-label" style="margin-bottom: 12px;">Course Certificates</div>';
+      html += issued.length > 0
+        ? issued.map(renderIssuedCertificateCard).join('')
+        : '<div class="empty-state" style="margin-bottom: 24px;">No course certificates yet.</div>';
+
+      html += '<div class="stat-label" style="margin-bottom: 12px; margin-top: 12px;">External Certificates</div>';
+      html += uploaded.length > 0
+        ? uploaded.map(renderExternalCertificateRow).join('')
+        : '<div class="empty-state">No external certificates uploaded yet.</div>';
+
+      wrap.innerHTML = html;
+
+      wrap.querySelectorAll('.print-cert-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const cert = issuedCertificatesById[btn.dataset.certId];
+          if (cert) openCertificatePrintWindow(buildCertificateFaceHtml(cert));
+        });
       });
+    }).catch(() => {
+      document.getElementById('certificates-wrap').innerHTML =
+        '<div class="empty-state">Could not load certificates.</div>';
+    });
   }
 
   function loadCoachingSessions() {
