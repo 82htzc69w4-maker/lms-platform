@@ -245,6 +245,9 @@ const bodyHtml = `
               <input type="checkbox" id="cert-include-student-name" /> Student Name
             </label>
             <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text-primary);">
+              <input type="checkbox" id="cert-include-id-number" /> Student ID Number
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text-primary);">
               <input type="checkbox" id="cert-include-course-name" /> Course Name
             </label>
             <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text-primary);">
@@ -286,6 +289,8 @@ const bodyHtml = `
               <input type="range" id="cert-opacity-slider" min="0" max="100" value="100" style="width:100%;" />
               <div class="stat-label" style="margin-bottom: 4px; margin-top: 12px;">Border Color</div>
               <input type="color" id="cert-border-color" value="#F2B705" style="width:100%; height:36px; border:1px solid var(--grid-line); border-radius:2px; cursor:pointer;" />
+              <div class="stat-label" style="margin-bottom: 4px; margin-top: 12px;">Validity Period (months)</div>
+              <input type="number" id="cert-validity-months" placeholder="e.g. 24" min="0" style="max-width: 160px;" />
             </div>
 
             <button class="btn" id="save-certificate-btn" style="margin-top: 16px;">Save Certificate Design</button>
@@ -1890,6 +1895,7 @@ const scripts = `
     const orientation = document.getElementById('cert-orientation-select').value;
     const includeLogo = document.getElementById('cert-include-logo').checked;
     const includeStudentName = document.getElementById('cert-include-student-name').checked;
+    const includeIdNumber = document.getElementById('cert-include-id-number').checked;
     const includeCourseName = document.getElementById('cert-include-course-name').checked;
     const includeCourseDate = document.getElementById('cert-include-course-date').checked;
     const includeCourseNumber = document.getElementById('cert-include-course-number').checked;
@@ -1948,6 +1954,7 @@ const scripts = `
           <div style="font-family:'Big Shoulders Display',sans-serif; font-size:28px; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:16px;">\${title}</div>
           <div style="font-size:13px; color:#6B6459;">This certifies that</div>
           \${includeStudentName ? '<div style="font-family:\\'Playfair Display\\',serif; font-size:26px; margin:12px 0; border-bottom:1px solid #D9D2C3; display:inline-block; padding-bottom:6px;">[Student Name]</div>' : ''}
+          \${includeIdNumber ? '<div style="font-family:\\'IBM Plex Mono\\',monospace; font-size:12px; color:#6B6459;">ID: [Student ID Number]</div>' : ''}
           <div style="font-size:13px; color:#6B6459; margin-top:8px;">\${bodyText}</div>
           \${courseNameHtml}
           \${courseNumberHtml}
@@ -1959,7 +1966,7 @@ const scripts = `
     \`;
   }
 
-  document.querySelectorAll('#cert-type-select, #cert-orientation-select, #cert-include-logo, #cert-include-student-name, #cert-include-course-name, #cert-include-course-date, #cert-include-course-number, #cert-include-signatory, #cert-include-expiry-date, #cert-signatory-name, #cert-signatory-title').forEach(el => {
+  document.querySelectorAll('#cert-type-select, #cert-orientation-select, #cert-include-logo, #cert-include-student-name, #cert-include-id-number, #cert-include-course-name, #cert-include-course-date, #cert-include-course-number, #cert-include-signatory, #cert-include-expiry-date, #cert-signatory-name, #cert-signatory-title').forEach(el => {
     el.addEventListener('input', renderCertificatePreview);
     el.addEventListener('change', renderCertificatePreview);
   });
@@ -2025,6 +2032,7 @@ const scripts = `
       orientation: document.getElementById('cert-orientation-select').value,
       includeLogo: document.getElementById('cert-include-logo').checked,
       includeStudentName: document.getElementById('cert-include-student-name').checked,
+      includeIdNumber: document.getElementById('cert-include-id-number').checked,
       includeCourseName: document.getElementById('cert-include-course-name').checked,
       includeCourseDate: document.getElementById('cert-include-course-date').checked,
       includeCourseNumber: document.getElementById('cert-include-course-number').checked,
@@ -2037,6 +2045,9 @@ const scripts = `
       backgroundBrightness: parseInt(document.getElementById('cert-brightness-slider').value, 10),
       backgroundOpacity: parseInt(document.getElementById('cert-opacity-slider').value, 10),
       borderColor: document.getElementById('cert-border-color').value,
+      validityMonths: document.getElementById('cert-validity-months').value
+        ? parseInt(document.getElementById('cert-validity-months').value, 10)
+        : undefined,
     };
 
     fetch('/api/certificate-templates/' + COURSE_ID, {
@@ -2073,6 +2084,7 @@ const scripts = `
       document.getElementById('cert-orientation-select').value = t.orientation || 'landscape';
       document.getElementById('cert-include-logo').checked = !!t.includeLogo;
       document.getElementById('cert-include-student-name').checked = !!t.includeStudentName;
+      document.getElementById('cert-include-id-number').checked = !!t.includeIdNumber;
       document.getElementById('cert-include-course-name').checked = !!t.includeCourseName;
       document.getElementById('cert-include-course-date').checked = !!t.includeCourseDate;
       document.getElementById('cert-include-course-number').checked = !!t.includeCourseNumber;
@@ -2094,6 +2106,7 @@ const scripts = `
       document.getElementById('cert-brightness-slider').value = t.backgroundBrightness || 100;
       document.getElementById('cert-opacity-slider').value = t.backgroundOpacity != null ? t.backgroundOpacity : 100;
       document.getElementById('cert-border-color').value = t.borderColor || '#F2B705';
+      document.getElementById('cert-validity-months').value = t.validityMonths != null ? t.validityMonths : '';
     }
 
     renderCertificatePreview();

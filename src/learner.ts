@@ -313,6 +313,9 @@ const scripts = `
     const studentNameHtml = cert.includeStudentName
       ? '<div style="font-family:\\'Playfair Display\\',serif; font-size:26px; margin:12px 0; border-bottom:1px solid #D9D2C3; display:inline-block; padding-bottom:6px; position:relative; z-index:1;">' + escapeHtmlLearner(cert.studentName) + '</div>'
       : '';
+    const idNumberHtml = cert.includeIdNumber && cert.studentIdNumber
+      ? '<div style="font-family:\\'IBM Plex Mono\\',monospace; font-size:12px; color:#6B6459; position:relative; z-index:1;">ID: ' + escapeHtmlLearner(cert.studentIdNumber) + '</div>'
+      : '';
     const courseNameHtml = cert.includeCourseName
       ? '<div style="font-family:\\'Big Shoulders Display\\',sans-serif; font-size:22px; text-transform:uppercase; color:#B8860B; margin:8px 0; position:relative; z-index:1;">' + escapeHtmlLearner(cert.courseTitle) + '</div>'
       : '';
@@ -344,6 +347,7 @@ const scripts = `
           <div style="font-family:'Big Shoulders Display',sans-serif; font-size:28px; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:16px;">\${title}</div>
           <div style="font-size:13px; color:#6B6459;">This certifies that</div>
           \${studentNameHtml}
+          \${idNumberHtml}
           <div style="font-size:13px; color:#6B6459; margin-top:8px;">\${bodyText}</div>
           \${courseNameHtml}
           \${courseNumberHtml}
