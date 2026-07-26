@@ -157,6 +157,32 @@ courses.get('/mine', async (c) => {
 });
 
 // POST /api/courses/:id/enroll — registers the logged-in learner for a course
+// POST /api/courses/:id/enroll-user — lets Instructor/Admin/Administrator enroll
+// a specific learner into a course on their behalf
+courses.post('/:id/enroll-user', async (c) => {
+  const session = await getSessionUser(c);
+  if (!session) return c.json({ error: 'Not logged in' }, 401);
+  if (session.role !== 'instructor' && session.role !== 'admin' && session.role !== 'administrator') {
+    return c.json({ error: 'Only Instructors, Admins, and Administrators can enroll students' }, 403);
+  }
+
+  const courseId = c.req.param('id');
+  const body = await c.req.json<{ username: string }>();
+  if (!body.username) return c.json({ error: 'username is required' }, 400);
+
+  const course = await kvGetJSON<Course>(c.env, `course:def:${courseId}`);
+  if (!course) return c.json({ error: 'Course not found' }, 404);
+
+  const enrollment: Enrollment = {
+    username: body.username,
+    courseId,
+    registeredAt: new Date().toISOString(),
+    status: 'active',
+  };
+  await kvPutJSON(c.env, `enrollment:${body.username}:${courseId}`, enrollment);
+  return c.json({ ok: true, enrollment });
+});
+
 courses.post('/:id/enroll', async (c) => {
   const session = await getSessionUser(c);
   if (!session) return c.json({ error: 'Not logged in' }, 401);

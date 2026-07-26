@@ -88,7 +88,7 @@ const scripts = `
         return;
       }
       currentSession = data.user;
-      loadCatalogue();
+      loadLearnerList().then(() => loadCatalogue());
       loadDevelopment();
       loadCoaching();
       loadCoachingNotifications();
@@ -140,6 +140,17 @@ const scripts = `
   }
 
   // ---------- Course Catalogue (published only) ----------
+  let learnerList = [];
+
+  function loadLearnerList() {
+    return fetch('/api/users')
+      .then(r => r.json())
+      .then(data => {
+        learnerList = (data.users || []).filter(u => u.role === 'learner');
+      })
+      .catch(() => { learnerList = []; });
+  }
+
   function loadCatalogue() {
     fetch('/api/courses')
       .then(r => r.json())
@@ -151,6 +162,13 @@ const scripts = `
           wrap.innerHTML = '<div class="empty-state">No published courses yet. Publish one from the Courses in Development tab.</div>';
           return;
         }
+
+        const canEnrollStudents = currentSession &&
+          (currentSession.role === 'instructor' || currentSession.role === 'admin' || currentSession.role === 'administrator');
+
+        const learnerOptionsHtml = learnerList.map(u =>
+          '<option value="' + u.username + '">' + (u.name || u.username) + '</option>'
+        ).join('');
 
         const cards = list.map(course => \`
           <div class="course-card">
@@ -164,7 +182,18 @@ const scripts = `
               \${canEditCourse(course)
                 ? \`<a class="btn" href="/course-development/\${course.id}" style="display:inline-block; text-decoration:none; text-align:center; margin-bottom:6px;">Edit</a>\`
                 : '<div class="stat-label" style="text-transform:none; letter-spacing:0; margin-bottom:6px;">Owned by another instructor</div>'}
-              <button class="btn enroll-btn" data-course-id="\${course.id}" style="width:100%;">Enroll</button>
+              <button class="btn enroll-btn" data-course-id="\${course.id}" style="width:100%;">Enroll Myself</button>
+              \${canEnrollStudents ? \`
+                <div style="margin-top:8px; padding-top:8px; border-top:1px solid var(--grid-line);">
+                  <div class="stat-label" style="margin-bottom:6px;">Enroll a Student</div>
+                  <select class="enroll-student-select" data-course-id="\${course.id}" style="width:100%; margin-bottom:6px;">
+                    <option value="">Select a learner&hellip;</option>
+                    \${learnerOptionsHtml}
+                  </select>
+                  <button class="btn enroll-student-btn" data-course-id="\${course.id}" style="width:100%; background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line);">Enroll Student</button>
+                  <div class="enroll-student-message-\${course.id}" style="margin-top:6px; font-family:'IBM Plex Mono',monospace; font-size:12px;"></div>
+                </div>
+              \` : ''}
             </div>
           </div>
         \`).join('');
@@ -180,8 +209,43 @@ const scripts = `
               .then(r => r.json())
               .then(() => { btn.textContent = 'Enrolled'; })
               .catch(() => {
-                btn.textContent = 'Enroll';
+                btn.textContent = 'Enroll Myself';
                 btn.disabled = false;
+              });
+          });
+        });
+
+        document.querySelectorAll('.enroll-student-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const courseId = btn.dataset.courseId;
+            const select = document.querySelector('.enroll-student-select[data-course-id="' + courseId + '"]');
+            const msgEl = document.querySelector('.enroll-student-message-' + courseId);
+            const username = select.value;
+
+            if (!username) {
+              msgEl.textContent = 'Please select a learner first.';
+              msgEl.style.color = 'var(--risk)';
+              return;
+            }
+
+            fetch('/api/courses/' + courseId + '/enroll-user', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username })
+            })
+              .then(async (r) => {
+                const data = await r.json();
+                if (!r.ok) throw new Error(data.error || 'Failed to enroll student');
+                return data;
+              })
+              .then(() => {
+                msgEl.textContent = 'Enrolled successfully.';
+                msgEl.style.color = 'var(--competent)';
+                select.value = '';
+              })
+              .catch((err) => {
+                msgEl.textContent = err.message;
+                msgEl.style.color = 'var(--risk)';
               });
           });
         });
