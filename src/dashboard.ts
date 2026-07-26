@@ -1,35 +1,48 @@
 import { renderLayout } from './layout';
 
 const bodyHtml = `
-  <div class="stats">
-    <div class="stat-tile">
-      <div class="stat-label">Not Competent</div>
-      <div class="stat-value risk" id="stat-not-competent">0</div>
+  <div class="panel" style="margin-bottom: 20px;">
+    <div class="panel-header">
+      <div class="panel-title">Learning and Development</div>
     </div>
-    <a href="/expired-certifications" class="stat-tile stat-tile-clickable" id="stat-tile-expired-certifications" style="display: none;">
-      <div class="stat-label">Expired Certifications</div>
-      <div class="stat-value risk" id="stat-expired-certifications">0</div>
-    </a>
-    <div class="stat-tile">
-      <div class="stat-label">Registered Learners</div>
-      <div class="stat-value total" id="stat-learners">0</div>
+    <div class="panel-body">
+      <div class="stats">
+        <a href="/expired-certifications" class="stat-tile stat-tile-clickable" id="stat-tile-expired-certifications" style="display: none;">
+          <div class="stat-label">Expired Certifications</div>
+          <div class="stat-value risk" id="stat-expired-certifications">0</div>
+        </a>
+        <div class="stat-tile">
+          <div class="stat-label">Registered Learners</div>
+          <div class="stat-value total" id="stat-learners">0</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-label">Registered Admins</div>
+          <div class="stat-value total" id="stat-admins">0</div>
+        </div>
+        <a href="/learner#catalogue" class="stat-tile stat-tile-clickable">
+          <div class="stat-label">Courses Available</div>
+          <div class="stat-value total" id="stat-courses-available">0</div>
+        </a>
+        <a href="/course-delivery#development" class="stat-tile stat-tile-clickable" id="stat-tile-development" style="display: none;">
+          <div class="stat-label">Courses in Development</div>
+          <div class="stat-value total" id="stat-courses-development">0</div>
+        </a>
+        <a href="/course-delivery#coaching" class="stat-tile stat-tile-clickable" id="stat-tile-coaching" style="display: none;">
+          <div class="stat-label">Users to be Coached</div>
+          <div class="stat-value risk" id="stat-users-coached">0</div>
+        </a>
+      </div>
     </div>
-    <div class="stat-tile">
-      <div class="stat-label">Registered Admins</div>
-      <div class="stat-value total" id="stat-admins">0</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title">Human Resources and Management Reporting</div>
+      <div class="panel-sub">Coming soon</div>
     </div>
-    <a href="/learner#catalogue" class="stat-tile stat-tile-clickable">
-      <div class="stat-label">Courses Available</div>
-      <div class="stat-value total" id="stat-courses-available">0</div>
-    </a>
-    <a href="/course-delivery#development" class="stat-tile stat-tile-clickable" id="stat-tile-development" style="display: none;">
-      <div class="stat-label">Courses in Development</div>
-      <div class="stat-value total" id="stat-courses-development">0</div>
-    </a>
-    <a href="/course-delivery#coaching" class="stat-tile stat-tile-clickable" id="stat-tile-coaching" style="display: none;">
-      <div class="stat-label">Users to be Coached</div>
-      <div class="stat-value risk" id="stat-users-coached">0</div>
-    </a>
+    <div class="panel-body">
+      <div class="empty-state">Reporting tools for HR and management will appear here in a future update.</div>
+    </div>
   </div>
 `;
 
@@ -110,7 +123,7 @@ const scripts = `
     })
     .catch(() => { /* leave hidden if we can't confirm role */ });
 
-  // ---------- Not Competent / Expired Certifications counts ----------
+  // ---------- Expired Certifications count ----------
   Promise.all([
     fetch('/api/competency/gaps').then(r => r.json()),
     fetch('/api/certificate-uploads/expired').then(r => r.json()).catch(() => ({ expired: [] })),
@@ -121,14 +134,11 @@ const scripts = `
       const expiredCertUploads = certUploadData.expired || [];
       const expiredIssuedCerts = issuedCertData.certificates || [];
 
-      const notCompetentCount = gaps.filter(g => g.status === 'not_competent').length;
       const expiredCertCount = gaps.filter(g => g.status === 'expired').length + expiredCertUploads.length + expiredIssuedCerts.length;
 
-      countUp(document.getElementById('stat-not-competent'), notCompetentCount);
       countUp(document.getElementById('stat-expired-certifications'), expiredCertCount);
     })
     .catch(() => {
-      document.getElementById('stat-not-competent').textContent = '—';
       document.getElementById('stat-expired-certifications').textContent = '—';
     });
 `;
