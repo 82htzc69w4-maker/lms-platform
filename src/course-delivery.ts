@@ -220,11 +220,17 @@ const scripts = `
             btn.textContent = 'Enrolling…';
             btn.disabled = true;
             fetch('/api/courses/' + courseId + '/enroll', { method: 'POST' })
-              .then(r => r.json())
+              .then(async (r) => {
+                const data = await r.json();
+                if (!r.ok) throw new Error(data.error || 'Failed to enroll');
+                return data;
+              })
               .then(() => { btn.textContent = 'Enrolled'; })
-              .catch(() => {
+              .catch((err) => {
                 btn.textContent = 'Enroll Myself';
                 btn.disabled = false;
+                btn.title = err.message;
+                alert(err.message);
               });
           });
         });
