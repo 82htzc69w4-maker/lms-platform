@@ -5,6 +5,7 @@ import type { CourseApplication } from './types';
 import { getSessionUser } from '../auth/session';
 import type { User } from '../auth/types';
 import type { Course, Enrollment } from '../courses/types';
+import { createNotification } from '../notifications/routes';
 
 const courseApplications = new Hono<{ Bindings: Env }>();
 
@@ -95,6 +96,12 @@ courseApplications.post('/:id/approve', async (c) => {
     status: 'active',
   };
   await kvPutJSON(c.env, `enrollment:${application.username}:${application.courseId}`, enrollment);
+  await createNotification(
+    c.env,
+    application.username,
+    `You have been registered for "${application.courseTitle}".`,
+    application.courseId
+  );
 
   return c.json({ ok: true, application, enrollment });
 });

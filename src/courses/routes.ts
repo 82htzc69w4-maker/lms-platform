@@ -9,6 +9,7 @@ import type { CertificateTemplate } from '../certificateTemplates/types';
 import { DEFAULT_CERTIFICATE_TEMPLATE } from '../certificateTemplates/types';
 import type { IssuedCertificate } from '../issuedCertificates/types';
 import type { BrandingSettings } from '../settings/types';
+import { createNotification } from '../notifications/routes';
 
 const courses = new Hono<{ Bindings: Env }>();
 
@@ -220,6 +221,7 @@ courses.post('/:id/enroll-user', async (c) => {
     status: 'active',
   };
   await kvPutJSON(c.env, `enrollment:${body.username}:${courseId}`, enrollment);
+  await createNotification(c.env, body.username, `You have been registered for "${course.title}".`, courseId);
   return c.json({ ok: true, enrollment });
 });
 
@@ -241,6 +243,7 @@ courses.post('/:id/enroll', async (c) => {
     status: 'active',
   };
   await kvPutJSON(c.env, `enrollment:${session.username}:${courseId}`, enrollment);
+  await createNotification(c.env, session.username, `You have been registered for "${course.title}".`, courseId);
   return c.json({ ok: true, enrollment });
 });
 
@@ -441,6 +444,61 @@ courses.get('/:id/my-progress', async (c) => {
     percent,
     justCompleted,
   });
+});
+
+// POST /api/courses/:id/reset-for-learner — full reset of a learner's
+// progress on this course (Instructor/Admin/Administrator only). Clears
+// enrollment status, page-view progress, every trackable activity record
+// (test attempts, assignment submissions, certificate uploads) tied to this
+// course's blocks, and the issued certificate itself — so the progress bar
+// genuinely returns to 0% and the learner has to complete the course again.
+// Notifies the learner that this happened.
+courses.post('/:id/reset-for-learner', async (c) => {
+  const session = await getSessionUser(c);
+  if (!session || (session.role !== 'instructor' && session.role !== 'admin' && session.role !== 'administrator')) {
+    return c.json({ error: 'Not authorized' }, 403);
+  }
+
+  const courseId = c.req.param('id');
+  const body = await c.req.json<{ username: string }>();
+  if (!body.username) return c.json({ error: 'username is required' }, 400);
+
+  const course = await kvGetJSON<Course>(c.env, `course:def:${courseId}`);
+  if (!course) return c.json({ error: 'Course not found' }, 404);
+
+  const enrollmentKey = `enrollment:${body.username}:${courseId}`;
+  const enrollment = await kvGetJSON<Enrollment>(c.env, enrollmentKey);
+  if (enrollment) {
+    enrollment.status = 'active';
+    delete enrollment.completedAt;
+    enrollment.blocked = false;
+    await kvPutJSON(c.env, enrollmentKey, enrollment);
+  }
+
+  await c.env.LMS_KV.delete(`course-progress:${courseId}:${body.username}`);
+
+  const content = await kvGetJSON<CourseContent>(c.env, `course:content:${courseId}`);
+  const blocks = content?.blocks ?? [];
+  for (const block of blocks) {
+    if (block.type === 'test') {
+      await c.env.LMS_KV.delete(`test:attempts:${block.id}:${body.username}`);
+    } else if (block.type === 'assignmentUpload') {
+      await c.env.LMS_KV.delete(`assignment:submission:${block.id}:${body.username}`);
+    } else if (block.type === 'externalCertificate') {
+      await c.env.LMS_KV.delete(`certificate-upload:${block.id}:${body.username}`);
+    }
+  }
+
+  await c.env.LMS_KV.delete(`certificate:issued:${courseId}:${body.username}`);
+
+  await createNotification(
+    c.env,
+    body.username,
+    `Your completion of "${course.title}" has been reset. Please complete the course again.`,
+    courseId
+  );
+
+  return c.json({ ok: true });
 });
 
 // ---------------------------------------------------------------------------

@@ -2,13 +2,26 @@ import { renderLayout } from './layout';
 
 const bodyHtml = `
   <div class="tabbar">
-    <button class="tab-btn active" data-tab="my-courses">My Courses</button>
+    <button class="tab-btn active" data-tab="notifications">Notifications</button>
+    <button class="tab-btn" data-tab="my-courses">My Courses</button>
     <button class="tab-btn" data-tab="catalogue">Course Catalogue</button>
     <button class="tab-btn" data-tab="certificates">My Certificates</button>
     <button class="tab-btn" data-tab="coaching">Coaching</button>
   </div>
 
-  <div class="tab-panel active" data-tab-panel="my-courses">
+  <div class="tab-panel active" data-tab-panel="notifications">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Notifications</div>
+        <div class="panel-sub">Course registrations, certificate uploads, and course resets</div>
+      </div>
+      <div id="notifications-wrap">
+        <div class="empty-state">Loading&hellip;</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" data-tab-panel="my-courses">
     <div class="panel">
       <div class="panel-header">
         <div class="panel-title">My Courses</div>
@@ -462,6 +475,34 @@ const scripts = `
       });
   }
 
+  function loadNotifications() {
+    fetch('/api/notifications/mine')
+      .then(r => r.json())
+      .then(data => {
+        const list = data.notifications || [];
+        const wrap = document.getElementById('notifications-wrap');
+
+        if (list.length === 0) {
+          wrap.innerHTML = '<div class="empty-state">No notifications yet.</div>';
+          return;
+        }
+
+        wrap.innerHTML = list.map(n => \`
+          <div class="content-block-row" style="align-items:flex-start; cursor:default; margin-bottom:8px;">
+            <div style="flex:1;">
+              <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:4px;">\${escapeHtmlLearner(n.message)}</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted);">\${new Date(n.createdAt).toLocaleString()}</div>
+            </div>
+          </div>
+        \`).join('');
+      })
+      .catch(() => {
+        document.getElementById('notifications-wrap').innerHTML =
+          '<div class="empty-state">Could not reach /api/notifications/mine.</div>';
+      });
+  }
+
+  loadNotifications();
   loadMyCourses();
   loadCatalogue();
   loadCertificates();

@@ -3,6 +3,7 @@ import type { Env } from '../types';
 import { kvGetJSON, kvPutJSON, kvListByPrefix } from '../lib/kv';
 import type { CertificateUploadSubmission } from './types';
 import { getSessionUser } from '../auth/session';
+import { createNotification } from '../notifications/routes';
 
 const certificateUploads = new Hono<{ Bindings: Env }>();
 
@@ -75,6 +76,7 @@ certificateUploads.post('/:blockId/submit', async (c) => {
   };
 
   await kvPutJSON(c.env, `certificate-upload:${blockId}:${session.username}`, submission);
+  await createNotification(c.env, session.username, `Your certificate "${submission.certificateName}" has been uploaded.`);
   return c.json({ ok: true, submission });
 });
 

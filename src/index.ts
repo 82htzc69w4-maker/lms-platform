@@ -29,11 +29,13 @@ import coaching from './coaching/routes';
 import certificateTemplates from './certificateTemplates/routes';
 import issuedCertificates from './issuedCertificates/routes';
 import courseApplications from './courseApplications/routes';
+import notifications from './notifications/routes';
 import { learnerHtml } from './learner';
 import { courseDeliveryHtml } from './course-delivery';
 import { courseDevelopmentHtml } from './course-development';
 import { coursePreviewHtml } from './course-preview';
 import { courseViewHtml } from './course-view';
+import { expiredCertificationsHtml } from './expired-certifications';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -46,6 +48,7 @@ app.get('/course-delivery', (c) => c.html(courseDeliveryHtml));
 app.get('/course-development/:id', (c) => c.html(courseDevelopmentHtml));
 app.get('/course-preview/:id', (c) => c.html(coursePreviewHtml));
 app.get('/course-view/:id', (c) => c.html(courseViewHtml));
+app.get('/expired-certifications', (c) => c.html(expiredCertificationsHtml));
 app.get('/modules/:name', (c) => c.html(renderModulePlaceholder(c.req.param('name'))));
 app.get('/health', (c) => c.json({ status: 'ok', service: 'lms-platform' }));
 
@@ -72,5 +75,6 @@ app.route('/api/coaching', coaching);
 app.route('/api/certificate-templates', certificateTemplates);
 app.route('/api/issued-certificates', issuedCertificates);
 app.route('/api/course-applications', courseApplications);
+app.route('/api/notifications', notifications);
 
 export default app;

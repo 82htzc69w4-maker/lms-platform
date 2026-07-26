@@ -6,14 +6,10 @@ const bodyHtml = `
       <div class="stat-label">Not Competent</div>
       <div class="stat-value risk" id="stat-not-competent">0</div>
     </div>
-    <div class="stat-tile">
-      <div class="stat-label">Expired Courses</div>
-      <div class="stat-value risk" id="stat-expired-courses">0</div>
-    </div>
-    <div class="stat-tile">
+    <a href="/expired-certifications" class="stat-tile stat-tile-clickable" id="stat-tile-expired-certifications" style="display: none;">
       <div class="stat-label">Expired Certifications</div>
       <div class="stat-value risk" id="stat-expired-certifications">0</div>
-    </div>
+    </a>
     <div class="stat-tile">
       <div class="stat-label">Registered Learners</div>
       <div class="stat-value total" id="stat-learners">0</div>
@@ -103,27 +99,30 @@ const scripts = `
       document.getElementById('stat-users-coached').textContent = '—';
     });
 
-  // ---------- Expired courses (completed enrollments past their validity period) ----------
-  fetch('/api/courses/expired')
-    .then(r => r.json())
+  // "Expired Certifications" tile is only shown to Admin, Administrator, and Instructor
+  fetch('/api/auth/me')
+    .then(r => r.ok ? r.json() : null)
     .then(data => {
-      countUp(document.getElementById('stat-expired-courses'), (data.expired || []).length);
+      const role = data && data.user ? data.user.role : null;
+      if (role === 'admin' || role === 'administrator' || role === 'instructor') {
+        document.getElementById('stat-tile-expired-certifications').style.display = 'block';
+      }
     })
-    .catch(() => {
-      document.getElementById('stat-expired-courses').textContent = '—';
-    });
+    .catch(() => { /* leave hidden if we can't confirm role */ });
 
   // ---------- Not Competent / Expired Certifications counts ----------
   Promise.all([
     fetch('/api/competency/gaps').then(r => r.json()),
     fetch('/api/certificate-uploads/expired').then(r => r.json()).catch(() => ({ expired: [] })),
+    fetch('/api/issued-certificates/expired').then(r => r.json()).catch(() => ({ certificates: [] })),
   ])
-    .then(([gapData, certUploadData]) => {
+    .then(([gapData, certUploadData, issuedCertData]) => {
       const gaps = gapData.gaps || [];
       const expiredCertUploads = certUploadData.expired || [];
+      const expiredIssuedCerts = issuedCertData.certificates || [];
 
       const notCompetentCount = gaps.filter(g => g.status === 'not_competent').length;
-      const expiredCertCount = gaps.filter(g => g.status === 'expired').length + expiredCertUploads.length;
+      const expiredCertCount = gaps.filter(g => g.status === 'expired').length + expiredCertUploads.length + expiredIssuedCerts.length;
 
       countUp(document.getElementById('stat-not-competent'), notCompetentCount);
       countUp(document.getElementById('stat-expired-certifications'), expiredCertCount);
