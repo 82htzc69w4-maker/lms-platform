@@ -132,18 +132,50 @@ const scripts = `
 
   // ---------- Course Catalogue ----------
   function loadCatalogue() {
-    fetch('/api/courses')
-      .then(r => r.json())
-      .then(data => {
-        const list = (data.courses || []).filter(course => course.status === 'published');
-        const wrap = document.getElementById('catalogue-wrap');
+    Promise.all([
+      fetch('/api/courses').then(r => r.json()),
+      fetch('/api/course-applications/mine').then(r => r.json()).catch(() => ({ applications: [] })),
+    ]).then(([coursesData, applicationsData]) => {
+      const list = (coursesData.courses || []).filter(course => course.status === 'published');
+      const applications = applicationsData.applications || [];
+      const wrap = document.getElementById('catalogue-wrap');
 
-        if (list.length === 0) {
-          wrap.innerHTML = '<div class="empty-state">No courses have been added to the platform yet.</div>';
-          return;
+      if (list.length === 0) {
+        wrap.innerHTML = '<div class="empty-state">No courses have been added to the platform yet.</div>';
+        return;
+      }
+
+      function latestApplicationFor(courseId) {
+        const matches = applications.filter(a => a.courseId === courseId);
+        if (matches.length === 0) return null;
+        matches.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+        return matches[0];
+      }
+
+      const cards = list.map(course => {
+        const application = latestApplicationFor(course.id);
+        let actionHtml;
+
+        if (application && application.status === 'pending') {
+          actionHtml = '<div class="stat-label" style="text-transform:none; letter-spacing:0; text-align:center; color:var(--refresher);">Application Pending Review</div>';
+        } else if (application && application.status === 'approved') {
+          actionHtml = '<div class="stat-label" style="text-transform:none; letter-spacing:0; text-align:center; color:var(--competent);">Enrolled</div>';
+        } else {
+          const rejectedNoteHtml = application && application.status === 'rejected'
+            ? '<div class="stat-label" style="text-transform:none; letter-spacing:0; text-align:center; color:var(--risk); margin-bottom:6px;">Previous application was not approved</div>'
+            : '';
+          actionHtml = \`
+            \${rejectedNoteHtml}
+            <button class="btn apply-btn" data-course-id="\${course.id}" style="width:100%;">Apply</button>
+            <div class="apply-form-\${course.id}" style="display:none; margin-top:8px;">
+              <textarea id="motivation-\${course.id}" rows="3" placeholder="Why do you want to do this course?" style="width:100%; background: var(--panel-alt); border: 1px solid var(--grid-line); color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13px; padding: 8px 10px; border-radius: 2px; margin-bottom:6px;"></textarea>
+              <button class="btn submit-application-btn" data-course-id="\${course.id}" style="width:100%;">Submit Application</button>
+              <div class="apply-message-\${course.id}" style="margin-top:6px; font-family:'IBM Plex Mono',monospace; font-size:12px;"></div>
+            </div>
+          \`;
         }
 
-        const cards = list.map(course => \`
+        return \`
           <div class="course-card">
             \${course.imageDataUrl
               ? \`<img class="course-card-image" src="\${course.imageDataUrl}" alt="" />\`
@@ -152,35 +184,58 @@ const scripts = `
               <div class="course-card-title">\${course.title}</div>
               <div class="course-card-category">\${course.category || 'Uncategorized'}</div>
               <div class="course-card-description">\${course.description}</div>
-              <button class="btn enroll-btn" data-course-id="\${course.id}">Enroll</button>
+              \${actionHtml}
             </div>
           </div>
-        \`).join('');
+        \`;
+      }).join('');
 
-        wrap.innerHTML = \`<div class="course-card-grid">\${cards}</div>\`;
+      wrap.innerHTML = \`<div class="course-card-grid">\${cards}</div>\`;
 
-        document.querySelectorAll('.enroll-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const courseId = btn.dataset.courseId;
-            btn.textContent = 'Enrolling…';
-            btn.disabled = true;
-            fetch('/api/courses/' + courseId + '/enroll', { method: 'POST' })
-              .then(r => r.json())
-              .then(() => {
-                btn.textContent = 'Enrolled';
-                loadMyCourses();
-              })
-              .catch(() => {
-                btn.textContent = 'Enroll';
-                btn.disabled = false;
-              });
-          });
+      document.querySelectorAll('.apply-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const courseId = btn.dataset.courseId;
+          const formEl = document.querySelector('.apply-form-' + courseId);
+          formEl.style.display = formEl.style.display === 'none' ? 'block' : 'none';
         });
-      })
-      .catch(() => {
-        document.getElementById('catalogue-wrap').innerHTML =
-          '<div class="empty-state">Could not reach /api/courses.</div>';
       });
+
+      document.querySelectorAll('.submit-application-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const courseId = btn.dataset.courseId;
+          const motivation = document.getElementById('motivation-' + courseId).value.trim();
+          const msgEl = document.querySelector('.apply-message-' + courseId);
+
+          if (!motivation) {
+            msgEl.textContent = 'Please tell us why you want to do this course.';
+            msgEl.style.color = 'var(--risk)';
+            return;
+          }
+
+          btn.textContent = 'Submitting…';
+          btn.disabled = true;
+
+          fetch('/api/course-applications', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ courseId, motivation })
+          })
+            .then(r => r.json())
+            .then(() => {
+              loadCatalogue();
+            })
+            .catch(() => {
+              msgEl.textContent = 'Failed to submit application.';
+              msgEl.style.color = 'var(--risk)';
+              btn.textContent = 'Submit Application';
+              btn.disabled = false;
+            });
+        });
+      });
+    }).catch(() => {
+      document.getElementById('catalogue-wrap').innerHTML =
+        '<div class="empty-state">Could not reach /api/courses.</div>';
+    });
   }
 
   // ---------- My Certificates ----------

@@ -186,6 +186,9 @@ courses.post('/:id/enroll-user', async (c) => {
 courses.post('/:id/enroll', async (c) => {
   const session = await getSessionUser(c);
   if (!session) return c.json({ error: 'Not logged in' }, 401);
+  if (session.role === 'learner') {
+    return c.json({ error: 'Learners must apply for enrollment — see the Course Catalogue Apply button' }, 403);
+  }
 
   const courseId = c.req.param('id');
   const course = await kvGetJSON<Course>(c.env, `course:def:${courseId}`);

@@ -4,6 +4,7 @@ const bodyHtml = `
   <div class="tabbar">
     <button class="tab-btn active" data-tab="catalogue">Course Catalogue</button>
     <button class="tab-btn" data-tab="development">Courses in Development</button>
+    <button class="tab-btn" data-tab="applications">Applications for Enrollment</button>
     <button class="tab-btn" data-tab="coaching">Learner Coaching</button>
   </div>
 
@@ -50,6 +51,18 @@ const bodyHtml = `
     </div>
   </div>
 
+  <div class="tab-panel" data-tab-panel="applications">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Applications for Enrollment</div>
+        <div class="panel-sub">Learners who have applied to enroll — review their motivation and approve or reject</div>
+      </div>
+      <div id="applications-wrap">
+        <div class="empty-state">Loading&hellip;</div>
+      </div>
+    </div>
+  </div>
+
   <div class="tab-panel" data-tab-panel="coaching">
     <div class="panel">
       <div class="panel-header">
@@ -74,7 +87,7 @@ const bodyHtml = `
 `;
 
 const scripts = `
-  // ---------- Role gate: Instructor and Administrator only ----------
+  // ---------- Role gate: Instructor, Admin, and Administrator only ----------
   let currentSession = null;
   fetch('/api/auth/me')
     .then(r => {
@@ -83,7 +96,7 @@ const scripts = `
     })
     .then(data => {
       const role = data.user.role;
-      if (role !== 'instructor' && role !== 'administrator') {
+      if (role !== 'instructor' && role !== 'admin' && role !== 'administrator') {
         window.location.href = '/';
         return;
       }
@@ -92,6 +105,7 @@ const scripts = `
       loadDevelopment();
       loadCoaching();
       loadCoachingNotifications();
+      loadCourseApplications();
     })
     .catch(() => {
       window.location.href = '/login';
@@ -353,6 +367,60 @@ const scripts = `
   });
 
   // ---------- Pending Coaching Notifications ----------
+  // ---------- Applications for Enrollment ----------
+  function loadCourseApplications() {
+    fetch('/api/course-applications')
+      .then(r => r.json())
+      .then(data => {
+        const applications = (data.applications || []).filter(a => a.status === 'pending');
+        const wrap = document.getElementById('applications-wrap');
+
+        if (applications.length === 0) {
+          wrap.innerHTML = '<div class="empty-state">No pending applications.</div>';
+          return;
+        }
+
+        function escapeHtmlApp(str) {
+          const div = document.createElement('div');
+          div.textContent = str || '';
+          return div.innerHTML;
+        }
+
+        wrap.innerHTML = applications.map(a => \`
+          <div class="content-block-row" style="align-items:flex-start; cursor:default; margin-bottom:10px;">
+            <div style="flex:1;">
+              <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:4px;">\${escapeHtmlApp(a.learnerName)} — \${escapeHtmlApp(a.courseTitle)}</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); margin-bottom:8px;">Applied: \${new Date(a.submittedAt).toLocaleDateString()} at \${new Date(a.submittedAt).toLocaleTimeString()}</div>
+              <div style="font-family:'Inter',sans-serif; font-size:13px; color:var(--text-primary);">\${escapeHtmlApp(a.motivation)}</div>
+            </div>
+            <div class="content-block-actions">
+              <button data-action="approve-application" data-application-id="\${a.id}">Approve</button>
+              <button data-action="reject-application" data-application-id="\${a.id}" class="delete">Reject</button>
+            </div>
+          </div>
+        \`).join('');
+
+        wrap.querySelectorAll('[data-action="approve-application"]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            fetch('/api/course-applications/' + btn.dataset.applicationId + '/approve', { method: 'POST' })
+              .then(r => r.json())
+              .then(() => loadCourseApplications());
+          });
+        });
+
+        wrap.querySelectorAll('[data-action="reject-application"]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            fetch('/api/course-applications/' + btn.dataset.applicationId + '/reject', { method: 'POST' })
+              .then(r => r.json())
+              .then(() => loadCourseApplications());
+          });
+        });
+      })
+      .catch(() => {
+        document.getElementById('applications-wrap').innerHTML = '<div class="empty-state">Could not reach /api/course-applications.</div>';
+      });
+  }
+
   function loadCoachingNotifications() {
     fetch('/api/coaching/notifications')
       .then(r => r.json())
