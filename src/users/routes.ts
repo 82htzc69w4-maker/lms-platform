@@ -14,19 +14,23 @@ const VALID_ROLES: Role[] = ['learner', 'instructor', 'admin', 'administrator'];
 // learner's department for a quick glance in the admin table.
 users.get('/', async (c) => {
   const list = await kvListByPrefix(c.env, 'auth:user:');
-  const result: Array<{ username: string; name: string; role: Role; department?: string }> = [];
+  const result: Array<{ username: string; name: string; role: Role; department?: string; jobTitle?: string; currentOccupation?: string }> = [];
 
   for (const key of list.keys) {
     const user = await kvGetJSON<User>(c.env, key.name);
     if (!user) continue;
 
     let department: string | undefined;
+    let jobTitle: string | undefined;
+    let currentOccupation: string | undefined;
     if (user.role === 'learner') {
       const profile = await kvGetJSON<LearnerProfile>(c.env, `learner:profile:${user.username}`);
       department = profile?.department;
+      jobTitle = profile?.jobTitle;
+      currentOccupation = profile?.currentOccupation;
     }
 
-    result.push({ username: user.username, name: user.name, role: user.role, department });
+    result.push({ username: user.username, name: user.name, role: user.role, department, jobTitle, currentOccupation });
   }
 
   return c.json({ users: result });
@@ -52,6 +56,7 @@ users.post('/', async (c) => {
     // Learner-only Assignment section
     languagePreference?: string;
     department?: string;
+    jobTitle?: string;
   }>();
 
   const username = body.username?.trim();
@@ -107,6 +112,7 @@ users.post('/', async (c) => {
       futureOccupations: body.futureOccupations?.trim() ?? '',
       languagePreference: body.languagePreference!.trim(),
       department: body.department!.trim(),
+      jobTitle: body.jobTitle?.trim() || undefined,
     };
     await kvPutJSON(c.env, `learner:profile:${username}`, profile);
   } else {
@@ -160,6 +166,7 @@ users.put('/:username', async (c) => {
     futureOccupations?: string;
     languagePreference?: string;
     department?: string;
+    jobTitle?: string;
   }>();
 
   const firstName = body.firstName?.trim() || existing.firstName;
@@ -190,6 +197,7 @@ users.put('/:username', async (c) => {
       futureOccupations: '',
       languagePreference: '',
       department: '',
+      jobTitle: '',
     };
 
     const updatedProfile: LearnerProfile = {
@@ -204,6 +212,7 @@ users.put('/:username', async (c) => {
         body.futureOccupations !== undefined ? body.futureOccupations.trim() : currentProfile.futureOccupations,
       languagePreference: body.languagePreference?.trim() || currentProfile.languagePreference,
       department: body.department?.trim() || currentProfile.department,
+      jobTitle: body.jobTitle !== undefined ? body.jobTitle.trim() : currentProfile.jobTitle,
     };
 
     await kvPutJSON(c.env, `learner:profile:${username}`, updatedProfile);

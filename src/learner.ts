@@ -13,7 +13,7 @@ const bodyHtml = `
     <svg width="120" height="120" viewBox="0 0 120 120">
       <circle cx="60" cy="60" r="52" fill="none" stroke="var(--grid-line)" stroke-width="10" />
       <circle id="progress-gauge-circle" cx="60" cy="60" r="52" fill="none" stroke="var(--hazard)" stroke-width="10"
-        stroke-dasharray="326.7" stroke-dashoffset="326.7" stroke-linecap="round" transform="rotate(-90 60 60)" style="transition: stroke-dashoffset 0.6s ease;" />
+        stroke-dasharray="326.7" stroke-dashoffset="326.7" stroke-linecap="round" transform="rotate(-90 60 60)" style="transition: stroke-dashoffset 0.6s ease, stroke 0.3s ease;" />
       <text id="progress-gauge-text" x="60" y="68" text-anchor="middle" font-family="'Big Shoulders Display', sans-serif" font-size="28" fill="var(--text-primary)">0%</text>
     </svg>
     <div class="stat-label" style="margin-top: 8px;">Overall Progress</div>
@@ -519,7 +519,19 @@ const scripts = `
       .then(data => {
         const percent = data.overallPercent || 0;
         const offset = circumference * (1 - percent / 100);
-        document.getElementById('progress-gauge-circle').style.strokeDashoffset = offset;
+        const circleEl = document.getElementById('progress-gauge-circle');
+        circleEl.style.strokeDashoffset = offset;
+
+        let color;
+        if (percent < 50) {
+          color = 'var(--risk)';
+        } else if (percent < 85) {
+          color = 'var(--refresher)';
+        } else {
+          color = 'var(--competent)';
+        }
+        circleEl.style.stroke = color;
+
         document.getElementById('progress-gauge-text').textContent = percent + '%';
       })
       .catch(() => {

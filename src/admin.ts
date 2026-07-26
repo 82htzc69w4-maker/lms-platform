@@ -138,6 +138,7 @@ const bodyHtml = `
           <div class="form-row">
             <select id="learner-languagePreference"><option value="">Language Preference</option></select>
             <select id="learner-department"><option value="">Department</option></select>
+            <select id="learner-jobTitle"><option value="">Job Title</option></select>
           </div>
         </div>
 
@@ -195,6 +196,7 @@ const bodyHtml = `
           <div class="form-row">
             <select id="edit-languagePreference"><option value="">Language Preference</option></select>
             <select id="edit-department"><option value="">Department</option></select>
+            <select id="edit-jobTitle"><option value="">Job Title</option></select>
           </div>
         </div>
 
@@ -307,7 +309,7 @@ const scripts = `
 
   // ---------- Lookup lists (Administrative tab) ----------
   const LOOKUP_NAMES = ['departments', 'courseCategories', 'jobTitles', 'languages', 'occupations'];
-  let cachedLookupOptions = { departments: [], languages: [], occupations: [] };
+  let cachedLookupOptions = { departments: [], languages: [], occupations: [], jobTitles: [] };
 
   function loadLookupList(listName) {
     fetch('/api/lookups/' + listName)
@@ -406,6 +408,7 @@ const scripts = `
     fillSelect(document.getElementById('learner-languagePreference'), opts.languages, forced.languagePreference);
     fillSelect(document.getElementById('learner-currentOccupation'), opts.occupations, forced.currentOccupation);
     fillSelect(document.getElementById('learner-futureOccupations'), opts.occupations, forced.futureOccupations);
+    fillSelect(document.getElementById('learner-jobTitle'), opts.jobTitles, forced.jobTitle);
   }
 
   function populateEditSelects(opts, forced) {
@@ -414,6 +417,7 @@ const scripts = `
     fillSelect(document.getElementById('edit-languagePreference'), opts.languages, forced.languagePreference);
     fillSelect(document.getElementById('edit-currentOccupation'), opts.occupations, forced.currentOccupation);
     fillSelect(document.getElementById('edit-futureOccupations'), opts.occupations, forced.futureOccupations);
+    fillSelect(document.getElementById('edit-jobTitle'), opts.jobTitles, forced.jobTitle);
   }
 
   function loadLookupOptionsForSelects() {
@@ -421,8 +425,9 @@ const scripts = `
       fetch('/api/lookups/departments').then(r => r.json()),
       fetch('/api/lookups/languages').then(r => r.json()),
       fetch('/api/lookups/occupations').then(r => r.json()),
-    ]).then(([d, l, o]) => {
-      cachedLookupOptions = { departments: d.values || [], languages: l.values || [], occupations: o.values || [] };
+      fetch('/api/lookups/jobTitles').then(r => r.json()),
+    ]).then(([d, l, o, j]) => {
+      cachedLookupOptions = { departments: d.values || [], languages: l.values || [], occupations: o.values || [], jobTitles: j.values || [] };
       populateLearnerSelects(cachedLookupOptions);
       return cachedLookupOptions;
     });
@@ -590,6 +595,8 @@ const scripts = `
           <tr>
             <td>\${u.username}</td>
             <td>\${u.name}</td>
+            <td>\${u.jobTitle || '—'}</td>
+            <td>\${u.currentOccupation || '—'}</td>
             <td>\${ROLE_LABELS[u.role] || u.role}</td>
             <td>\${u.department || '—'}</td>
             <td><button class="btn edit-user-btn" data-username="\${u.username}">Edit</button></td>
@@ -602,6 +609,8 @@ const scripts = `
               <tr>
                 <th>Username</th>
                 <th>Name</th>
+                <th>Job Title</th>
+                <th>Occupation</th>
                 <th>Role</th>
                 <th>Department</th>
                 <th></th>
@@ -645,6 +654,7 @@ const scripts = `
       payload.futureOccupations = document.getElementById('learner-futureOccupations').value.trim();
       payload.languagePreference = document.getElementById('learner-languagePreference').value.trim();
       payload.department = document.getElementById('learner-department').value.trim();
+      payload.jobTitle = document.getElementById('learner-jobTitle').value.trim();
     } else {
       payload.firstName = document.getElementById('user-firstName').value.trim();
       payload.surname = document.getElementById('user-surname').value.trim();
@@ -667,7 +677,7 @@ const scripts = `
         document.getElementById('user-password').value = '';
         document.getElementById('user-firstName').value = '';
         document.getElementById('user-surname').value = '';
-        ['firstName','surname','email','mobile','idNumber','currentOccupation','futureOccupations','languagePreference','department']
+        ['firstName','surname','email','mobile','idNumber','currentOccupation','futureOccupations','languagePreference','department','jobTitle']
           .forEach(f => { document.getElementById('learner-' + f).value = ''; });
         loadUsers();
       })
@@ -707,6 +717,7 @@ const scripts = `
             languagePreference: profile.languagePreference,
             currentOccupation: profile.currentOccupation,
             futureOccupations: profile.futureOccupations,
+            jobTitle: profile.jobTitle,
           });
         }
 
@@ -744,6 +755,7 @@ const scripts = `
       payload.futureOccupations = document.getElementById('edit-futureOccupations').value.trim();
       payload.languagePreference = document.getElementById('edit-languagePreference').value.trim();
       payload.department = document.getElementById('edit-department').value.trim();
+      payload.jobTitle = document.getElementById('edit-jobTitle').value.trim();
     }
 
     fetch('/api/users/' + editingUsername, {

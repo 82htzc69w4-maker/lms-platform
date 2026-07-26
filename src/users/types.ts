@@ -13,4 +13,5 @@ export type LearnerProfile = {
   // Assignment section
   languagePreference: string;
   department: string;
+  jobTitle?: string;
 };
