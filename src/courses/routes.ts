@@ -245,27 +245,33 @@ courses.post('/:id/enroll', async (c) => {
 });
 
 // POST /api/courses/:id/complete — marks the logged-in learner's enrollment as completed
-courses.post('/:id/complete', async (c) => {
-  const session = await getSessionUser(c);
-  if (!session) return c.json({ error: 'Not logged in' }, 401);
-
-  const courseId = c.req.param('id');
-  const key = `enrollment:${session.username}:${courseId}`;
-  const enrollment = await kvGetJSON<Enrollment>(c.env, key);
-  if (!enrollment) return c.json({ error: 'Not enrolled in this course' }, 404);
+// Shared logic: marks an enrollment completed and issues a certificate using
+// the course's Certificate Design (or sensible defaults if none configured).
+// Used only when completion is earned automatically — never from a learner
+// simply clicking a button.
+async function completeEnrollmentAndIssueCertificate(
+  env: Env,
+  username: string,
+  courseId: string
+): Promise<{ enrollment: Enrollment; certificate: IssuedCertificate }> {
+  const enrollmentKey = `enrollment:${username}:${courseId}`;
+  const enrollment = (await kvGetJSON<Enrollment>(env, enrollmentKey)) ?? {
+    username,
+    courseId,
+    registeredAt: new Date().toISOString(),
+    status: 'active' as const,
+  };
 
   const completedAt = new Date().toISOString();
-  const updated: Enrollment = { ...enrollment, status: 'completed', completedAt };
-  await kvPutJSON(c.env, key, updated);
+  const updatedEnrollment: Enrollment = { ...enrollment, status: 'completed', completedAt };
+  await kvPutJSON(env, enrollmentKey, updatedEnrollment);
 
-  // Generate the certificate for this completion, using the course's
-  // Certificate Design (or sensible defaults if none has been configured).
-  const course = await kvGetJSON<Course>(c.env, `course:def:${courseId}`);
+  const course = await kvGetJSON<Course>(env, `course:def:${courseId}`);
   const template =
-    (await kvGetJSON<CertificateTemplate>(c.env, `certificate-template:${courseId}`)) ??
+    (await kvGetJSON<CertificateTemplate>(env, `certificate-template:${courseId}`)) ??
     ({ courseId, ...DEFAULT_CERTIFICATE_TEMPLATE } as CertificateTemplate);
-  const learnerUser = await kvGetJSON<User>(c.env, `auth:user:${session.username}`);
-  const branding = await kvGetJSON<BrandingSettings>(c.env, 'settings:branding');
+  const learnerUser = await kvGetJSON<User>(env, `auth:user:${username}`);
+  const branding = await kvGetJSON<BrandingSettings>(env, 'settings:branding');
 
   let expiryDate: string | undefined;
   if (course?.validityMonths) {
@@ -276,8 +282,8 @@ courses.post('/:id/complete', async (c) => {
 
   const certificate: IssuedCertificate = {
     id: crypto.randomUUID(),
-    username: session.username,
-    studentName: learnerUser?.name || session.username,
+    username,
+    studentName: learnerUser?.name || username,
     courseId,
     courseTitle: course?.title || courseId,
     courseNumber: course?.courseNumber || '',
@@ -300,9 +306,62 @@ courses.post('/:id/complete', async (c) => {
     issuedDate: completedAt,
     expiryDate,
   };
-  await kvPutJSON(c.env, `certificate:issued:${courseId}:${session.username}`, certificate);
+  await kvPutJSON(env, `certificate:issued:${courseId}:${username}`, certificate);
 
-  return c.json({ ok: true, enrollment: updated, certificate });
+  return { enrollment: updatedEnrollment, certificate };
+}
+
+// GET /api/courses/:id/my-progress — real, computed progress based on the
+// learner's actual activity (test attempts, assignment submissions,
+// certificate uploads) rather than a self-reported "mark complete" button.
+// Only Test, Assignment Upload, and External Certificate blocks are counted,
+// since those are the only block types with genuine learner-submitted
+// records to check — ordinary content blocks (text, images, etc.) have no
+// "viewed" tracking yet, so they can't honestly be included.
+// Reaching 100% automatically completes the course and issues the certificate.
+courses.get('/:id/my-progress', async (c) => {
+  const session = await getSessionUser(c);
+  if (!session) return c.json({ error: 'Not logged in' }, 401);
+
+  const courseId = c.req.param('id');
+  const content = await kvGetJSON<CourseContent>(c.env, `course:content:${courseId}`);
+  const blocks = content?.blocks ?? [];
+  const trackableBlocks = blocks.filter(
+    (b) => b.type === 'test' || b.type === 'assignmentUpload' || b.type === 'externalCertificate'
+  );
+
+  let completedCount = 0;
+  for (const block of trackableBlocks) {
+    if (block.type === 'test') {
+      const history = await kvGetJSON<unknown[]>(c.env, `test:attempts:${block.id}:${session.username}`);
+      if (history && history.length > 0) completedCount += 1;
+    } else if (block.type === 'assignmentUpload') {
+      const submission = await kvGetJSON<unknown>(c.env, `assignment:submission:${block.id}:${session.username}`);
+      if (submission) completedCount += 1;
+    } else if (block.type === 'externalCertificate') {
+      const submission = await kvGetJSON<unknown>(c.env, `certificate-upload:${block.id}:${session.username}`);
+      if (submission) completedCount += 1;
+    }
+  }
+
+  const totalTrackable = trackableBlocks.length;
+  const percent = totalTrackable > 0 ? Math.round((completedCount / totalTrackable) * 100) : 0;
+
+  let justCompleted = false;
+  if (totalTrackable > 0 && percent === 100) {
+    const enrollment = await kvGetJSON<Enrollment>(c.env, `enrollment:${session.username}:${courseId}`);
+    if (enrollment && enrollment.status !== 'completed') {
+      await completeEnrollmentAndIssueCertificate(c.env, session.username, courseId);
+      justCompleted = true;
+    }
+  }
+
+  return c.json({
+    totalTrackable,
+    completedCount,
+    percent,
+    justCompleted,
+  });
 });
 
 // ---------------------------------------------------------------------------

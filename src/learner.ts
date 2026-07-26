@@ -91,7 +91,7 @@ const scripts = `
           const isCompleted = course.enrollmentStatus === 'completed';
           const statusHtml = isCompleted
             ? \`<div class="stat-label" style="text-transform:none; letter-spacing:0; color:var(--competent); margin-bottom:6px;">Completed \${course.completedAt ? new Date(course.completedAt).toLocaleDateString() : ''}</div>\`
-            : \`<button class="btn mark-complete-btn" data-course-id="\${course.id}" style="width:100%; margin-top:8px;">Mark as Complete</button>\`;
+            : \`<div class="progress-wrap-\${course.id}" style="margin-top:8px;"><div class="stat-label" style="text-transform:none; letter-spacing:0;">Loading progress&hellip;</div></div>\`;
           return \`
           <div class="course-card">
             \${course.imageDataUrl
@@ -111,24 +111,36 @@ const scripts = `
 
         wrap.innerHTML = \`<div class="course-card-grid">\${cards}</div>\`;
 
-        document.querySelectorAll('.mark-complete-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const courseId = btn.dataset.courseId;
-            btn.textContent = 'Marking Complete…';
-            btn.disabled = true;
-            fetch('/api/courses/' + courseId + '/complete', { method: 'POST' })
-              .then(async (r) => {
-                const data = await r.json();
-                if (!r.ok) throw new Error(data.error || 'Failed to mark complete');
-                return data;
-              })
-              .then(() => loadMyCourses())
-              .catch((err) => {
-                btn.textContent = 'Mark as Complete';
-                btn.disabled = false;
-                alert(err.message);
-              });
-          });
+        list.filter(c => c.enrollmentStatus !== 'completed').forEach(course => {
+          fetch('/api/courses/' + course.id + '/my-progress')
+            .then(r => r.json())
+            .then(progress => {
+              if (progress.justCompleted) {
+                loadMyCourses();
+                return;
+              }
+              const el = document.querySelector('.progress-wrap-' + course.id);
+              if (!el) return;
+
+              if (progress.totalTrackable === 0) {
+                el.innerHTML = '<div class="stat-label" style="text-transform:none; letter-spacing:0;">No trackable activities in this course yet</div>';
+                return;
+              }
+
+              el.innerHTML = \`
+                <div style="display:flex; justify-content:space-between; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); margin-bottom:4px;">
+                  <span>Progress</span>
+                  <span>\${progress.percent}%</span>
+                </div>
+                <div style="width:100%; height:8px; background:var(--panel-alt); border-radius:4px; overflow:hidden;">
+                  <div style="width:\${progress.percent}%; height:100%; background:var(--hazard);"></div>
+                </div>
+              \`;
+            })
+            .catch(() => {
+              const el = document.querySelector('.progress-wrap-' + course.id);
+              if (el) el.innerHTML = '<div class="stat-label" style="text-transform:none; letter-spacing:0;">Could not load progress</div>';
+            });
         });
       })
       .catch(() => {
