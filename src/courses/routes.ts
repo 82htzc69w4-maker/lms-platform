@@ -121,6 +121,35 @@ courses.get('/expired', async (c) => {
   return c.json({ expired });
 });
 
+// GET /api/courses/my-overall-progress — the average progress across every
+// course the learner is enrolled in (completed courses count as 100%).
+// Registered before /:id so "my-overall-progress" is never mistaken for a
+// course ID. (The actual calculation logic is defined further down in this
+// file as hoisted function declarations, so it's safe to call from here.)
+courses.get('/my-overall-progress', async (c) => {
+  const session = await getSessionUser(c);
+  if (!session) return c.json({ error: 'Not logged in' }, 401);
+
+  const list = await kvListByPrefix(c.env, `enrollment:${session.username}:`);
+  let totalPercent = 0;
+  let courseCount = 0;
+
+  for (const key of list.keys) {
+    const enrollment = await kvGetJSON<Enrollment>(c.env, key.name);
+    if (!enrollment) continue;
+    courseCount += 1;
+
+    if (enrollment.status === 'completed') {
+      totalPercent += 100;
+    } else {
+      totalPercent += await computeCourseProgressPercent(c.env, session.username, enrollment.courseId);
+    }
+  }
+
+  const overallPercent = courseCount > 0 ? Math.round(totalPercent / courseCount) : 0;
+  return c.json({ overallPercent, courseCount });
+});
+
 // GET /api/courses/:id — full detail for the Course Development screen
 courses.get('/:id', async (c) => {
   const courseId = c.req.param('id');
@@ -390,6 +419,43 @@ function splitIntoPagesServer(blocks: ContentBlock[]): ContentBlock[][] {
   return pages;
 }
 
+// Computes one course's progress percent for one learner — combines real
+// page-view tracking with real Test/Assignment/Certificate submissions.
+// Shared by both the per-course progress endpoint and the learner's overall
+// progress gauge.
+async function computeCourseProgressPercent(env: Env, username: string, courseId: string): Promise<number> {
+  const content = await kvGetJSON<CourseContent>(env, `course:content:${courseId}`);
+  const blocks = content?.blocks ?? [];
+  const trackableBlocks = blocks.filter(
+    (b) => b.type === 'test' || b.type === 'assignmentUpload' || b.type === 'externalCertificate'
+  );
+
+  let completedActivities = 0;
+  for (const block of trackableBlocks) {
+    if (block.type === 'test') {
+      const history = await kvGetJSON<unknown[]>(env, `test:attempts:${block.id}:${username}`);
+      if (history && history.length > 0) completedActivities += 1;
+    } else if (block.type === 'assignmentUpload') {
+      const submission = await kvGetJSON<unknown>(env, `assignment:submission:${block.id}:${username}`);
+      if (submission) completedActivities += 1;
+    } else if (block.type === 'externalCertificate') {
+      const submission = await kvGetJSON<unknown>(env, `certificate-upload:${block.id}:${username}`);
+      if (submission) completedActivities += 1;
+    }
+  }
+
+  const pageProgress = await kvGetJSON<{ viewedPages: number[]; totalPages: number }>(
+    env,
+    `course-progress:${courseId}:${username}`
+  );
+  const totalPages = splitIntoPagesServer(blocks).length;
+  const viewedPages = Math.min(pageProgress?.viewedPages.length ?? 0, totalPages);
+
+  const totalItems = totalPages + trackableBlocks.length;
+  const completedItems = viewedPages + completedActivities;
+  return totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+}
+
 courses.get('/:id/my-progress', async (c) => {
   const session = await getSessionUser(c);
   if (!session) return c.json({ error: 'Not logged in' }, 401);
@@ -401,33 +467,10 @@ courses.get('/:id/my-progress', async (c) => {
     (b) => b.type === 'test' || b.type === 'assignmentUpload' || b.type === 'externalCertificate'
   );
 
-  let completedActivities = 0;
-  for (const block of trackableBlocks) {
-    if (block.type === 'test') {
-      const history = await kvGetJSON<unknown[]>(c.env, `test:attempts:${block.id}:${session.username}`);
-      if (history && history.length > 0) completedActivities += 1;
-    } else if (block.type === 'assignmentUpload') {
-      const submission = await kvGetJSON<unknown>(c.env, `assignment:submission:${block.id}:${session.username}`);
-      if (submission) completedActivities += 1;
-    } else if (block.type === 'externalCertificate') {
-      const submission = await kvGetJSON<unknown>(c.env, `certificate-upload:${block.id}:${session.username}`);
-      if (submission) completedActivities += 1;
-    }
-  }
-
-  const pageProgress = await kvGetJSON<{ viewedPages: number[]; totalPages: number }>(
-    c.env,
-    `course-progress:${courseId}:${session.username}`
-  );
-  // Always recompute the true current page count from the course's actual
-  // content — never trust the stored value, which only reflects whatever
-  // the layout looked like the last time this learner opened the course.
+  const percent = await computeCourseProgressPercent(c.env, session.username, courseId);
   const totalPages = splitIntoPagesServer(blocks).length;
-  const viewedPages = Math.min(pageProgress?.viewedPages.length ?? 0, totalPages);
-
   const totalItems = totalPages + trackableBlocks.length;
-  const completedItems = viewedPages + completedActivities;
-  const percent = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+  const completedItems = Math.round((percent / 100) * totalItems);
 
   let justCompleted = false;
   if (totalItems > 0 && percent === 100) {

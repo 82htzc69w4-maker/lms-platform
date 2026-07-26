@@ -9,6 +9,16 @@ const bodyHtml = `
     <button class="tab-btn" data-tab="coaching">Coaching</button>
   </div>
 
+  <div style="display:flex; flex-direction:column; align-items:center; padding: 20px 0; border-bottom: 1px dashed var(--grid-line); margin-bottom: 20px;">
+    <svg width="120" height="120" viewBox="0 0 120 120">
+      <circle cx="60" cy="60" r="52" fill="none" stroke="var(--grid-line)" stroke-width="10" />
+      <circle id="progress-gauge-circle" cx="60" cy="60" r="52" fill="none" stroke="var(--hazard)" stroke-width="10"
+        stroke-dasharray="326.7" stroke-dashoffset="326.7" stroke-linecap="round" transform="rotate(-90 60 60)" style="transition: stroke-dashoffset 0.6s ease;" />
+      <text id="progress-gauge-text" x="60" y="68" text-anchor="middle" font-family="'Big Shoulders Display', sans-serif" font-size="28" fill="var(--text-primary)">0%</text>
+    </svg>
+    <div class="stat-label" style="margin-top: 8px;">Overall Progress</div>
+  </div>
+
   <div class="tab-panel active" data-tab-panel="notifications">
     <div class="panel">
       <div class="panel-header">
@@ -502,6 +512,22 @@ const scripts = `
       });
   }
 
+  function loadOverallProgress() {
+    const circumference = 2 * Math.PI * 52;
+    fetch('/api/courses/my-overall-progress')
+      .then(r => r.json())
+      .then(data => {
+        const percent = data.overallPercent || 0;
+        const offset = circumference * (1 - percent / 100);
+        document.getElementById('progress-gauge-circle').style.strokeDashoffset = offset;
+        document.getElementById('progress-gauge-text').textContent = percent + '%';
+      })
+      .catch(() => {
+        document.getElementById('progress-gauge-text').textContent = '—';
+      });
+  }
+
+  loadOverallProgress();
   loadNotifications();
   loadMyCourses();
   loadCatalogue();
