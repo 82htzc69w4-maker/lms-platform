@@ -350,6 +350,43 @@ courses.post('/:id/view-page', async (c) => {
 // viewed, and how many of the course's Test/Assignment/Certificate blocks
 // they've genuinely submitted. Reaching 100% automatically completes the
 // course and issues the certificate.
+// Mirrors course-view.ts's client-side splitIntoPages() exactly, so the
+// server always knows the *current* true page count for a course — never
+// a stale number reported by the learner's last visit. This is what lets
+// progress stay accurate when an instructor adds or removes pages after a
+// learner has already started the course.
+function splitIntoPagesServer(blocks: ContentBlock[]): ContentBlock[][] {
+  const pages: ContentBlock[][] = [];
+  let current: ContentBlock[] = [];
+  let pendingBreak = false;
+
+  for (const b of blocks) {
+    if (b.type === 'module') {
+      if (current.length > 0) pages.push(current);
+      current = [b];
+      pendingBreak = false;
+      continue;
+    }
+
+    const isNavButton = b.type === 'forwardButton' || b.type === 'backButton';
+
+    if (pendingBreak && !isNavButton) {
+      pages.push(current);
+      current = [];
+      pendingBreak = false;
+    }
+
+    current.push(b);
+
+    if (b.type === 'forwardButton') {
+      pendingBreak = true;
+    }
+  }
+
+  if (current.length > 0) pages.push(current);
+  return pages;
+}
+
 courses.get('/:id/my-progress', async (c) => {
   const session = await getSessionUser(c);
   if (!session) return c.json({ error: 'Not logged in' }, 401);
@@ -379,7 +416,10 @@ courses.get('/:id/my-progress', async (c) => {
     c.env,
     `course-progress:${courseId}:${session.username}`
   );
-  const totalPages = pageProgress?.totalPages ?? 0;
+  // Always recompute the true current page count from the course's actual
+  // content — never trust the stored value, which only reflects whatever
+  // the layout looked like the last time this learner opened the course.
+  const totalPages = splitIntoPagesServer(blocks).length;
   const viewedPages = Math.min(pageProgress?.viewedPages.length ?? 0, totalPages);
 
   const totalItems = totalPages + trackableBlocks.length;
