@@ -877,7 +877,8 @@ const scripts = `
     }
 
     pages = splitIntoPages(blocks);
-    renderPage(0);
+    const resumeIndex = Math.min(Math.max(enrollmentData.lastPageIndex || 0, 0), pages.length - 1);
+    renderPage(resumeIndex);
   }).catch(() => {
     document.getElementById('course-view-body').innerHTML = '<div class="empty-state">Could not load this course.</div>';
   });

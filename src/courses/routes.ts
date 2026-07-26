@@ -223,7 +223,15 @@ courses.get('/:id/enrollment-status', async (c) => {
 
   const courseId = c.req.param('id');
   const enrollment = await kvGetJSON<Enrollment>(c.env, `enrollment:${session.username}:${courseId}`);
-  return c.json({ enrolled: !!enrollment, blocked: enrollment?.blocked ?? false });
+  const pageProgress = await kvGetJSON<{ lastPageIndex: number }>(
+    c.env,
+    `course-progress:${courseId}:${session.username}`
+  );
+  return c.json({
+    enrolled: !!enrollment,
+    blocked: enrollment?.blocked ?? false,
+    lastPageIndex: pageProgress?.lastPageIndex ?? 0,
+  });
 });
 
 // POST /api/courses/:id/enroll — registers the logged-in learner for a course
@@ -363,15 +371,20 @@ courses.post('/:id/view-page', async (c) => {
   const body = await c.req.json<{ pageIndex: number; totalPages: number }>();
 
   const key = `course-progress:${courseId}:${session.username}`;
-  const existing = (await kvGetJSON<{ viewedPages: number[]; totalPages: number }>(c.env, key)) ?? {
+  const existing = (await kvGetJSON<{ viewedPages: number[]; totalPages: number; lastPageIndex: number }>(
+    c.env,
+    key
+  )) ?? {
     viewedPages: [],
     totalPages: body.totalPages,
+    lastPageIndex: 0,
   };
 
   if (!existing.viewedPages.includes(body.pageIndex)) {
     existing.viewedPages.push(body.pageIndex);
   }
   existing.totalPages = body.totalPages;
+  existing.lastPageIndex = body.pageIndex;
 
   await kvPutJSON(c.env, key, existing);
   return c.json({ ok: true });
