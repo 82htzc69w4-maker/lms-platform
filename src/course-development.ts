@@ -133,12 +133,23 @@ const bodyHtml = `
           </div>
           <div class="panel-body">
             <div class="tool-palette">
-              <button class="tool-btn" data-block-type="mobileUpload">+ Mobile Upload (SCORM/HTML/CMI5)</button>
               <button class="tool-btn" data-block-type="test">+ Test</button>
               <button class="tool-btn" data-block-type="assignmentUpload">+ Assignment Upload</button>
               <button class="tool-btn" data-block-type="assessmentUpload">+ Assessment Upload</button>
               <button class="tool-btn" data-block-type="externalCertificate">+ External Certificate Upload</button>
               <button class="tool-btn" data-block-type="experientialLog">+ Experiential Log</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Advanced Instructional Design</div>
+            <div class="panel-sub">SCORM, HTML, and CMI5 packages</div>
+          </div>
+          <div class="panel-body">
+            <div class="tool-palette">
+              <button class="tool-btn" data-block-type="mobileUpload">+ Mobile Upload (SCORM/HTML/CMI5)</button>
             </div>
           </div>
         </div>
