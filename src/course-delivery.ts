@@ -165,116 +165,136 @@ const scripts = `
       .catch(() => { learnerList = []; });
   }
 
+  let catalogueCourseList = [];
+
+  function renderCatalogueCards() {
+    const wrap = document.getElementById('catalogue-wrap');
+
+    if (catalogueCourseList.length === 0) {
+      wrap.innerHTML = '<div class="empty-state">No published courses yet. Publish one from the Courses in Development tab.</div>';
+      return;
+    }
+
+    const canEnrollStudents = currentSession &&
+      (currentSession.role === 'instructor' || currentSession.role === 'admin' || currentSession.role === 'administrator');
+
+    const cards = catalogueCourseList.map(course => {
+      const enrolledUsernames = new Set(course.enrolledUsernames || []);
+      const availableLearners = learnerList.filter(u => !enrolledUsernames.has(u.username));
+      const learnerOptionsHtml = availableLearners.map(u =>
+        '<option value="' + u.username + '">' + (u.name || u.username) + '</option>'
+      ).join('');
+
+      return \`
+      <div class="course-card">
+        \${course.imageDataUrl
+          ? \`<img class="course-card-image" src="\${course.imageDataUrl}" alt="" />\`
+          : course.bannerDataUrl
+          ? \`<img class="course-card-image" src="\${course.bannerDataUrl}" style="object-fit: contain; background: var(--panel-alt);" alt="" />\`
+          : '<div class="course-card-image-placeholder">No Image</div>'}
+        <div class="course-card-body">
+          <div class="course-card-title">\${course.title}</div>
+          <div class="course-card-category">\${course.category || 'Uncategorized'}</div>
+          <div class="course-card-description">\${course.description}</div>
+          <div class="stat-label" style="text-transform:none; letter-spacing:0; margin-bottom:8px;">\${course.enrolledCount || 0} learner\${course.enrolledCount === 1 ? '' : 's'} enrolled</div>
+          \${canEditCourse(course)
+            ? \`<a class="btn" href="/course-development/\${course.id}" style="display:inline-block; text-decoration:none; text-align:center; margin-bottom:6px;">Edit</a>\`
+            : '<div class="stat-label" style="text-transform:none; letter-spacing:0; margin-bottom:6px;">Owned by another instructor</div>'}
+          <a class="btn" href="/enrolled-learners/\${course.id}" style="display:inline-block; text-decoration:none; text-align:center; margin-bottom:6px; background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line);">Enrolled Learners</a>
+          <button class="btn enroll-btn" data-course-id="\${course.id}" style="width:100%;">Enroll Myself</button>
+          \${canEnrollStudents ? \`
+            <div style="margin-top:8px; padding-top:8px; border-top:1px solid var(--grid-line);">
+              <div class="stat-label" style="margin-bottom:6px;">Enroll a Student</div>
+              <select class="enroll-student-select" data-course-id="\${course.id}" style="width:100%; margin-bottom:6px;">
+                <option value="">Select a learner&hellip;</option>
+                \${learnerOptionsHtml}
+              </select>
+              <button class="btn enroll-student-btn" data-course-id="\${course.id}" style="width:100%; background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line);">Enroll Student</button>
+              <div class="enroll-student-message-\${course.id}" style="margin-top:6px; font-family:'IBM Plex Mono',monospace; font-size:12px;"></div>
+            </div>
+          \` : ''}
+        </div>
+      </div>
+    \`;
+    }).join('');
+
+    wrap.innerHTML = \`<div class="course-card-grid">\${cards}</div>\`;
+
+    document.querySelectorAll('.enroll-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const courseId = btn.dataset.courseId;
+        btn.textContent = 'Enrolling…';
+        btn.disabled = true;
+        fetch('/api/courses/' + courseId + '/enroll', { method: 'POST' })
+          .then(async (r) => {
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error || 'Failed to enroll');
+            return data;
+          })
+          .then(() => { btn.textContent = 'Enrolled'; })
+          .catch((err) => {
+            btn.textContent = 'Enroll Myself';
+            btn.disabled = false;
+            btn.title = err.message;
+            alert(err.message);
+          });
+      });
+    });
+
+    document.querySelectorAll('.enroll-student-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const courseId = btn.dataset.courseId;
+        const select = document.querySelector('.enroll-student-select[data-course-id="' + courseId + '"]');
+        const msgEl = document.querySelector('.enroll-student-message-' + courseId);
+        const username = select.value;
+
+        if (!username) {
+          msgEl.textContent = 'Please select a learner first.';
+          msgEl.style.color = 'var(--risk)';
+          return;
+        }
+
+        btn.textContent = 'Enrolling…';
+        btn.disabled = true;
+
+        fetch('/api/courses/' + courseId + '/enroll-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username })
+        })
+          .then(async (r) => {
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error || 'Failed to enroll student');
+            return data;
+          })
+          .then(() => {
+            // Update the in-memory course data immediately rather than
+            // re-fetching from the server — KV writes can take a moment to
+            // propagate, so an immediate re-fetch can briefly show stale
+            // data even though the enrollment genuinely succeeded.
+            const course = catalogueCourseList.find(c => c.id === courseId);
+            if (course) {
+              course.enrolledCount = (course.enrolledCount || 0) + 1;
+              course.enrolledUsernames = [...(course.enrolledUsernames || []), username];
+            }
+            renderCatalogueCards();
+          })
+          .catch((err) => {
+            msgEl.textContent = err.message;
+            msgEl.style.color = 'var(--risk)';
+            btn.textContent = 'Enroll Student';
+            btn.disabled = false;
+          });
+      });
+    });
+  }
+
   function loadCatalogue() {
     fetch('/api/courses')
       .then(r => r.json())
       .then(data => {
-        const list = (data.courses || []).filter(c => c.status === 'published');
-        const wrap = document.getElementById('catalogue-wrap');
-
-        if (list.length === 0) {
-          wrap.innerHTML = '<div class="empty-state">No published courses yet. Publish one from the Courses in Development tab.</div>';
-          return;
-        }
-
-        const canEnrollStudents = currentSession &&
-          (currentSession.role === 'instructor' || currentSession.role === 'admin' || currentSession.role === 'administrator');
-
-        const cards = list.map(course => {
-          const enrolledUsernames = new Set(course.enrolledUsernames || []);
-          const availableLearners = learnerList.filter(u => !enrolledUsernames.has(u.username));
-          const learnerOptionsHtml = availableLearners.map(u =>
-            '<option value="' + u.username + '">' + (u.name || u.username) + '</option>'
-          ).join('');
-
-          return \`
-          <div class="course-card">
-            \${course.imageDataUrl
-              ? \`<img class="course-card-image" src="\${course.imageDataUrl}" alt="" />\`
-              : course.bannerDataUrl
-              ? \`<img class="course-card-image" src="\${course.bannerDataUrl}" style="object-fit: contain; background: var(--panel-alt);" alt="" />\`
-              : '<div class="course-card-image-placeholder">No Image</div>'}
-            <div class="course-card-body">
-              <div class="course-card-title">\${course.title}</div>
-              <div class="course-card-category">\${course.category || 'Uncategorized'}</div>
-              <div class="course-card-description">\${course.description}</div>
-              <div class="stat-label" style="text-transform:none; letter-spacing:0; margin-bottom:8px;">\${course.enrolledCount || 0} learner\${course.enrolledCount === 1 ? '' : 's'} enrolled</div>
-              \${canEditCourse(course)
-                ? \`<a class="btn" href="/course-development/\${course.id}" style="display:inline-block; text-decoration:none; text-align:center; margin-bottom:6px;">Edit</a>\`
-                : '<div class="stat-label" style="text-transform:none; letter-spacing:0; margin-bottom:6px;">Owned by another instructor</div>'}
-              <a class="btn" href="/enrolled-learners/\${course.id}" style="display:inline-block; text-decoration:none; text-align:center; margin-bottom:6px; background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line);">Enrolled Learners</a>
-              <button class="btn enroll-btn" data-course-id="\${course.id}" style="width:100%;">Enroll Myself</button>
-              \${canEnrollStudents ? \`
-                <div style="margin-top:8px; padding-top:8px; border-top:1px solid var(--grid-line);">
-                  <div class="stat-label" style="margin-bottom:6px;">Enroll a Student</div>
-                  <select class="enroll-student-select" data-course-id="\${course.id}" style="width:100%; margin-bottom:6px;">
-                    <option value="">Select a learner&hellip;</option>
-                    \${learnerOptionsHtml}
-                  </select>
-                  <button class="btn enroll-student-btn" data-course-id="\${course.id}" style="width:100%; background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line);">Enroll Student</button>
-                  <div class="enroll-student-message-\${course.id}" style="margin-top:6px; font-family:'IBM Plex Mono',monospace; font-size:12px;"></div>
-                </div>
-              \` : ''}
-            </div>
-          </div>
-        \`;
-        }).join('');
-
-        wrap.innerHTML = \`<div class="course-card-grid">\${cards}</div>\`;
-
-        document.querySelectorAll('.enroll-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const courseId = btn.dataset.courseId;
-            btn.textContent = 'Enrolling…';
-            btn.disabled = true;
-            fetch('/api/courses/' + courseId + '/enroll', { method: 'POST' })
-              .then(async (r) => {
-                const data = await r.json();
-                if (!r.ok) throw new Error(data.error || 'Failed to enroll');
-                return data;
-              })
-              .then(() => { btn.textContent = 'Enrolled'; })
-              .catch((err) => {
-                btn.textContent = 'Enroll Myself';
-                btn.disabled = false;
-                btn.title = err.message;
-                alert(err.message);
-              });
-          });
-        });
-
-        document.querySelectorAll('.enroll-student-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const courseId = btn.dataset.courseId;
-            const select = document.querySelector('.enroll-student-select[data-course-id="' + courseId + '"]');
-            const msgEl = document.querySelector('.enroll-student-message-' + courseId);
-            const username = select.value;
-
-            if (!username) {
-              msgEl.textContent = 'Please select a learner first.';
-              msgEl.style.color = 'var(--risk)';
-              return;
-            }
-
-            fetch('/api/courses/' + courseId + '/enroll-user', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ username })
-            })
-              .then(async (r) => {
-                const data = await r.json();
-                if (!r.ok) throw new Error(data.error || 'Failed to enroll student');
-                return data;
-              })
-              .then(() => {
-                loadCatalogue();
-              })
-              .catch((err) => {
-                msgEl.textContent = err.message;
-                msgEl.style.color = 'var(--risk)';
-              });
-          });
-        });
+        catalogueCourseList = (data.courses || []).filter(c => c.status === 'published');
+        renderCatalogueCards();
       })
       .catch(() => {
         document.getElementById('catalogue-wrap').innerHTML = '<div class="empty-state">Could not reach /api/courses.</div>';
