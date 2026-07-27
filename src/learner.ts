@@ -384,24 +384,43 @@ const scripts = `
     };
   }
 
+  function openCertificatePreviewWindow(faceHtml) {
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.open();
+    win.document.write(\`
+      <html>
+      <head>
+        <title>Certificate Preview</title>
+        <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+        <style>
+          body { margin:0; padding:40px; background:#f1ede4; display:flex; justify-content:center; }
+        </style>
+      </head>
+      <body>\${faceHtml}</body>
+      </html>
+    \`);
+    win.document.close();
+  }
+
   let issuedCertificatesById = {};
 
   function renderIssuedCertificateCard(cert) {
     issuedCertificatesById[cert.id] = cert;
     const expired = isCertExpired(cert.expiryDate);
-    const faceHtml = buildCertificateFaceHtml(cert);
     const metaText = 'Issued: ' + new Date(cert.issuedDate).toLocaleDateString() +
       (cert.expiryDate ? ' — Expires: ' + new Date(cert.expiryDate).toLocaleDateString() : ' — No expiry');
 
     return \`
-      <div style="margin-bottom:24px; \${expired ? 'border:2px solid var(--risk); border-radius:6px; padding:12px; background:rgba(193,68,58,0.06);' : ''}">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+      <div class="content-block-row" style="align-items:center; cursor:default; margin-bottom:8px; \${expired ? 'border-color: var(--risk); background: rgba(193,68,58,0.06);' : ''}">
+        <div style="flex:1;">
+          <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:4px;">\${escapeHtmlLearner(cert.courseTitle)}</div>
           <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:\${expired ? 'var(--risk)' : 'var(--text-muted)'};">
             \${expired ? '<strong>EXPIRED</strong> — ' : ''}\${metaText}
           </div>
-          <button type="button" class="btn print-cert-btn" data-cert-id="\${cert.id}">Print / Download</button>
         </div>
-        \${faceHtml}
+        <button type="button" class="btn preview-cert-btn" data-cert-id="\${cert.id}" style="background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line); margin-right:8px;">Preview</button>
+        <button type="button" class="btn print-cert-btn" data-cert-id="\${cert.id}">Print / Download</button>
       </div>
     \`;
   }
@@ -451,6 +470,13 @@ const scripts = `
         : '<div class="empty-state">No external certificates uploaded yet.</div>';
 
       wrap.innerHTML = html;
+
+      wrap.querySelectorAll('.preview-cert-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const cert = issuedCertificatesById[btn.dataset.certId];
+          if (cert) openCertificatePreviewWindow(buildCertificateFaceHtml(cert));
+        });
+      });
 
       wrap.querySelectorAll('.print-cert-btn').forEach(btn => {
         btn.addEventListener('click', () => {
