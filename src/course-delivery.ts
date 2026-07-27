@@ -195,9 +195,11 @@ const scripts = `
               <div class="course-card-title">\${course.title}</div>
               <div class="course-card-category">\${course.category || 'Uncategorized'}</div>
               <div class="course-card-description">\${course.description}</div>
+              <div class="stat-label" style="text-transform:none; letter-spacing:0; margin-bottom:8px;">\${course.enrolledCount || 0} learner\${course.enrolledCount === 1 ? '' : 's'} enrolled</div>
               \${canEditCourse(course)
                 ? \`<a class="btn" href="/course-development/\${course.id}" style="display:inline-block; text-decoration:none; text-align:center; margin-bottom:6px;">Edit</a>\`
                 : '<div class="stat-label" style="text-transform:none; letter-spacing:0; margin-bottom:6px;">Owned by another instructor</div>'}
+              <a class="btn" href="/enrolled-learners/\${course.id}" style="display:inline-block; text-decoration:none; text-align:center; margin-bottom:6px; background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line);">Enrolled Learners</a>
               <button class="btn enroll-btn" data-course-id="\${course.id}" style="width:100%;">Enroll Myself</button>
               \${canEnrollStudents ? \`
                 <div style="margin-top:8px; padding-top:8px; border-top:1px solid var(--grid-line);">

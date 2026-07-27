@@ -10,6 +10,7 @@ import { DEFAULT_CERTIFICATE_TEMPLATE } from '../certificateTemplates/types';
 import type { IssuedCertificate } from '../issuedCertificates/types';
 import type { BrandingSettings } from '../settings/types';
 import { createNotification } from '../notifications/routes';
+import type { LearnerProfile } from '../users/types';
 
 const courses = new Hono<{ Bindings: Env }>();
 
@@ -29,10 +30,22 @@ function canEditCourse(
 // GET /api/courses — the full catalogue, every course registered on the platform
 courses.get('/', async (c) => {
   const list = await kvListByPrefix(c.env, 'course:def:');
-  const result: Course[] = [];
+
+  // Count enrollments per course in a single pass, rather than one lookup
+  // per course, to keep KV usage down.
+  const enrollmentList = await kvListByPrefix(c.env, 'enrollment:');
+  const countByCourseId: Record<string, number> = {};
+  for (const key of enrollmentList.keys) {
+    const enrollment = await kvGetJSON<Enrollment>(c.env, key.name);
+    if (enrollment) {
+      countByCourseId[enrollment.courseId] = (countByCourseId[enrollment.courseId] || 0) + 1;
+    }
+  }
+
+  const result: Array<Course & { enrolledCount: number }> = [];
   for (const key of list.keys) {
     const course = await kvGetJSON<Course>(c.env, key.name);
-    if (course) result.push(course);
+    if (course) result.push({ ...course, enrolledCount: countByCourseId[course.id] || 0 });
   }
   return c.json({ courses: result });
 });
@@ -234,6 +247,50 @@ courses.get('/:id/enrollment-status', async (c) => {
   });
 });
 
+// GET /api/courses/:id/enrolled-learners — every learner enrolled in this
+// course, with registration date, progress, and completion status
+// (Instructor/Admin/Administrator only)
+courses.get('/:id/enrolled-learners', async (c) => {
+  const session = await getSessionUser(c);
+  if (!session || (session.role !== 'instructor' && session.role !== 'admin' && session.role !== 'administrator')) {
+    return c.json({ error: 'Not authorized' }, 403);
+  }
+
+  const courseId = c.req.param('id');
+  const list = await kvListByPrefix(c.env, 'enrollment:');
+  const learners: Array<{
+    username: string;
+    firstName: string;
+    surname: string;
+    registeredAt: string;
+    status: string;
+    completedAt?: string;
+    percent: number;
+  }> = [];
+
+  for (const key of list.keys) {
+    const enrollment = await kvGetJSON<Enrollment>(c.env, key.name);
+    if (!enrollment || enrollment.courseId !== courseId) continue;
+
+    const user = await kvGetJSON<User>(c.env, `auth:user:${enrollment.username}`);
+    const percent =
+      enrollment.status === 'completed' ? 100 : await computeCourseProgressPercent(c.env, enrollment.username, courseId);
+
+    learners.push({
+      username: enrollment.username,
+      firstName: user?.firstName || '',
+      surname: user?.surname || '',
+      registeredAt: enrollment.registeredAt,
+      status: enrollment.status,
+      completedAt: enrollment.completedAt,
+      percent,
+    });
+  }
+
+  learners.sort((a, b) => new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime());
+  return c.json({ learners });
+});
+
 // POST /api/courses/:id/enroll — registers the logged-in learner for a course
 // POST /api/courses/:id/enroll-user — lets Instructor/Admin/Administrator enroll
 // a specific learner into a course on their behalf
@@ -311,12 +368,17 @@ async function completeEnrollmentAndIssueCertificate(
     (await kvGetJSON<CertificateTemplate>(env, `certificate-template:${courseId}`)) ??
     ({ courseId, ...DEFAULT_CERTIFICATE_TEMPLATE } as CertificateTemplate);
   const learnerUser = await kvGetJSON<User>(env, `auth:user:${username}`);
+  const learnerProfile = await kvGetJSON<LearnerProfile>(env, `learner:profile:${username}`);
   const branding = await kvGetJSON<BrandingSettings>(env, 'settings:branding');
 
+  // The certificate's own Validity Period (set in Certificate Design) takes
+  // priority; falls back to the course's Validity Period if the
+  // certificate doesn't have its own set.
+  const effectiveValidityMonths = template.validityMonths ?? course?.validityMonths;
   let expiryDate: string | undefined;
-  if (course?.validityMonths) {
+  if (effectiveValidityMonths) {
     const expiry = new Date(completedAt);
-    expiry.setMonth(expiry.getMonth() + course.validityMonths);
+    expiry.setMonth(expiry.getMonth() + effectiveValidityMonths);
     expiryDate = expiry.toISOString();
   }
 
@@ -331,6 +393,8 @@ async function completeEnrollmentAndIssueCertificate(
     orientation: template.orientation,
     includeLogo: template.includeLogo,
     includeStudentName: template.includeStudentName,
+    includeIdNumber: template.includeIdNumber,
+    studentIdNumber: learnerProfile?.idNumber,
     includeCourseName: template.includeCourseName,
     includeCourseDate: template.includeCourseDate,
     includeCourseNumber: template.includeCourseNumber,
