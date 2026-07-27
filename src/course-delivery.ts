@@ -180,11 +180,14 @@ const scripts = `
         const canEnrollStudents = currentSession &&
           (currentSession.role === 'instructor' || currentSession.role === 'admin' || currentSession.role === 'administrator');
 
-        const learnerOptionsHtml = learnerList.map(u =>
-          '<option value="' + u.username + '">' + (u.name || u.username) + '</option>'
-        ).join('');
+        const cards = list.map(course => {
+          const enrolledUsernames = new Set(course.enrolledUsernames || []);
+          const availableLearners = learnerList.filter(u => !enrolledUsernames.has(u.username));
+          const learnerOptionsHtml = availableLearners.map(u =>
+            '<option value="' + u.username + '">' + (u.name || u.username) + '</option>'
+          ).join('');
 
-        const cards = list.map(course => \`
+          return \`
           <div class="course-card">
             \${course.imageDataUrl
               ? \`<img class="course-card-image" src="\${course.imageDataUrl}" alt="" />\`
@@ -214,7 +217,8 @@ const scripts = `
               \` : ''}
             </div>
           </div>
-        \`).join('');
+        \`;
+        }).join('');
 
         wrap.innerHTML = \`<div class="course-card-grid">\${cards}</div>\`;
 
@@ -263,9 +267,7 @@ const scripts = `
                 return data;
               })
               .then(() => {
-                msgEl.textContent = 'Enrolled successfully.';
-                msgEl.style.color = 'var(--competent)';
-                select.value = '';
+                loadCatalogue();
               })
               .catch((err) => {
                 msgEl.textContent = err.message;

@@ -31,21 +31,31 @@ function canEditCourse(
 courses.get('/', async (c) => {
   const list = await kvListByPrefix(c.env, 'course:def:');
 
-  // Count enrollments per course in a single pass, rather than one lookup
-  // per course, to keep KV usage down.
+  // Count enrollments per course — and track which learners are already
+  // enrolled — in a single pass, rather than one lookup per course, to keep
+  // KV usage down.
   const enrollmentList = await kvListByPrefix(c.env, 'enrollment:');
   const countByCourseId: Record<string, number> = {};
+  const enrolledUsernamesByCourseId: Record<string, string[]> = {};
   for (const key of enrollmentList.keys) {
     const enrollment = await kvGetJSON<Enrollment>(c.env, key.name);
     if (enrollment) {
       countByCourseId[enrollment.courseId] = (countByCourseId[enrollment.courseId] || 0) + 1;
+      if (!enrolledUsernamesByCourseId[enrollment.courseId]) enrolledUsernamesByCourseId[enrollment.courseId] = [];
+      enrolledUsernamesByCourseId[enrollment.courseId].push(enrollment.username);
     }
   }
 
-  const result: Array<Course & { enrolledCount: number }> = [];
+  const result: Array<Course & { enrolledCount: number; enrolledUsernames: string[] }> = [];
   for (const key of list.keys) {
     const course = await kvGetJSON<Course>(c.env, key.name);
-    if (course) result.push({ ...course, enrolledCount: countByCourseId[course.id] || 0 });
+    if (course) {
+      result.push({
+        ...course,
+        enrolledCount: countByCourseId[course.id] || 0,
+        enrolledUsernames: enrolledUsernamesByCourseId[course.id] || [],
+      });
+    }
   }
   return c.json({ courses: result });
 });
