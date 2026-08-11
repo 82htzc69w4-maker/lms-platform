@@ -40,6 +40,7 @@ import { enrolledLearnersHtml } from './enrolled-learners';
 import incidentReports from './incidentReports/routes';
 import productivityMetrics from './productivityMetrics/routes';
 import { employeePerformanceHtml } from './employee-performance';
+import performanceAppraisals from './performanceAppraisals/routes';
 import portfolioEvidence from './portfolioEvidence/routes';
 import workplaceObservations from './workplaceObservations/routes';
 
@@ -88,5 +89,6 @@ app.route('/api/incidents', incidentReports);
 app.route('/api/productivity-metrics', productivityMetrics);
 app.route('/api/portfolio-evidence', portfolioEvidence);
 app.route('/api/workplace-observations', workplaceObservations);
+app.route('/api/performance-appraisals', performanceAppraisals);
 
 export default app;

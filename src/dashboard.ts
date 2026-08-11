@@ -53,6 +53,18 @@ const bodyHtml = `
     </div>
   </div>
 
+  <div class="panel" id="risk-dashboard-panel" style="margin-bottom: 20px; display: none;">
+    <div class="panel-header">
+      <div class="panel-title">Competence Risk Dashboard</div>
+      <div class="panel-sub">Business risk per department — not training compliance. Based on expired certifications, failed assessments, incident history, skill gaps, and performance appraisals.</div>
+    </div>
+    <div class="panel-body">
+      <div id="risk-dashboard-wrap">
+        <div class="empty-state">Loading&hellip;</div>
+      </div>
+    </div>
+  </div>
+
   <div class="panel" id="management-reporting-panel" style="display: none;">
     <div class="panel-header">
       <div class="panel-title">Management Reporting</div>
@@ -123,6 +135,8 @@ const scripts = `
         document.getElementById('stat-tile-coaching').style.display = 'block';
         document.getElementById('management-reporting-panel').style.display = 'block';
         loadCoachingReport();
+        document.getElementById('risk-dashboard-panel').style.display = 'block';
+        loadRiskDashboard();
       }
       // HR escalations are visible to all coaching-capable staff roles.
       if (role === 'admin' || role === 'administrator' || role === 'instructor') {
@@ -266,6 +280,55 @@ const scripts = `
       })
       .catch(() => {
         document.getElementById('hr-coaching-wrap').innerHTML = '<div class="empty-state">Could not load HR coaching escalations.</div>';
+      });
+  }
+
+  function loadRiskDashboard() {
+    fetch('/api/risk/departments')
+      .then(r => r.json())
+      .then(data => {
+        const departments = data.departments || [];
+        const wrap = document.getElementById('risk-dashboard-wrap');
+
+        if (departments.length === 0) {
+          wrap.innerHTML = '<div class="empty-state">No departments on record yet — assign learners a department in Admin \u2192 Register User.</div>';
+          return;
+        }
+
+        const levelColors = { high: 'var(--risk)', medium: 'var(--refresher)', low: 'var(--competent)' };
+        const levelLabels = { high: 'High', medium: 'Medium', low: 'Low' };
+
+        const rows = departments.map(d => \`
+          <tr>
+            <td style="font-family:'Inter',sans-serif;">\${d.department}</td>
+            <td><span style="color:\${levelColors[d.riskLevel]}; font-weight:700; font-family:'IBM Plex Mono',monospace; text-transform:uppercase;">\${levelLabels[d.riskLevel]}</span></td>
+            <td style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-muted);">\${d.expiredCertifications}</td>
+            <td style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-muted);">\${d.failedAssessments}</td>
+            <td style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-muted);">\${d.highSeverityIncidents}</td>
+            <td style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-muted);">\${d.skillGaps}</td>
+            <td style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-muted);">\${d.poorAppraisals}</td>
+          </tr>
+        \`).join('');
+
+        wrap.innerHTML = \`
+          <table>
+            <thead>
+              <tr>
+                <th>Department</th>
+                <th>Competence Risk</th>
+                <th>Expired Certs</th>
+                <th>Failed Assessments</th>
+                <th>High/Critical Incidents</th>
+                <th>Skill Gaps</th>
+                <th>Poor Appraisals</th>
+              </tr>
+            </thead>
+            <tbody>\${rows}</tbody>
+          </table>
+        \`;
+      })
+      .catch(() => {
+        document.getElementById('risk-dashboard-wrap').innerHTML = '<div class="empty-state">Could not load the risk dashboard.</div>';
       });
   }
 

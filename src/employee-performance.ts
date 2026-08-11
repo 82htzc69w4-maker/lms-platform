@@ -122,6 +122,31 @@ const bodyHtml = `
       </div>
     </div>
 
+    <div class="panel" style="margin-top: 20px;">
+      <div class="panel-header">
+        <div class="panel-title">Performance Appraisals</div>
+      </div>
+      <div class="panel-body">
+        <div id="appraisals-wrap" style="margin-bottom: 16px;"><div class="empty-state">Loading&hellip;</div></div>
+
+        <div class="stat-label" style="margin-bottom: 8px;">Log a New Appraisal</div>
+        <div class="form-row">
+          <input type="date" id="appraisal-date" style="flex:1;" />
+          <select id="appraisal-rating" style="flex:1;">
+            <option value="exceeds">Exceeds Expectations</option>
+            <option value="meets">Meets Expectations</option>
+            <option value="below">Below Expectations</option>
+            <option value="unsatisfactory">Unsatisfactory</option>
+          </select>
+        </div>
+        <div class="form-row" style="margin-top: 8px;">
+          <textarea id="appraisal-comments" rows="3" placeholder="Appraisal comments" style="width:100%; background: var(--panel-alt); border: 1px solid var(--grid-line); color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13px; padding: 10px 12px; border-radius: 2px;"></textarea>
+        </div>
+        <button class="btn" id="log-appraisal-btn" style="margin-top: 10px;">Log Appraisal</button>
+        <div id="appraisal-message" style="margin-top: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
+      </div>
+    </div>
+
   </div>
 `;
 
@@ -176,6 +201,7 @@ const scripts = `
     loadProductivityMetrics();
     loadEvidenceForReview();
     loadObservations();
+    loadAppraisals();
   });
 
   function loadTrainingHistory() {
@@ -479,6 +505,73 @@ const scripts = `
         document.getElementById('observation-task').value = '';
         document.getElementById('observation-notes').value = '';
         loadObservations();
+      })
+      .catch((err) => {
+        msgEl.textContent = err.message;
+        msgEl.style.color = 'var(--risk)';
+      });
+  });
+
+  function loadAppraisals() {
+    fetch('/api/performance-appraisals/' + encodeURIComponent(selectedUsername))
+      .then(r => r.json())
+      .then(data => {
+        const appraisals = data.appraisals || [];
+        const wrap = document.getElementById('appraisals-wrap');
+
+        if (appraisals.length === 0) {
+          wrap.innerHTML = '<div class="empty-state">No appraisals on record for this employee.</div>';
+          return;
+        }
+
+        const ratingColors = { exceeds: 'var(--competent)', meets: 'var(--competent)', below: 'var(--refresher)', unsatisfactory: 'var(--risk)' };
+        const ratingLabels = { exceeds: 'Exceeds Expectations', meets: 'Meets Expectations', below: 'Below Expectations', unsatisfactory: 'Unsatisfactory' };
+
+        wrap.innerHTML = appraisals.map(a => \`
+          <div class="content-block-row" style="align-items:flex-start; cursor:default; margin-bottom:8px;">
+            <div style="flex:1;">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); margin-bottom:4px;">\${new Date(a.appraisalDate).toLocaleDateString()} — reviewed by \${escapeHtml(a.reviewerName)}</div>
+              <div style="font-family:'Inter',sans-serif; font-size:13px; color:var(--text-primary);">\${escapeHtml(a.comments)}</div>
+            </div>
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:\${ratingColors[a.rating]}; font-weight:600; white-space:nowrap;">\${ratingLabels[a.rating]}</div>
+          </div>
+        \`).join('');
+      })
+      .catch(() => {
+        document.getElementById('appraisals-wrap').innerHTML = '<div class="empty-state">Could not load appraisals.</div>';
+      });
+  }
+
+  document.getElementById('log-appraisal-btn').addEventListener('click', () => {
+    const msgEl = document.getElementById('appraisal-message');
+    const dateVal = document.getElementById('appraisal-date').value;
+    const commentsVal = document.getElementById('appraisal-comments').value.trim();
+
+    if (!dateVal || !commentsVal) {
+      msgEl.textContent = 'Please provide a date and comments.';
+      msgEl.style.color = 'var(--risk)';
+      return;
+    }
+
+    fetch('/api/performance-appraisals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: selectedUsername,
+        appraisalDate: dateVal,
+        rating: document.getElementById('appraisal-rating').value,
+        comments: commentsVal
+      })
+    })
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'Failed to log appraisal');
+        return data;
+      })
+      .then(() => {
+        document.getElementById('appraisal-date').value = '';
+        document.getElementById('appraisal-comments').value = '';
+        loadAppraisals();
       })
       .catch((err) => {
         msgEl.textContent = err.message;
