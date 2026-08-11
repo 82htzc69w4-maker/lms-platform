@@ -491,31 +491,44 @@ const scripts = `
   }
 
   function loadCoachingSessions() {
-    fetch('/api/coaching/sessions/mine')
-      .then(r => r.json())
-      .then(data => {
-        const list = data.sessions || [];
-        const wrap = document.getElementById('coaching-sessions-wrap');
+    Promise.all([
+      fetch('/api/coaching/notifications/mine').then(r => r.json()).catch(() => ({ notifications: [] })),
+      fetch('/api/coaching/sessions/mine').then(r => r.json()).catch(() => ({ sessions: [] })),
+    ]).then(([notifData, sessionsData]) => {
+      const pending = (notifData.notifications || []).filter(n => !n.resolved);
+      const sessions = sessionsData.sessions || [];
+      const wrap = document.getElementById('coaching-sessions-wrap');
 
-        if (list.length === 0) {
-          wrap.innerHTML = '<div class="empty-state">No coaching sessions on record.</div>';
-          return;
-        }
+      let html = '';
 
-        wrap.innerHTML = list.map(s => \`
+      if (pending.length > 0) {
+        html += pending.map(n => \`
+          <div style="margin-bottom:12px; padding:14px; background:rgba(193,68,58,0.1); border-left:3px solid var(--risk); border-radius:2px;">
+            <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:4px;"><strong>\${n.courseTitle}</strong> is blocked</div>
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-muted);">Awaiting a coaching session — flagged \${new Date(n.createdAt).toLocaleDateString()}. A facilitator will be in touch.</div>
+          </div>
+        \`).join('');
+      }
+
+      if (sessions.length === 0 && pending.length === 0) {
+        html += '<div class="empty-state">No coaching sessions on record.</div>';
+      } else {
+        html += sessions.map(s => \`
           <div class="content-block-row" style="align-items:flex-start; cursor:default; margin-bottom:8px;">
             <div style="flex:1;">
               <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:4px;">\${s.courseTitle}</div>
-              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); margin-bottom:8px;">Coach: \${s.coachName} — \${new Date(s.createdAt).toLocaleString()}</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); margin-bottom:8px;">Coach: \${s.coachName} — \${s.sessionDate ? new Date(s.sessionDate + 'T' + (s.sessionTime || '00:00')).toLocaleString() : new Date(s.createdAt).toLocaleString()}</div>
               <div style="font-family:'Inter',sans-serif; font-size:13px; color:var(--text-primary);">\${s.notes}</div>
             </div>
           </div>
         \`).join('');
-      })
-      .catch(() => {
-        document.getElementById('coaching-sessions-wrap').innerHTML =
-          '<div class="empty-state">Could not reach /api/coaching/sessions/mine.</div>';
-      });
+      }
+
+      wrap.innerHTML = html;
+    }).catch(() => {
+      document.getElementById('coaching-sessions-wrap').innerHTML =
+        '<div class="empty-state">Could not load coaching information.</div>';
+    });
   }
 
   function loadNotifications() {

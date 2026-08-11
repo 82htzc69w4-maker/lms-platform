@@ -45,13 +45,20 @@ const bodyHtml = `
     </div>
   </div>
 
-  <div class="panel">
+  <div class="panel" id="management-reporting-panel" style="display: none;">
     <div class="panel-header">
       <div class="panel-title">Management Reporting</div>
-      <div class="panel-sub">Coming soon</div>
+      <div class="panel-sub">Coaching sessions logged, by course and by department</div>
     </div>
     <div class="panel-body">
-      <div class="empty-state">Management reporting tools will appear here in a future update.</div>
+      <div class="stat-label" style="margin-bottom: 12px;">By Course</div>
+      <div id="coaching-by-course-wrap" style="margin-bottom: 24px;">
+        <div class="empty-state">Loading&hellip;</div>
+      </div>
+      <div class="stat-label" style="margin-bottom: 12px;">By Department</div>
+      <div id="coaching-by-department-wrap">
+        <div class="empty-state">Loading&hellip;</div>
+      </div>
     </div>
   </div>
 `;
@@ -97,8 +104,8 @@ const scripts = `
       document.getElementById('stat-courses-development').textContent = '—';
     });
 
-  // "Courses in Development" and "Users to be Coached" tiles are only shown
-  // to Admin, Administrator, and Instructor
+  // "Courses in Development", "Users to be Coached", and Management Reporting
+  // are only shown to Admin, Administrator, and Instructor
   fetch('/api/auth/me')
     .then(r => r.ok ? r.json() : null)
     .then(data => {
@@ -106,9 +113,51 @@ const scripts = `
       if (role === 'admin' || role === 'administrator' || role === 'instructor') {
         document.getElementById('stat-tile-development').style.display = 'block';
         document.getElementById('stat-tile-coaching').style.display = 'block';
+        document.getElementById('management-reporting-panel').style.display = 'block';
+        loadCoachingReport();
       }
     })
     .catch(() => { /* leave hidden if we can't confirm role */ });
+
+  function loadCoachingReport() {
+    fetch('/api/coaching/sessions')
+      .then(r => r.json())
+      .then(data => {
+        const sessions = data.sessions || [];
+        const courseWrap = document.getElementById('coaching-by-course-wrap');
+        const deptWrap = document.getElementById('coaching-by-department-wrap');
+
+        if (sessions.length === 0) {
+          courseWrap.innerHTML = '<div class="empty-state">No coaching sessions logged yet.</div>';
+          deptWrap.innerHTML = '<div class="empty-state">No coaching sessions logged yet.</div>';
+          return;
+        }
+
+        const byCourse = {};
+        const byDept = {};
+        sessions.forEach(s => {
+          byCourse[s.courseTitle] = (byCourse[s.courseTitle] || 0) + 1;
+          const dept = s.department || 'Unassigned';
+          byDept[dept] = (byDept[dept] || 0) + 1;
+        });
+
+        function renderCounts(counts) {
+          return Object.keys(counts).sort((a, b) => counts[b] - counts[a]).map(key => \`
+            <div class="content-block-row" style="align-items:center; cursor:default; margin-bottom:6px;">
+              <div style="flex:1; font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary);">\${key}</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--hazard); font-weight:600;">\${counts[key]} session\${counts[key] === 1 ? '' : 's'}</div>
+            </div>
+          \`).join('');
+        }
+
+        courseWrap.innerHTML = renderCounts(byCourse);
+        deptWrap.innerHTML = renderCounts(byDept);
+      })
+      .catch(() => {
+        document.getElementById('coaching-by-course-wrap').innerHTML = '<div class="empty-state">Could not load coaching report.</div>';
+        document.getElementById('coaching-by-department-wrap').innerHTML = '';
+      });
+  }
 
   // ---------- Users to be Coached (distinct learners with pending coaching) ----------
   fetch('/api/coaching/notifications')

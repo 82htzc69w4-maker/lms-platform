@@ -486,9 +486,14 @@ const scripts = `
                   <thead><tr><th>Attempt</th><th>Score</th><th>Sections Failed</th><th>Date</th></tr></thead>
                   <tbody>\${attemptRows}</tbody>
                 </table>
+                <div class="stat-label" style="margin-bottom: 6px;">Coaching Session Date &amp; Time</div>
+                <div class="form-row" style="margin-bottom: 10px;">
+                  <input type="date" id="coaching-date-\${n.id}" style="flex:1;" />
+                  <input type="time" id="coaching-time-\${n.id}" style="flex:1;" />
+                </div>
                 <div class="stat-label" style="margin-bottom: 6px;">Coaching Notes</div>
                 <textarea id="coaching-notes-\${n.id}" rows="3" placeholder="What did you do to help this learner?" style="width:100%; background: var(--panel-alt); border: 1px solid var(--grid-line); color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13px; padding: 10px 12px; border-radius: 2px; margin-bottom: 10px;"></textarea>
-                <button class="btn resolve-coaching-btn" data-notification-id="\${n.id}">Complete Coaching &amp; Reset Course</button>
+                <button class="btn resolve-coaching-btn" data-notification-id="\${n.id}" disabled style="opacity:0.5; cursor:not-allowed;">Complete Coaching &amp; Reactivate Course</button>
                 <div class="coaching-resolve-message-\${n.id}" style="margin-top: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
               </div>
             </div>
@@ -501,22 +506,39 @@ const scripts = `
           return div.innerHTML;
         }
 
+        function refreshResolveButtonState(notificationId) {
+          const dateEl = document.getElementById('coaching-date-' + notificationId);
+          const timeEl = document.getElementById('coaching-time-' + notificationId);
+          const notesEl = document.getElementById('coaching-notes-' + notificationId);
+          const btn = document.querySelector('.resolve-coaching-btn[data-notification-id="' + notificationId + '"]');
+          const ready = dateEl.value && timeEl.value && notesEl.value.trim();
+          btn.disabled = !ready;
+          btn.style.opacity = ready ? '1' : '0.5';
+          btn.style.cursor = ready ? 'pointer' : 'not-allowed';
+        }
+
+        notifications.forEach(n => {
+          ['coaching-date-' + n.id, 'coaching-time-' + n.id, 'coaching-notes-' + n.id].forEach(id => {
+            document.getElementById(id).addEventListener('input', () => refreshResolveButtonState(n.id));
+          });
+        });
+
         wrap.querySelectorAll('.resolve-coaching-btn').forEach(btn => {
           btn.addEventListener('click', () => {
             const notificationId = btn.dataset.notificationId;
+            const dateEl = document.getElementById('coaching-date-' + notificationId);
+            const timeEl = document.getElementById('coaching-time-' + notificationId);
             const notesEl = document.getElementById('coaching-notes-' + notificationId);
             const msgEl = document.querySelector('.coaching-resolve-message-' + notificationId);
-
-            if (!notesEl.value.trim()) {
-              msgEl.textContent = 'Please describe what coaching was provided.';
-              msgEl.style.color = 'var(--risk)';
-              return;
-            }
 
             fetch('/api/coaching/notifications/' + notificationId + '/resolve', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ notes: notesEl.value.trim() })
+              body: JSON.stringify({
+                notes: notesEl.value.trim(),
+                sessionDate: dateEl.value,
+                sessionTime: timeEl.value
+              })
             })
               .then(async (r) => {
                 const data = await r.json();

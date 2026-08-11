@@ -28,5 +28,8 @@ export type CoachingSession = {
   coachUsername: string;
   coachName: string;
   notes: string;
+  sessionDate: string;
+  sessionTime: string;
+  department?: string;
   createdAt: string;
 };
