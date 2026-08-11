@@ -173,6 +173,75 @@ courses.get('/my-overall-progress', async (c) => {
   return c.json({ overallPercent, courseCount });
 });
 
+// GET /api/courses/my-skills-matrix — a live view of the logged-in learner's
+// real course activity, grouped by course category. Deliberately built from
+// actual enrollment/completion/certificate data rather than the separate
+// (currently unpopulated) competency engine, so every entry reflects
+// something the learner genuinely did. Registered before /:id so
+// "my-skills-matrix" is never mistaken for a course ID.
+courses.get('/my-skills-matrix', async (c) => {
+  const session = await getSessionUser(c);
+  if (!session) return c.json({ error: 'Not logged in' }, 401);
+
+  const list = await kvListByPrefix(c.env, `enrollment:${session.username}:`);
+  const rows: Array<{
+    courseId: string;
+    courseTitle: string;
+    category: string;
+    status: 'completed' | 'in_progress' | 'blocked';
+    percent: number;
+    completedAt?: string;
+    expiryDate?: string;
+    expired: boolean;
+  }> = [];
+
+  for (const key of list.keys) {
+    const enrollment = await kvGetJSON<Enrollment>(c.env, key.name);
+    if (!enrollment) continue;
+
+    const course = await kvGetJSON<Course>(c.env, `course:def:${enrollment.courseId}`);
+    if (!course) continue;
+
+    const certificate = await kvGetJSON<IssuedCertificate>(
+      c.env,
+      `certificate:issued:${enrollment.courseId}:${session.username}`
+    );
+    const expired = !!certificate?.expiryDate && new Date(certificate.expiryDate).getTime() < Date.now();
+
+    let status: 'completed' | 'in_progress' | 'blocked';
+    let percent: number;
+    if (enrollment.status === 'completed') {
+      status = 'completed';
+      percent = 100;
+    } else if (enrollment.blocked) {
+      status = 'blocked';
+      percent = await computeCourseProgressPercent(c.env, session.username, enrollment.courseId);
+    } else {
+      status = 'in_progress';
+      percent = await computeCourseProgressPercent(c.env, session.username, enrollment.courseId);
+    }
+
+    rows.push({
+      courseId: enrollment.courseId,
+      courseTitle: course.title,
+      category: course.category || 'Uncategorized',
+      status,
+      percent,
+      completedAt: enrollment.completedAt,
+      expiryDate: certificate?.expiryDate,
+      expired,
+    });
+  }
+
+  const byCategory: Record<string, typeof rows> = {};
+  for (const row of rows) {
+    if (!byCategory[row.category]) byCategory[row.category] = [];
+    byCategory[row.category].push(row);
+  }
+
+  return c.json({ byCategory });
+});
+
 // GET /api/courses/:id — full detail for the Course Development screen
 courses.get('/:id', async (c) => {
   const courseId = c.req.param('id');

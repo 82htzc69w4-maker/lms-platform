@@ -7,6 +7,7 @@ const bodyHtml = `
     <button class="tab-btn" data-tab="catalogue">Course Catalogue</button>
     <button class="tab-btn" data-tab="certificates">My Certificates</button>
     <button class="tab-btn" data-tab="coaching">Coaching</button>
+    <button class="tab-btn" data-tab="skills-matrix">Skills Matrix</button>
   </div>
 
   <div style="display:flex; flex-direction:column; align-items:center; padding: 20px 0; border-bottom: 1px dashed var(--grid-line); margin-bottom: 20px;">
@@ -74,6 +75,18 @@ const bodyHtml = `
         <div class="panel-sub">A record of every coaching session held with you</div>
       </div>
       <div id="coaching-sessions-wrap">
+        <div class="empty-state">Loading&hellip;</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" data-tab-panel="skills-matrix">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Skills Matrix</div>
+        <div class="panel-sub">A live view of your course activity, grouped by category</div>
+      </div>
+      <div id="skills-matrix-wrap">
         <div class="empty-state">Loading&hellip;</div>
       </div>
     </div>
@@ -693,12 +706,72 @@ const scripts = `
       });
   }
 
+  function escapeHtmlMatrix(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+
+  function loadSkillsMatrix() {
+    fetch('/api/courses/my-skills-matrix')
+      .then(r => r.json())
+      .then(data => {
+        const byCategory = data.byCategory || {};
+        const categories = Object.keys(byCategory).sort();
+        const wrap = document.getElementById('skills-matrix-wrap');
+
+        if (categories.length === 0) {
+          wrap.innerHTML = '<div class="empty-state">No course activity yet — enroll in a course to start building your skills matrix.</div>';
+          return;
+        }
+
+        wrap.innerHTML = categories.map(category => {
+          const rows = byCategory[category].map(row => {
+            let statusHtml;
+            if (row.status === 'completed') {
+              statusHtml = row.expired
+                ? '<span style="color:var(--risk); font-weight:600;">Expired</span>'
+                : '<span style="color:var(--competent); font-weight:600;">Competent</span>';
+            } else if (row.status === 'blocked') {
+              statusHtml = '<span style="color:var(--risk); font-weight:600;">Blocked</span>';
+            } else {
+              statusHtml = '<span style="color:var(--refresher); font-weight:600;">In Progress (' + row.percent + '%)</span>';
+            }
+
+            const dateLine = row.status === 'completed' && row.completedAt
+              ? 'Completed: ' + new Date(row.completedAt).toLocaleDateString() + (row.expiryDate ? ' — Expires: ' + new Date(row.expiryDate).toLocaleDateString() : '')
+              : '';
+
+            return \`
+              <div class="content-block-row" style="align-items:center; cursor:default; margin-bottom:6px; \${row.expired ? 'border-color: var(--risk); background: rgba(193,68,58,0.06);' : ''}">
+                <div style="flex:1;">
+                  <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:2px;">\${escapeHtmlMatrix(row.courseTitle)}</div>
+                  \${dateLine ? '<div style="font-family:\\'IBM Plex Mono\\',monospace; font-size:11px; color:var(--text-muted);">' + dateLine + '</div>' : ''}
+                </div>
+                <div style="font-family:'IBM Plex Mono',monospace; font-size:13px;">\${statusHtml}</div>
+              </div>
+            \`;
+          }).join('');
+
+          return \`
+            <div class="stat-label" style="margin-bottom: 10px; margin-top: 16px;">\${escapeHtmlMatrix(category)}</div>
+            \${rows}
+          \`;
+        }).join('');
+      })
+      .catch(() => {
+        document.getElementById('skills-matrix-wrap').innerHTML =
+          '<div class="empty-state">Could not load your skills matrix.</div>';
+      });
+  }
+
   loadOverallProgress();
   loadNotifications();
   loadMyCourses();
   loadCatalogue();
   loadCertificates();
   loadCoachingSessions();
+  loadSkillsMatrix();
 `;
 
 export const learnerHtml = renderLayout({
