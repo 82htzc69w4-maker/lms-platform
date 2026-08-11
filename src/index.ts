@@ -40,6 +40,8 @@ import { enrolledLearnersHtml } from './enrolled-learners';
 import incidentReports from './incidentReports/routes';
 import productivityMetrics from './productivityMetrics/routes';
 import { employeePerformanceHtml } from './employee-performance';
+import portfolioEvidence from './portfolioEvidence/routes';
+import workplaceObservations from './workplaceObservations/routes';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -84,5 +86,7 @@ app.route('/api/course-applications', courseApplications);
 app.route('/api/notifications', notifications);
 app.route('/api/incidents', incidentReports);
 app.route('/api/productivity-metrics', productivityMetrics);
+app.route('/api/portfolio-evidence', portfolioEvidence);
+app.route('/api/workplace-observations', workplaceObservations);
 
 export default app;

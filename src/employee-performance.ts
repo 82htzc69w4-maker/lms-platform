@@ -87,6 +87,41 @@ const bodyHtml = `
       </div>
     </div>
 
+    <div class="panel" style="margin-top: 20px;">
+      <div class="panel-header">
+        <div class="panel-title">Portfolio Evidence</div>
+        <div class="panel-sub">Videos, photos, and documents uploaded by this employee, awaiting or already reviewed</div>
+      </div>
+      <div class="panel-body">
+        <div id="evidence-review-wrap"><div class="empty-state">Loading&hellip;</div></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top: 20px;">
+      <div class="panel-header">
+        <div class="panel-title">Workplace Observations</div>
+      </div>
+      <div class="panel-body">
+        <div id="observations-wrap" style="margin-bottom: 16px;"><div class="empty-state">Loading&hellip;</div></div>
+
+        <div class="stat-label" style="margin-bottom: 8px;">Log a New Observation</div>
+        <div class="form-row">
+          <input type="date" id="observation-date" style="flex:1;" />
+          <input type="text" id="observation-task" placeholder="Task observed (e.g. Forklift operation)" style="flex:2;" />
+          <select id="observation-outcome" style="flex:1;">
+            <option value="competent">Competent</option>
+            <option value="not_yet_competent">Not Yet Competent</option>
+            <option value="needs_improvement">Needs Improvement</option>
+          </select>
+        </div>
+        <div class="form-row" style="margin-top: 8px;">
+          <textarea id="observation-notes" rows="3" placeholder="What did you observe?" style="width:100%; background: var(--panel-alt); border: 1px solid var(--grid-line); color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13px; padding: 10px 12px; border-radius: 2px;"></textarea>
+        </div>
+        <button class="btn" id="log-observation-btn" style="margin-top: 10px;">Log Observation</button>
+        <div id="observation-message" style="margin-top: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
+      </div>
+    </div>
+
   </div>
 `;
 
@@ -139,6 +174,8 @@ const scripts = `
     loadAssessmentHistory();
     loadIncidentReports();
     loadProductivityMetrics();
+    loadEvidenceForReview();
+    loadObservations();
   });
 
   function loadTrainingHistory() {
@@ -314,6 +351,134 @@ const scripts = `
         document.getElementById('metric-date').value = '';
         document.getElementById('metric-notes').value = '';
         loadProductivityMetrics();
+      })
+      .catch((err) => {
+        msgEl.textContent = err.message;
+        msgEl.style.color = 'var(--risk)';
+      });
+  });
+  function loadEvidenceForReview() {
+    fetch('/api/portfolio-evidence/' + encodeURIComponent(selectedUsername))
+      .then(r => r.json())
+      .then(data => {
+        const items = data.evidence || [];
+        const wrap = document.getElementById('evidence-review-wrap');
+
+        if (items.length === 0) {
+          wrap.innerHTML = '<div class="empty-state">No evidence uploaded by this employee yet.</div>';
+          return;
+        }
+
+        const statusColors = { pending: 'var(--refresher)', signed_off: 'var(--competent)', rejected: 'var(--risk)' };
+        const statusLabels = { pending: 'Pending Review', signed_off: 'Signed Off', rejected: 'Not Signed Off' };
+
+        wrap.innerHTML = items.map(e => \`
+          <div class="content-block-row" style="align-items:flex-start; cursor:default; margin-bottom:10px;">
+            <div style="flex:1;">
+              <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:2px;">\${escapeHtml(e.title)} <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); text-transform:uppercase;">(\${e.evidenceType})</span></div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); margin-bottom:4px;">Uploaded \${new Date(e.uploadedAt).toLocaleDateString()}\${e.relatedSkill ? ' — ' + escapeHtml(e.relatedSkill) : ''}</div>
+              \${e.description ? '<div style="font-family:\\'Inter\\',sans-serif; font-size:13px; color:var(--text-primary); margin-bottom:6px;">' + escapeHtml(e.description) + '</div>' : ''}
+              <a href="\${e.fileDataUrl}" download="\${escapeHtml(e.fileName)}" class="btn" style="text-decoration:none; display:inline-block;">Open</a>
+              \${e.status === 'pending' ? \`
+                <div style="margin-top:8px;">
+                  <input type="text" id="signoff-notes-\${e.id}" placeholder="Notes (optional)" style="width:100%; margin-bottom:6px;" />
+                  <button class="btn sign-off-btn" data-evidence-id="\${e.id}" style="margin-right:6px;">Sign Off</button>
+                  <button class="btn reject-evidence-btn" data-evidence-id="\${e.id}" style="background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line);">Reject</button>
+                </div>
+              \` : ''}
+            </div>
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:\${statusColors[e.status]}; font-weight:600; white-space:nowrap;">\${statusLabels[e.status]}</div>
+          </div>
+        \`).join('');
+
+        function submitSignOff(evidenceId, decision) {
+          const notes = document.getElementById('signoff-notes-' + evidenceId).value.trim();
+          fetch('/api/portfolio-evidence/' + evidenceId + '/sign-off', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ decision, notes })
+          })
+            .then(r => r.json())
+            .then(() => loadEvidenceForReview())
+            .catch(() => alert('Failed to submit review.'));
+        }
+
+        wrap.querySelectorAll('.sign-off-btn').forEach(btn => {
+          btn.addEventListener('click', () => submitSignOff(btn.dataset.evidenceId, 'signed_off'));
+        });
+        wrap.querySelectorAll('.reject-evidence-btn').forEach(btn => {
+          btn.addEventListener('click', () => submitSignOff(btn.dataset.evidenceId, 'rejected'));
+        });
+      })
+      .catch(() => {
+        document.getElementById('evidence-review-wrap').innerHTML = '<div class="empty-state">Could not load evidence.</div>';
+      });
+  }
+
+  function loadObservations() {
+    fetch('/api/workplace-observations/' + encodeURIComponent(selectedUsername))
+      .then(r => r.json())
+      .then(data => {
+        const observations = data.observations || [];
+        const wrap = document.getElementById('observations-wrap');
+
+        if (observations.length === 0) {
+          wrap.innerHTML = '<div class="empty-state">No observations on record for this employee.</div>';
+          return;
+        }
+
+        const outcomeColors = { competent: 'var(--competent)', not_yet_competent: 'var(--risk)', needs_improvement: 'var(--refresher)' };
+        const outcomeLabels = { competent: 'Competent', not_yet_competent: 'Not Yet Competent', needs_improvement: 'Needs Improvement' };
+
+        wrap.innerHTML = observations.map(o => \`
+          <div class="content-block-row" style="align-items:flex-start; cursor:default; margin-bottom:8px;">
+            <div style="flex:1;">
+              <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:2px;">\${escapeHtml(o.taskObserved)}</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); margin-bottom:4px;">\${new Date(o.observationDate).toLocaleDateString()} — observed by \${escapeHtml(o.observedByName)}</div>
+              <div style="font-family:'Inter',sans-serif; font-size:13px; color:var(--text-primary);">\${escapeHtml(o.notes)}</div>
+            </div>
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:\${outcomeColors[o.outcome]}; font-weight:600; white-space:nowrap;">\${outcomeLabels[o.outcome]}</div>
+          </div>
+        \`).join('');
+      })
+      .catch(() => {
+        document.getElementById('observations-wrap').innerHTML = '<div class="empty-state">Could not load observations.</div>';
+      });
+  }
+
+  document.getElementById('log-observation-btn').addEventListener('click', () => {
+    const msgEl = document.getElementById('observation-message');
+    const dateVal = document.getElementById('observation-date').value;
+    const taskVal = document.getElementById('observation-task').value.trim();
+    const notesVal = document.getElementById('observation-notes').value.trim();
+
+    if (!dateVal || !taskVal || !notesVal) {
+      msgEl.textContent = 'Please provide a date, task, and notes.';
+      msgEl.style.color = 'var(--risk)';
+      return;
+    }
+
+    fetch('/api/workplace-observations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: selectedUsername,
+        observationDate: dateVal,
+        taskObserved: taskVal,
+        outcome: document.getElementById('observation-outcome').value,
+        notes: notesVal
+      })
+    })
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'Failed to log observation');
+        return data;
+      })
+      .then(() => {
+        document.getElementById('observation-date').value = '';
+        document.getElementById('observation-task').value = '';
+        document.getElementById('observation-notes').value = '';
+        loadObservations();
       })
       .catch((err) => {
         msgEl.textContent = err.message;

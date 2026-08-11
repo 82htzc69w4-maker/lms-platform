@@ -9,6 +9,7 @@ const bodyHtml = `
     <button class="tab-btn" data-tab="coaching">Coaching</button>
     <button class="tab-btn" data-tab="skills-matrix">Skills Matrix</button>
     <button class="tab-btn" data-tab="learning-pathway">Learning Pathway</button>
+    <button class="tab-btn" data-tab="passport">Competency Passport</button>
   </div>
 
   <div style="display:flex; flex-direction:column; align-items:center; padding: 20px 0; border-bottom: 1px dashed var(--grid-line); margin-bottom: 20px;">
@@ -101,6 +102,66 @@ const bodyHtml = `
       </div>
       <div id="learning-pathway-wrap">
         <div class="empty-state">Loading&hellip;</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" data-tab-panel="passport">
+    <div class="panel" style="margin-bottom: 20px;">
+      <div class="panel-header">
+        <div class="panel-title">Qualifications &amp; Certifications</div>
+      </div>
+      <div class="panel-body">
+        <div id="passport-certs-wrap"><div class="empty-state">Loading&hellip;</div></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom: 20px;">
+      <div class="panel-header">
+        <div class="panel-title">Skills</div>
+      </div>
+      <div class="panel-body">
+        <div id="passport-skills-wrap"><div class="empty-state">Loading&hellip;</div></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom: 20px;">
+      <div class="panel-header">
+        <div class="panel-title">Experience — Workplace Observations</div>
+      </div>
+      <div class="panel-body">
+        <div id="passport-observations-wrap"><div class="empty-state">Loading&hellip;</div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Evidence</div>
+        <div class="panel-sub">Upload videos, photos, or documents proving your skills — a supervisor will review and sign off</div>
+      </div>
+      <div class="panel-body">
+        <div id="passport-evidence-wrap" style="margin-bottom: 20px;"><div class="empty-state">Loading&hellip;</div></div>
+
+        <div class="stat-label" style="margin-bottom: 8px;">Upload New Evidence</div>
+        <div class="form-row">
+          <input type="text" id="evidence-title" placeholder="Title (e.g. Forklift operation demonstration)" style="flex:2;" />
+          <select id="evidence-type" style="flex:1;">
+            <option value="video">Video</option>
+            <option value="photo">Photo</option>
+            <option value="document">Document</option>
+          </select>
+        </div>
+        <div class="form-row" style="margin-top: 8px;">
+          <input type="text" id="evidence-skill" placeholder="Related skill / category (optional)" style="flex:1;" />
+        </div>
+        <div class="form-row" style="margin-top: 8px;">
+          <textarea id="evidence-description" rows="2" placeholder="Description (optional)" style="width:100%; background: var(--panel-alt); border: 1px solid var(--grid-line); color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13px; padding: 10px 12px; border-radius: 2px;"></textarea>
+        </div>
+        <div class="form-row" style="margin-top: 8px;">
+          <input type="file" id="evidence-file" accept="video/*,image/*,.pdf,.doc,.docx" />
+        </div>
+        <button class="btn" id="upload-evidence-btn" style="margin-top: 10px;">Upload Evidence</button>
+        <div id="evidence-message" style="margin-top: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
       </div>
     </div>
   </div>
@@ -841,7 +902,206 @@ const scripts = `
   loadCertificates();
   loadCoachingSessions();
   loadSkillsMatrix();
+  // ---------- Competency Passport ----------
+  function loadPassportCerts() {
+    Promise.all([
+      fetch('/api/issued-certificates/mine').then(r => r.json()).catch(() => ({ certificates: [] })),
+      fetch('/api/certificate-uploads/mine').then(r => r.json()).catch(() => ({ submissions: [] })),
+    ]).then(([issuedData, uploadData]) => {
+      const issued = issuedData.certificates || [];
+      const uploaded = uploadData.submissions || [];
+      const wrap = document.getElementById('passport-certs-wrap');
+
+      if (issued.length === 0 && uploaded.length === 0) {
+        wrap.innerHTML = '<div class="empty-state">No qualifications or certifications on record yet.</div>';
+        return;
+      }
+
+      let html = '';
+      issued.forEach(cert => {
+        const expired = isCertExpired(cert.expiryDate);
+        html += \`
+          <div class="content-block-row" style="align-items:center; cursor:default; margin-bottom:6px; \${expired ? 'border-color: var(--risk);' : ''}">
+            <div style="flex:1;">
+              <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary);">\${escapeHtmlLearner(cert.courseTitle)}</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:\${expired ? 'var(--risk)' : 'var(--text-muted)'};">\${expired ? 'EXPIRED — ' : ''}Issued \${new Date(cert.issuedDate).toLocaleDateString()}</div>
+            </div>
+          </div>
+        \`;
+      });
+      uploaded.forEach(sub => {
+        const expired = isCertExpired(sub.expiryDate);
+        html += \`
+          <div class="content-block-row" style="align-items:center; cursor:default; margin-bottom:6px; \${expired ? 'border-color: var(--risk);' : ''}">
+            <div style="flex:1;">
+              <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary);">\${escapeHtmlLearner(sub.certificateName)}</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:\${expired ? 'var(--risk)' : 'var(--text-muted)'};">\${expired ? 'EXPIRED — ' : ''}Issued \${new Date(sub.issuedDate).toLocaleDateString()}</div>
+            </div>
+          </div>
+        \`;
+      });
+      wrap.innerHTML = html;
+    }).catch(() => {
+      document.getElementById('passport-certs-wrap').innerHTML = '<div class="empty-state">Could not load certifications.</div>';
+    });
+  }
+
+  function loadPassportSkills() {
+    fetch('/api/courses/my-skills-matrix')
+      .then(r => r.json())
+      .then(data => {
+        const byCategory = data.byCategory || {};
+        const categories = Object.keys(byCategory).sort();
+        const wrap = document.getElementById('passport-skills-wrap');
+
+        if (categories.length === 0) {
+          wrap.innerHTML = '<div class="empty-state">No skills on record yet.</div>';
+          return;
+        }
+
+        wrap.innerHTML = categories.map(category => {
+          const rows = byCategory[category].map(row => {
+            const color = row.status === 'completed' && !row.expired ? 'var(--competent)' : row.status === 'blocked' || row.expired ? 'var(--risk)' : 'var(--refresher)';
+            const label = row.status === 'completed' ? (row.expired ? 'Expired' : 'Competent') : row.status === 'blocked' ? 'Blocked' : 'In Progress';
+            return \`
+              <div class="content-block-row" style="align-items:center; cursor:default; margin-bottom:6px;">
+                <div style="flex:1; font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary);">\${escapeHtmlLearner(row.courseTitle)}</div>
+                <div style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:\${color}; font-weight:600;">\${label}</div>
+              </div>
+            \`;
+          }).join('');
+          return '<div class="stat-label" style="margin-bottom: 8px; margin-top: 12px;">' + escapeHtmlLearner(category) + '</div>' + rows;
+        }).join('');
+      })
+      .catch(() => {
+        document.getElementById('passport-skills-wrap').innerHTML = '<div class="empty-state">Could not load skills.</div>';
+      });
+  }
+
+  function loadPassportObservations() {
+    fetch('/api/workplace-observations/mine')
+      .then(r => r.json())
+      .then(data => {
+        const observations = data.observations || [];
+        const wrap = document.getElementById('passport-observations-wrap');
+
+        if (observations.length === 0) {
+          wrap.innerHTML = '<div class="empty-state">No workplace observations on record yet.</div>';
+          return;
+        }
+
+        const outcomeColors = { competent: 'var(--competent)', not_yet_competent: 'var(--risk)', needs_improvement: 'var(--refresher)' };
+        const outcomeLabels = { competent: 'Competent', not_yet_competent: 'Not Yet Competent', needs_improvement: 'Needs Improvement' };
+
+        wrap.innerHTML = observations.map(o => \`
+          <div class="content-block-row" style="align-items:flex-start; cursor:default; margin-bottom:8px;">
+            <div style="flex:1;">
+              <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:2px;">\${escapeHtmlLearner(o.taskObserved)}</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); margin-bottom:4px;">\${new Date(o.observationDate).toLocaleDateString()} — observed by \${escapeHtmlLearner(o.observedByName)}</div>
+              <div style="font-family:'Inter',sans-serif; font-size:13px; color:var(--text-primary);">\${escapeHtmlLearner(o.notes)}</div>
+            </div>
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:\${outcomeColors[o.outcome] || 'var(--text-muted)'}; font-weight:600;">\${outcomeLabels[o.outcome] || o.outcome}</div>
+          </div>
+        \`).join('');
+      })
+      .catch(() => {
+        document.getElementById('passport-observations-wrap').innerHTML = '<div class="empty-state">Could not load observations.</div>';
+      });
+  }
+
+  function loadPassportEvidence() {
+    fetch('/api/portfolio-evidence/mine')
+      .then(r => r.json())
+      .then(data => {
+        const items = data.evidence || [];
+        const wrap = document.getElementById('passport-evidence-wrap');
+
+        if (items.length === 0) {
+          wrap.innerHTML = '<div class="empty-state">No evidence uploaded yet.</div>';
+          return;
+        }
+
+        const statusColors = { pending: 'var(--refresher)', signed_off: 'var(--competent)', rejected: 'var(--risk)' };
+        const statusLabels = { pending: 'Pending Review', signed_off: 'Signed Off', rejected: 'Not Signed Off' };
+
+        wrap.innerHTML = items.map(e => \`
+          <div class="content-block-row" style="align-items:flex-start; cursor:default; margin-bottom:8px;">
+            <div style="flex:1;">
+              <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:2px;">\${escapeHtmlLearner(e.title)} <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); text-transform:uppercase;">(\${e.evidenceType})</span></div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); margin-bottom:4px;">Uploaded \${new Date(e.uploadedAt).toLocaleDateString()}\${e.relatedSkill ? ' — ' + escapeHtmlLearner(e.relatedSkill) : ''}</div>
+              \${e.signOffNotes ? '<div style="font-family:\\'Inter\\',sans-serif; font-size:13px; color:var(--text-primary);">' + escapeHtmlLearner(e.signOffNotes) + '</div>' : ''}
+            </div>
+            <div style="text-align:right;">
+              <a href="\${e.fileDataUrl}" download="\${escapeHtmlLearner(e.fileName)}" class="btn" style="text-decoration:none; display:inline-block; margin-bottom:4px;">Open</a>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:\${statusColors[e.status]}; font-weight:600;">\${statusLabels[e.status]}</div>
+            </div>
+          </div>
+        \`).join('');
+      })
+      .catch(() => {
+        document.getElementById('passport-evidence-wrap').innerHTML = '<div class="empty-state">Could not load evidence.</div>';
+      });
+  }
+
+  document.getElementById('upload-evidence-btn').addEventListener('click', () => {
+    const msgEl = document.getElementById('evidence-message');
+    const titleVal = document.getElementById('evidence-title').value.trim();
+    const fileInput = document.getElementById('evidence-file');
+    const file = fileInput.files[0];
+
+    if (!titleVal || !file) {
+      msgEl.textContent = 'Please provide a title and choose a file.';
+      msgEl.style.color = 'var(--risk)';
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      msgEl.textContent = 'File is too large — please use one under 8MB.';
+      msgEl.style.color = 'var(--risk)';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      fetch('/api/portfolio-evidence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: titleVal,
+          description: document.getElementById('evidence-description').value.trim(),
+          evidenceType: document.getElementById('evidence-type').value,
+          relatedSkill: document.getElementById('evidence-skill').value.trim(),
+          fileDataUrl: reader.result,
+          fileName: file.name,
+          fileMimeType: file.type
+        })
+      })
+        .then(async (r) => {
+          const data = await r.json();
+          if (!r.ok) throw new Error(data.error || 'Failed to upload evidence');
+          return data;
+        })
+        .then(() => {
+          document.getElementById('evidence-title').value = '';
+          document.getElementById('evidence-description').value = '';
+          document.getElementById('evidence-skill').value = '';
+          fileInput.value = '';
+          msgEl.textContent = 'Uploaded — awaiting supervisor review.';
+          msgEl.style.color = 'var(--competent)';
+          loadPassportEvidence();
+        })
+        .catch((err) => {
+          msgEl.textContent = err.message;
+          msgEl.style.color = 'var(--risk)';
+        });
+    };
+    reader.readAsDataURL(file);
+  });
+
   loadLearningPathway();
+  loadPassportCerts();
+  loadPassportSkills();
+  loadPassportObservations();
+  loadPassportEvidence();
 `;
 
 export const learnerHtml = renderLayout({
