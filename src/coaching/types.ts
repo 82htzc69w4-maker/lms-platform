@@ -20,6 +20,9 @@ export type CoachingNotification = {
   scheduledDate?: string;
   scheduledTime?: string;
   scheduledByName?: string;
+  scheduledByUsername?: string;
+  proposedBy?: 'facilitator' | 'learner';
+  scheduleStatus?: 'proposed' | 'accepted';
 };
 
 export type CoachingSession = {

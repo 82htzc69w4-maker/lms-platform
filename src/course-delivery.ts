@@ -489,12 +489,16 @@ const scripts = `
 
                 <div style="padding: 12px; background: var(--panel-alt); border-radius: 2px; margin-bottom: 16px;">
                   <div class="stat-label" style="margin-bottom: 6px;">Book a Coaching Session</div>
-                  \${n.scheduledDate ? \`<div style="font-family:'Inter',sans-serif; font-size:13px; color:var(--competent); margin-bottom:8px;">Currently scheduled: \${new Date(n.scheduledDate + 'T' + n.scheduledTime).toLocaleString()} — booked by \${escapeHtml(n.scheduledByName || '')}</div>\` : ''}
+                  \${n.scheduledDate ? \`<div style="font-family:'Inter',sans-serif; font-size:13px; color:\${n.scheduleStatus === 'accepted' ? 'var(--competent)' : 'var(--refresher)'}; margin-bottom:8px;">
+                    \${n.scheduleStatus === 'accepted' ? 'Confirmed' : (n.proposedBy === 'learner' ? 'Learner proposed' : 'Awaiting learner response')}: \${new Date(n.scheduledDate + 'T' + n.scheduledTime).toLocaleString()}
+                    \${n.proposedBy === 'facilitator' && n.scheduledByName ? ' — booked by ' + escapeHtml(n.scheduledByName) : ''}
+                  </div>\` : ''}
+                  \${n.scheduledDate && n.proposedBy === 'learner' && n.scheduleStatus !== 'accepted' ? \`<button class="btn accept-learner-time-btn" data-notification-id="\${n.id}" style="margin-bottom:8px;">Accept Proposed Time</button>\` : ''}
                   <div class="form-row" style="margin-bottom: 8px;">
                     <input type="date" id="book-date-\${n.id}" style="flex:1;" />
                     <input type="time" id="book-time-\${n.id}" style="flex:1;" />
                   </div>
-                  <button class="btn book-coaching-btn" data-notification-id="\${n.id}" style="background:var(--panel); color:var(--text-primary); border:1px solid var(--grid-line);">\${n.scheduledDate ? 'Reschedule Session' : 'Book Session'}</button>
+                  <button class="btn book-coaching-btn" data-notification-id="\${n.id}" style="background:var(--panel); color:var(--text-primary); border:1px solid var(--grid-line);">\${n.scheduledDate ? 'Propose Different Time' : 'Book Session'}</button>
                   <div class="book-coaching-message-\${n.id}" style="margin-top: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 12px;"></div>
                 </div>
 
@@ -532,6 +536,25 @@ const scripts = `
         notifications.forEach(n => {
           ['coaching-date-' + n.id, 'coaching-time-' + n.id, 'coaching-notes-' + n.id].forEach(id => {
             document.getElementById(id).addEventListener('input', () => refreshResolveButtonState(n.id));
+          });
+        });
+
+        wrap.querySelectorAll('.accept-learner-time-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            btn.textContent = 'Accepting…';
+            btn.disabled = true;
+            fetch('/api/coaching/notifications/' + btn.dataset.notificationId + '/accept-schedule', { method: 'POST' })
+              .then(async (r) => {
+                const data = await r.json();
+                if (!r.ok) throw new Error(data.error || 'Failed to accept');
+                return data;
+              })
+              .then(() => loadCoachingNotifications())
+              .catch((err) => {
+                alert(err.message);
+                btn.textContent = 'Accept Proposed Time';
+                btn.disabled = false;
+              });
           });
         });
 

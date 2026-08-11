@@ -503,14 +503,35 @@ const scripts = `
 
       if (pending.length > 0) {
         html += pending.map(n => {
-          const scheduledHtml = n.scheduledDate
-            ? \`<div style="font-family:'Inter',sans-serif; font-size:13px; color:var(--competent); margin-top:6px;">Session scheduled: \${new Date(n.scheduledDate + 'T' + n.scheduledTime).toLocaleString()}</div>\`
-            : \`<div style="font-family:'Inter',sans-serif; font-size:13px; color:var(--text-muted); margin-top:6px;">No session booked yet.</div>\`;
+          let scheduleHtml;
+          if (!n.scheduledDate) {
+            scheduleHtml = '<div style="font-family:\\'Inter\\',sans-serif; font-size:13px; color:var(--text-muted); margin-top:6px;">No session booked yet.</div>';
+          } else if (n.scheduleStatus === 'accepted') {
+            scheduleHtml = '<div style="font-family:\\'Inter\\',sans-serif; font-size:13px; color:var(--competent); margin-top:6px;">Session confirmed: ' + new Date(n.scheduledDate + 'T' + n.scheduledTime).toLocaleString() + '</div>';
+          } else if (n.proposedBy === 'learner') {
+            scheduleHtml = '<div style="font-family:\\'Inter\\',sans-serif; font-size:13px; color:var(--refresher); margin-top:6px;">You proposed: ' + new Date(n.scheduledDate + 'T' + n.scheduledTime).toLocaleString() + ' — waiting on the facilitator</div>';
+          } else {
+            scheduleHtml = \`
+              <div style="margin-top:10px; padding:10px; background:rgba(242,183,5,0.1); border-radius:2px;">
+                <div style="font-family:'Inter',sans-serif; font-size:13px; color:var(--text-primary); margin-bottom:8px;">Facilitator proposed: \${new Date(n.scheduledDate + 'T' + n.scheduledTime).toLocaleString()}</div>
+                <button type="button" class="btn accept-session-btn" data-notification-id="\${n.id}" style="margin-right:8px;">Accept</button>
+                <button type="button" class="btn propose-time-btn" data-notification-id="\${n.id}" style="background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line);">Propose Different Time</button>
+                <div class="propose-form-\${n.id}" style="display:none; margin-top:10px;">
+                  <div class="form-row" style="margin-bottom:8px;">
+                    <input type="date" id="propose-date-\${n.id}" style="flex:1;" />
+                    <input type="time" id="propose-time-\${n.id}" style="flex:1;" />
+                  </div>
+                  <button type="button" class="btn submit-propose-btn" data-notification-id="\${n.id}">Submit Proposal</button>
+                  <div class="propose-message-\${n.id}" style="margin-top:6px; font-family:'IBM Plex Mono',monospace; font-size:12px;"></div>
+                </div>
+              </div>
+            \`;
+          }
           return \`
           <div style="margin-bottom:12px; padding:14px; background:rgba(193,68,58,0.1); border-left:3px solid var(--risk); border-radius:2px;">
             <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:4px;"><strong>\${n.courseTitle}</strong> is blocked</div>
             <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-muted);">Awaiting a coaching session — flagged \${new Date(n.createdAt).toLocaleDateString()}.</div>
-            \${scheduledHtml}
+            \${scheduleHtml}
           </div>
         \`;
         }).join('');
@@ -531,6 +552,62 @@ const scripts = `
       }
 
       wrap.innerHTML = html;
+
+      wrap.querySelectorAll('.accept-session-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          btn.textContent = 'Accepting…';
+          btn.disabled = true;
+          fetch('/api/coaching/notifications/' + btn.dataset.notificationId + '/learner-respond', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'accept' })
+          })
+            .then(r => r.json())
+            .then(() => loadCoachingSessions())
+            .catch(() => {
+              btn.textContent = 'Accept';
+              btn.disabled = false;
+            });
+        });
+      });
+
+      wrap.querySelectorAll('.propose-time-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const formEl = document.querySelector('.propose-form-' + btn.dataset.notificationId);
+          formEl.style.display = formEl.style.display === 'none' ? 'block' : 'none';
+        });
+      });
+
+      wrap.querySelectorAll('.submit-propose-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const notificationId = btn.dataset.notificationId;
+          const dateEl = document.getElementById('propose-date-' + notificationId);
+          const timeEl = document.getElementById('propose-time-' + notificationId);
+          const msgEl = document.querySelector('.propose-message-' + notificationId);
+
+          if (!dateEl.value || !timeEl.value) {
+            msgEl.textContent = 'Please choose a date and time.';
+            msgEl.style.color = 'var(--risk)';
+            return;
+          }
+
+          fetch('/api/coaching/notifications/' + notificationId + '/learner-respond', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'propose', scheduledDate: dateEl.value, scheduledTime: timeEl.value })
+          })
+            .then(async (r) => {
+              const data = await r.json();
+              if (!r.ok) throw new Error(data.error || 'Failed to submit proposal');
+              return data;
+            })
+            .then(() => loadCoachingSessions())
+            .catch((err) => {
+              msgEl.textContent = err.message;
+              msgEl.style.color = 'var(--risk)';
+            });
+        });
+      });
     }).catch(() => {
       document.getElementById('coaching-sessions-wrap').innerHTML =
         '<div class="empty-state">Could not load coaching information.</div>';
