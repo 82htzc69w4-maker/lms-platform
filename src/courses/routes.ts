@@ -411,6 +411,43 @@ courses.get('/overdue-alerts', async (c) => {
   return c.json({ alerts });
 });
 
+// GET /api/courses/employee-training-history/:username — every course this
+// employee has ever been enrolled in, with status and dates
+// (Instructor/Admin/Administrator only). Registered before /:id so
+// "employee-training-history" is never mistaken for a course ID.
+courses.get('/employee-training-history/:username', async (c) => {
+  const session = await getSessionUser(c);
+  if (!session || (session.role !== 'instructor' && session.role !== 'admin' && session.role !== 'administrator')) {
+    return c.json({ error: 'Not authorized' }, 403);
+  }
+
+  const targetUsername = c.req.param('username');
+  const list = await kvListByPrefix(c.env, `enrollment:${targetUsername}:`);
+  const history: Array<{
+    courseId: string;
+    courseTitle: string;
+    registeredAt: string;
+    status: string;
+    completedAt?: string;
+  }> = [];
+
+  for (const key of list.keys) {
+    const enrollment = await kvGetJSON<Enrollment>(c.env, key.name);
+    if (!enrollment) continue;
+    const course = await kvGetJSON<Course>(c.env, `course:def:${enrollment.courseId}`);
+    history.push({
+      courseId: enrollment.courseId,
+      courseTitle: course?.title || enrollment.courseId,
+      registeredAt: enrollment.registeredAt,
+      status: enrollment.status,
+      completedAt: enrollment.completedAt,
+    });
+  }
+
+  history.sort((a, b) => new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime());
+  return c.json({ history });
+});
+
 // GET /api/courses/:id — full detail for the Course Development screen
 courses.get('/:id', async (c) => {
   const courseId = c.req.param('id');

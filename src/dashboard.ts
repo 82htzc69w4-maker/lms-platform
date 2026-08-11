@@ -41,6 +41,7 @@ const bodyHtml = `
       <div class="panel-sub">Escalated coaching, and courses that have missed their completion deadline</div>
     </div>
     <div class="panel-body">
+      <a href="/employee-performance" class="btn" style="display:inline-block; text-decoration:none; margin-bottom: 20px;">Employee Performance Records</a>
       <div class="stat-label" style="margin-bottom: 12px; color: var(--risk);">Overdue Courses</div>
       <div id="overdue-courses-wrap" style="margin-bottom: 24px;">
         <div class="empty-state">Loading&hellip;</div>

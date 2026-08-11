@@ -9,6 +9,30 @@ import type { User } from '../auth/types';
 
 const tests = new Hono<{ Bindings: Env }>();
 
+// GET /api/tests/assessment-history/:username — every test attempt this
+// employee has ever submitted, across every course (Instructor/Admin/Administrator only)
+tests.get('/assessment-history/:username', async (c) => {
+  const session = await getSessionUser(c);
+  if (!session || (session.role !== 'instructor' && session.role !== 'admin' && session.role !== 'administrator')) {
+    return c.json({ error: 'Not authorized' }, 403);
+  }
+
+  const targetUsername = c.req.param('username');
+  const list = await kvListByPrefix(c.env, 'test:attempts:');
+  const attempts: Attempt[] = [];
+
+  for (const key of list.keys) {
+    const history = await kvGetJSON<Attempt[]>(c.env, key.name);
+    if (!history) continue;
+    for (const attempt of history) {
+      if (attempt.username === targetUsername) attempts.push(attempt);
+    }
+  }
+
+  attempts.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+  return c.json({ attempts });
+});
+
 // GET /api/tests/:blockId
 tests.get('/:blockId', async (c) => {
   const blockId = c.req.param('blockId');
