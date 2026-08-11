@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { Env } from '../types';
 import { kvGetJSON, kvPutJSON, kvListByPrefix } from '../lib/kv';
-import type { Course, Enrollment } from './types';
+import type { Course, Enrollment, OverdueCourseAlert } from './types';
 import type { ContentBlock, ContentBlockType, CourseContent } from './content-types';
 import { getSessionUser } from '../auth/session';
 import type { User } from '../auth/types';
@@ -242,6 +242,91 @@ courses.get('/my-skills-matrix', async (c) => {
   return c.json({ byCategory });
 });
 
+function isStaff(role: string): boolean {
+  return role === 'instructor' || role === 'admin' || role === 'administrator';
+}
+
+// POST /api/courses/check-overdue — scans every active enrollment against
+// its course's Completion Period and flags any that have run out of time.
+// There is no real scheduled/cron job behind this (this deployment doesn't
+// have access to Cloudflare's Cron Triggers setup) — instead this is called
+// opportunistically whenever a staff member loads the Dashboard, so overdue
+// courses get caught the next time someone with visibility checks in,
+// rather than the instant the deadline passes. Each enrollment is only
+// flagged once (overdueFlagged), so re-running this is always safe.
+courses.post('/check-overdue', async (c) => {
+  const session = await getSessionUser(c);
+  if (!session || !isStaff(session.role)) {
+    return c.json({ error: 'Not authorized' }, 403);
+  }
+
+  const list = await kvListByPrefix(c.env, 'enrollment:');
+  const now = Date.now();
+  let newlyFlagged = 0;
+
+  for (const key of list.keys) {
+    const enrollment = await kvGetJSON<Enrollment>(c.env, key.name);
+    if (!enrollment || enrollment.status === 'completed' || enrollment.overdueFlagged) continue;
+
+    const course = await kvGetJSON<Course>(c.env, `course:def:${enrollment.courseId}`);
+    if (!course || !course.completionPeriodDays) continue;
+
+    const dueDate = new Date(enrollment.registeredAt);
+    dueDate.setDate(dueDate.getDate() + course.completionPeriodDays);
+    if (dueDate.getTime() > now) continue;
+
+    enrollment.overdueFlagged = true;
+    await kvPutJSON(c.env, key.name, enrollment);
+
+    const learnerUser = await kvGetJSON<User>(c.env, `auth:user:${enrollment.username}`);
+    const alert: OverdueCourseAlert = {
+      id: crypto.randomUUID(),
+      username: enrollment.username,
+      learnerName: learnerUser?.name || enrollment.username,
+      courseId: enrollment.courseId,
+      courseTitle: course.title,
+      registeredAt: enrollment.registeredAt,
+      dueDate: dueDate.toISOString(),
+      flaggedAt: new Date().toISOString(),
+    };
+    await kvPutJSON(c.env, `overdue-alert:${alert.id}`, alert);
+
+    const message = `${alert.learnerName} has not completed "${course.title}" within the required ${course.completionPeriodDays}-day period.`;
+    if (course.instructorUsername) {
+      await createNotification(c.env, course.instructorUsername, message, course.id);
+    }
+    const userList = await kvListByPrefix(c.env, 'auth:user:');
+    for (const userKey of userList.keys) {
+      const u = await kvGetJSON<User>(c.env, userKey.name);
+      if (u && (u.role === 'admin' || u.role === 'administrator')) {
+        await createNotification(c.env, u.username, message, course.id);
+      }
+    }
+
+    newlyFlagged += 1;
+  }
+
+  return c.json({ ok: true, newlyFlagged });
+});
+
+// GET /api/courses/overdue-alerts — every overdue-completion alert on
+// record, for the Human Resources dashboard (Instructor/Admin/Administrator only)
+courses.get('/overdue-alerts', async (c) => {
+  const session = await getSessionUser(c);
+  if (!session || !isStaff(session.role)) {
+    return c.json({ error: 'Not authorized' }, 403);
+  }
+
+  const list = await kvListByPrefix(c.env, 'overdue-alert:');
+  const alerts: OverdueCourseAlert[] = [];
+  for (const key of list.keys) {
+    const a = await kvGetJSON<OverdueCourseAlert>(c.env, key.name);
+    if (a) alerts.push(a);
+  }
+  alerts.sort((a, b) => new Date(b.flaggedAt).getTime() - new Date(a.flaggedAt).getTime());
+  return c.json({ alerts });
+});
+
 // GET /api/courses/:id — full detail for the Course Development screen
 courses.get('/:id', async (c) => {
   const courseId = c.req.param('id');
@@ -277,6 +362,7 @@ courses.put('/:id', async (c) => {
     bannerFit: body.bannerFit ?? existing.bannerFit,
     bannerHeight: body.bannerHeight ?? existing.bannerHeight,
     validityMonths: body.validityMonths ?? existing.validityMonths,
+    completionPeriodDays: body.completionPeriodDays ?? existing.completionPeriodDays,
     // Claim ownership for whichever instructor first edits an unclaimed course.
     instructorUsername:
       existing.instructorUsername || (session?.role === 'instructor' ? session.username : existing.instructorUsername),

@@ -16,6 +16,7 @@ export type Course = {
   developmentStartDate?: string;
   instructorUsername?: string;
   validityMonths?: number;
+  completionPeriodDays?: number;
 };
 
 export type Enrollment = {
@@ -25,4 +26,16 @@ export type Enrollment = {
   status: 'active' | 'completed';
   completedAt?: string;
   blocked?: boolean;
+  overdueFlagged?: boolean;
+};
+
+export type OverdueCourseAlert = {
+  id: string;
+  username: string;
+  learnerName: string;
+  courseId: string;
+  courseTitle: string;
+  registeredAt: string;
+  dueDate: string;
+  flaggedAt: string;
 };

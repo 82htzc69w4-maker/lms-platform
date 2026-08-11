@@ -38,6 +38,13 @@ const bodyHtml = `
             <div class="stat-label" style="text-transform: none; letter-spacing: 0; align-self: center;">months</div>
           </div>
         </div>
+        <div style="margin-bottom: 20px;">
+          <div class="stat-label" style="margin-bottom: 8px;">Completion Period (deadline from enrollment)</div>
+          <div class="form-row">
+            <input type="number" id="course-completion-period" placeholder="e.g. 30" min="0" style="max-width: 160px;" />
+            <div class="stat-label" style="text-transform: none; letter-spacing: 0; align-self: center;">days — leave blank for no deadline</div>
+          </div>
+        </div>
         <div class="form-row">
           <textarea id="course-description" placeholder="Description" rows="3" style="width:100%; background: var(--panel-alt); border: 1px solid var(--grid-line); color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13px; padding: 10px 12px; border-radius: 2px;"></textarea>
         </div>
@@ -423,6 +430,7 @@ const scripts = `
         document.getElementById('course-instructor').value = course.instructor || '';
         document.getElementById('course-duration').value = course.duration || '';
         document.getElementById('course-validity-months').value = course.validityMonths != null ? course.validityMonths : '';
+        document.getElementById('course-completion-period').value = course.completionPeriodDays != null ? course.completionPeriodDays : '';
         document.getElementById('course-description').value = course.description || '';
         document.getElementById('course-outcomes').value = course.outcomes || '';
         document.getElementById('course-linkedStandards').value = course.linkedStandards || '';
@@ -519,6 +527,9 @@ const scripts = `
       category: document.getElementById('course-category').value,
       validityMonths: document.getElementById('course-validity-months').value
         ? parseInt(document.getElementById('course-validity-months').value, 10)
+        : undefined,
+      completionPeriodDays: document.getElementById('course-completion-period').value
+        ? parseInt(document.getElementById('course-completion-period').value, 10)
         : undefined,
       description: document.getElementById('course-description').value.trim(),
       outcomes: document.getElementById('course-outcomes').value.trim(),

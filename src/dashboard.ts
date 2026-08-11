@@ -38,9 +38,14 @@ const bodyHtml = `
   <div class="panel" id="hr-panel" style="margin-bottom: 20px; display: none;">
     <div class="panel-header">
       <div class="panel-title">Human Resources</div>
-      <div class="panel-sub">Learners who failed again after facilitator coaching — escalated for HR-level coaching</div>
+      <div class="panel-sub">Escalated coaching, and courses that have missed their completion deadline</div>
     </div>
     <div class="panel-body">
+      <div class="stat-label" style="margin-bottom: 12px; color: var(--risk);">Overdue Courses</div>
+      <div id="overdue-courses-wrap" style="margin-bottom: 24px;">
+        <div class="empty-state">Loading&hellip;</div>
+      </div>
+      <div class="stat-label" style="margin-bottom: 12px;">Escalated Coaching</div>
       <div id="hr-coaching-wrap">
         <div class="empty-state">Loading&hellip;</div>
       </div>
@@ -122,9 +127,42 @@ const scripts = `
       if (role === 'admin' || role === 'administrator' || role === 'instructor') {
         document.getElementById('hr-panel').style.display = 'block';
         loadHrCoaching();
+
+        // There's no real background/cron job checking completion
+        // deadlines — this opportunistically checks whenever a staff
+        // member loads the Dashboard, then loads whatever's on record.
+        fetch('/api/courses/check-overdue', { method: 'POST' })
+          .catch(() => { /* best-effort; still load whatever's already flagged */ })
+          .then(() => loadOverdueCourses());
       }
     })
     .catch(() => { /* leave hidden if we can't confirm role */ });
+
+  function loadOverdueCourses() {
+    fetch('/api/courses/overdue-alerts')
+      .then(r => r.json())
+      .then(data => {
+        const alerts = data.alerts || [];
+        const wrap = document.getElementById('overdue-courses-wrap');
+
+        if (alerts.length === 0) {
+          wrap.innerHTML = '<div class="empty-state">No overdue courses.</div>';
+          return;
+        }
+
+        wrap.innerHTML = alerts.map(a => \`
+          <div class="content-block-row" style="align-items:center; cursor:default; margin-bottom:8px; border-color: var(--risk); background: rgba(193,68,58,0.08);">
+            <div style="flex:1;">
+              <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:4px;">\${escapeHtmlDash(a.learnerName)} — \${escapeHtmlDash(a.courseTitle)}</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--risk);">Due \${new Date(a.dueDate).toLocaleDateString()} — flagged \${new Date(a.flaggedAt).toLocaleDateString()}</div>
+            </div>
+          </div>
+        \`).join('');
+      })
+      .catch(() => {
+        document.getElementById('overdue-courses-wrap').innerHTML = '<div class="empty-state">Could not load overdue courses.</div>';
+      });
+  }
 
   function escapeHtmlDash(str) {
     const div = document.createElement('div');
