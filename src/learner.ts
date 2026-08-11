@@ -8,6 +8,7 @@ const bodyHtml = `
     <button class="tab-btn" data-tab="certificates">My Certificates</button>
     <button class="tab-btn" data-tab="coaching">Coaching</button>
     <button class="tab-btn" data-tab="skills-matrix">Skills Matrix</button>
+    <button class="tab-btn" data-tab="learning-pathway">Learning Pathway</button>
   </div>
 
   <div style="display:flex; flex-direction:column; align-items:center; padding: 20px 0; border-bottom: 1px dashed var(--grid-line); margin-bottom: 20px;">
@@ -87,6 +88,18 @@ const bodyHtml = `
         <div class="panel-sub">A live view of your course activity, grouped by category</div>
       </div>
       <div id="skills-matrix-wrap">
+        <div class="empty-state">Loading&hellip;</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" data-tab-panel="learning-pathway">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Learning Pathway</div>
+        <div class="panel-sub">Recommended next courses, based on what you've completed and your profile</div>
+      </div>
+      <div id="learning-pathway-wrap">
         <div class="empty-state">Loading&hellip;</div>
       </div>
     </div>
@@ -765,6 +778,62 @@ const scripts = `
       });
   }
 
+  function escapeHtmlPathway(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+
+  function loadLearningPathway() {
+    fetch('/api/courses/my-learning-pathway')
+      .then(r => r.json())
+      .then(data => {
+        const pathway = data.pathway || [];
+        const wrap = document.getElementById('learning-pathway-wrap');
+
+        if (pathway.length === 0) {
+          wrap.innerHTML = '<div class="empty-state">No further courses to recommend right now — check back as new courses are published.</div>';
+          return;
+        }
+
+        const cards = pathway.map(item => {
+          const imageHtml = item.imageDataUrl
+            ? '<img class="course-card-image" src="' + item.imageDataUrl + '" alt="" />'
+            : item.bannerDataUrl
+            ? '<img class="course-card-image" src="' + item.bannerDataUrl + '" style="object-fit: contain; background: var(--panel-alt);" alt="" />'
+            : '<div class="course-card-image-placeholder">No Image</div>';
+
+          const reasonsHtml = item.reasons.map(r =>
+            '<span style="display:inline-block; background:var(--panel-alt); border:1px solid var(--grid-line); border-radius:2px; padding:3px 8px; font-family:\\'IBM Plex Mono\\',monospace; font-size:11px; color:var(--text-muted); margin-right:6px; margin-bottom:6px;">' + escapeHtmlPathway(r) + '</span>'
+          ).join('');
+
+          return \`
+          <div class="course-card">
+            \${imageHtml}
+            <div class="course-card-body">
+              <div class="course-card-title">\${escapeHtmlPathway(item.courseTitle)}</div>
+              <div class="course-card-category">\${escapeHtmlPathway(item.category)}</div>
+              <div style="margin: 8px 0;">\${reasonsHtml}</div>
+              <button type="button" class="btn view-in-catalogue-btn" style="width:100%;">View in Course Catalogue</button>
+            </div>
+          </div>
+        \`;
+        }).join('');
+
+        wrap.innerHTML = '<div class="course-card-grid">' + cards + '</div>';
+
+        wrap.querySelectorAll('.view-in-catalogue-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            document.querySelector('.tab-btn[data-tab="catalogue"]').click();
+          });
+        });
+      })
+      .catch(() => {
+        document.getElementById('learning-pathway-wrap').innerHTML =
+          '<div class="empty-state">Could not load your learning pathway.</div>';
+      });
+  }
+
   loadOverallProgress();
   loadNotifications();
   loadMyCourses();
@@ -772,6 +841,7 @@ const scripts = `
   loadCertificates();
   loadCoachingSessions();
   loadSkillsMatrix();
+  loadLearningPathway();
 `;
 
 export const learnerHtml = renderLayout({

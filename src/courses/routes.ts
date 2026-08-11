@@ -242,6 +242,90 @@ courses.get('/my-skills-matrix', async (c) => {
   return c.json({ byCategory });
 });
 
+// GET /api/courses/my-learning-pathway — a recommended next-courses list for
+// the logged-in learner. This is NOT AI-generated and doesn't draw on any
+// external skills-gap analysis — it's a transparent heuristic built from
+// real data already on record:
+//   +2 if the course's category matches a category the learner has already
+//      completed a course in (a natural continuation of what they're doing)
+//   +1 if the course's category loosely text-matches their job title,
+//      current occupation, or future occupation on their profile (a simple
+//      case-insensitive substring check, not a real taxonomy mapping)
+// Courses already enrolled in or completed are excluded. Sorted by score,
+// then title. Every entry includes a plain-language reason so the "why" is
+// visible to the learner, not a black box.
+courses.get('/my-learning-pathway', async (c) => {
+  const session = await getSessionUser(c);
+  if (!session) return c.json({ error: 'Not logged in' }, 401);
+
+  const enrollmentList = await kvListByPrefix(c.env, `enrollment:${session.username}:`);
+  const enrolledCourseIds = new Set<string>();
+  const completedCategories = new Set<string>();
+
+  for (const key of enrollmentList.keys) {
+    const enrollment = await kvGetJSON<Enrollment>(c.env, key.name);
+    if (!enrollment) continue;
+    enrolledCourseIds.add(enrollment.courseId);
+    if (enrollment.status === 'completed') {
+      const course = await kvGetJSON<Course>(c.env, `course:def:${enrollment.courseId}`);
+      if (course?.category) completedCategories.add(course.category.toLowerCase());
+    }
+  }
+
+  const profile = await kvGetJSON<LearnerProfile>(c.env, `learner:profile:${session.username}`);
+  const profileText = [profile?.jobTitle, profile?.currentOccupation, profile?.futureOccupations]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  const courseList = await kvListByPrefix(c.env, 'course:def:');
+  const candidates: Array<{
+    courseId: string;
+    courseTitle: string;
+    category: string;
+    imageDataUrl?: string;
+    bannerDataUrl?: string;
+    score: number;
+    reasons: string[];
+  }> = [];
+
+  for (const key of courseList.keys) {
+    const course = await kvGetJSON<Course>(c.env, key.name);
+    if (!course || course.status !== 'published' || enrolledCourseIds.has(course.id)) continue;
+
+    const category = course.category || 'Uncategorized';
+    const categoryLower = category.toLowerCase();
+    let score = 0;
+    const reasons: string[] = [];
+
+    if (completedCategories.has(categoryLower)) {
+      score += 2;
+      reasons.push(`Continues your progress in ${category}`);
+    }
+    if (profileText && categoryLower && (profileText.includes(categoryLower) || categoryLower.includes(profileText))) {
+      score += 1;
+      reasons.push('Relevant to your role');
+    }
+    if (reasons.length === 0) {
+      reasons.push('New area to explore');
+    }
+
+    candidates.push({
+      courseId: course.id,
+      courseTitle: course.title,
+      category,
+      imageDataUrl: course.imageDataUrl,
+      bannerDataUrl: course.bannerDataUrl,
+      score,
+      reasons,
+    });
+  }
+
+  candidates.sort((a, b) => b.score - a.score || a.courseTitle.localeCompare(b.courseTitle));
+
+  return c.json({ pathway: candidates });
+});
+
 function isStaff(role: string): boolean {
   return role === 'instructor' || role === 'admin' || role === 'administrator';
 }
