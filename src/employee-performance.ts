@@ -142,8 +142,21 @@ const bodyHtml = `
         <div class="form-row" style="margin-top: 8px;">
           <textarea id="appraisal-comments" rows="3" placeholder="Appraisal comments" style="width:100%; background: var(--panel-alt); border: 1px solid var(--grid-line); color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13px; padding: 10px 12px; border-radius: 2px;"></textarea>
         </div>
+        <div class="form-row" style="margin-top: 8px;">
+          <input type="text" id="appraisal-gaps" placeholder="Identified development areas, comma-separated (e.g. Leadership, Communication)" style="width:100%;" />
+        </div>
         <button class="btn" id="log-appraisal-btn" style="margin-top: 10px;">Log Appraisal</button>
         <div id="appraisal-message" style="margin-top: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top: 20px;">
+      <div class="panel-header">
+        <div class="panel-title">Learning Plans</div>
+        <div class="panel-sub">Training + coaching auto-connected to appraisal-identified gaps, with effectiveness tracking (not financial ROI — the LMS has no cost data to calculate a real dollar return)</div>
+      </div>
+      <div class="panel-body">
+        <div id="learning-plans-wrap"><div class="empty-state">Loading&hellip;</div></div>
       </div>
     </div>
 
@@ -202,6 +215,7 @@ const scripts = `
     loadEvidenceForReview();
     loadObservations();
     loadAppraisals();
+    loadLearningPlans();
   });
 
   function loadTrainingHistory() {
@@ -531,11 +545,43 @@ const scripts = `
           <div class="content-block-row" style="align-items:flex-start; cursor:default; margin-bottom:8px;">
             <div style="flex:1;">
               <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); margin-bottom:4px;">\${new Date(a.appraisalDate).toLocaleDateString()} — reviewed by \${escapeHtml(a.reviewerName)}</div>
-              <div style="font-family:'Inter',sans-serif; font-size:13px; color:var(--text-primary);">\${escapeHtml(a.comments)}</div>
+              <div style="font-family:'Inter',sans-serif; font-size:13px; color:var(--text-primary); margin-bottom:8px;">\${escapeHtml(a.comments)}</div>
+              \${(a.identifiedGaps || []).map(g => \`
+                <span style="display:inline-block; background:var(--panel-alt); border:1px solid var(--grid-line); border-radius:2px; padding:4px 10px; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-primary); margin-right:6px; margin-bottom:6px;">
+                  \${escapeHtml(g)}
+                  <button type="button" class="generate-plan-btn" data-appraisal-id="\${a.id}" data-gap="\${escapeHtml(g)}" style="margin-left:8px; background:none; border:none; color:var(--hazard); font-family:'IBM Plex Mono',monospace; font-size:11px; text-decoration:underline; cursor:pointer; padding:0;">Generate Learning Plan</button>
+                </span>
+              \`).join('')}
             </div>
             <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:\${ratingColors[a.rating]}; font-weight:600; white-space:nowrap;">\${ratingLabels[a.rating]}</div>
           </div>
         \`).join('');
+
+        wrap.querySelectorAll('.generate-plan-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            btn.textContent = 'Generating…';
+            btn.disabled = true;
+            fetch('/api/learning-plans/generate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ appraisalId: btn.dataset.appraisalId, gap: btn.dataset.gap })
+            })
+              .then(async (r) => {
+                const data = await r.json();
+                if (!r.ok) throw new Error(data.error || 'Failed to generate learning plan');
+                return data;
+              })
+              .then(() => {
+                loadLearningPlans();
+                loadAppraisals();
+              })
+              .catch((err) => {
+                alert(err.message);
+                btn.textContent = 'Generate Learning Plan';
+                btn.disabled = false;
+              });
+          });
+        });
       })
       .catch(() => {
         document.getElementById('appraisals-wrap').innerHTML = '<div class="empty-state">Could not load appraisals.</div>';
@@ -560,7 +606,8 @@ const scripts = `
         username: selectedUsername,
         appraisalDate: dateVal,
         rating: document.getElementById('appraisal-rating').value,
-        comments: commentsVal
+        comments: commentsVal,
+        identifiedGaps: document.getElementById('appraisal-gaps').value.split(',').map(g => g.trim()).filter(Boolean)
       })
     })
       .then(async (r) => {
@@ -571,6 +618,7 @@ const scripts = `
       .then(() => {
         document.getElementById('appraisal-date').value = '';
         document.getElementById('appraisal-comments').value = '';
+        document.getElementById('appraisal-gaps').value = '';
         loadAppraisals();
       })
       .catch((err) => {
@@ -578,6 +626,98 @@ const scripts = `
         msgEl.style.color = 'var(--risk)';
       });
   });
+
+  function loadLearningPlans() {
+    fetch('/api/learning-plans/' + encodeURIComponent(selectedUsername))
+      .then(r => r.json())
+      .then(data => {
+        const plans = data.plans || [];
+        const wrap = document.getElementById('learning-plans-wrap');
+
+        if (plans.length === 0) {
+          wrap.innerHTML = '<div class="empty-state">No learning plans yet — generate one from an appraisal\\'s identified development area above.</div>';
+          return;
+        }
+
+        const trendLabels = {
+          improved: '\\u2191 Improved since baseline',
+          same: 'Unchanged since baseline',
+          declined: '\\u2193 Declined since baseline',
+          not_yet_reassessed: 'Not yet reassessed'
+        };
+        const trendColors = {
+          improved: 'var(--competent)',
+          same: 'var(--text-muted)',
+          declined: 'var(--risk)',
+          not_yet_reassessed: 'var(--text-muted)'
+        };
+
+        wrap.innerHTML = plans.map(p => {
+          const coursesHtml = p.assignedCourseTitles.length > 0
+            ? p.assignedCourseTitles.map(t => escapeHtml(t)).join(', ')
+            : 'No matching published courses were found';
+
+          const coachingHtml = p.coachingCompleted
+            ? '<div style="font-family:\\'Inter\\',sans-serif; font-size:13px; color:var(--competent);">Coaching logged \\u2014 ' + new Date(p.coachingDate).toLocaleDateString() + ': ' + escapeHtml(p.coachingNotes) + '</div>'
+            : \`
+              <div style="margin-top:8px;">
+                <div class="form-row" style="margin-bottom:6px;">
+                  <input type="date" id="plan-coaching-date-\${p.id}" style="flex:1;" />
+                  <input type="text" id="plan-coaching-notes-\${p.id}" placeholder="Coaching notes" style="flex:2;" />
+                </div>
+                <button type="button" class="log-plan-coaching-btn" data-plan-id="\${p.id}">Log Coaching</button>
+              </div>
+            \`;
+
+          return \`
+            <div class="panel" style="margin-bottom: 16px; \${p.status !== 'active' ? 'opacity:0.7;' : ''}">
+              <div class="panel-header">
+                <div class="panel-title">\${escapeHtml(p.identifiedGap)}</div>
+                <div class="panel-sub">Created \${new Date(p.createdAt).toLocaleDateString()} by \${escapeHtml(p.createdByName)} — status: \${p.status}</div>
+              </div>
+              <div class="panel-body">
+                <div style="font-family:'Inter',sans-serif; font-size:13px; color:var(--text-primary); margin-bottom:8px;"><strong>Training assigned:</strong> \${coursesHtml}</div>
+                \${p.completionPercent != null ? \`
+                  <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                    <div style="width:120px; height:8px; background:var(--panel-alt); border-radius:4px; overflow:hidden;">
+                      <div style="width:\${p.completionPercent}%; height:100%; background:var(--hazard);"></div>
+                    </div>
+                    <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-muted);">\${p.completedCount}/\${p.assignedCourseIds.length} courses completed</span>
+                  </div>
+                \` : ''}
+                \${coachingHtml}
+                <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:\${trendColors[p.ratingTrend]}; font-weight:600; margin-top:8px;">\${trendLabels[p.ratingTrend]}</div>
+              </div>
+            </div>
+          \`;
+        }).join('');
+
+        wrap.querySelectorAll('.log-plan-coaching-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const planId = btn.dataset.planId;
+            const dateVal = document.getElementById('plan-coaching-date-' + planId).value;
+            const notesVal = document.getElementById('plan-coaching-notes-' + planId).value.trim();
+
+            if (!dateVal || !notesVal) {
+              alert('Please provide a date and notes.');
+              return;
+            }
+
+            fetch('/api/learning-plans/' + planId + '/log-coaching', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ coachingDate: dateVal, coachingNotes: notesVal })
+            })
+              .then(r => r.json())
+              .then(() => loadLearningPlans())
+              .catch(() => alert('Failed to log coaching.'));
+          });
+        });
+      })
+      .catch(() => {
+        document.getElementById('learning-plans-wrap').innerHTML = '<div class="empty-state">Could not load learning plans.</div>';
+      });
+  }
 `;
 
 export const employeePerformanceHtml = renderLayout({

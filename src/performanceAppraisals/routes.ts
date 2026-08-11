@@ -26,6 +26,7 @@ performanceAppraisals.post('/', async (c) => {
     appraisalDate: string;
     rating: PerformanceAppraisal['rating'];
     comments: string;
+    identifiedGaps?: string[];
   }>();
 
   if (!body.username || !body.appraisalDate || !body.rating || !body.comments?.trim()) {
@@ -46,6 +47,7 @@ performanceAppraisals.post('/', async (c) => {
     reviewerUsername: session.username,
     reviewerName: reviewerUser?.name || session.username,
     comments: body.comments.trim(),
+    identifiedGaps: body.identifiedGaps?.filter((g) => g.trim()).map((g) => g.trim()),
     createdAt: new Date().toISOString(),
   };
   await kvPutJSON(c.env, `performance-appraisal:${appraisal.id}`, appraisal);

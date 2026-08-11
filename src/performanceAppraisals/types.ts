@@ -10,5 +10,6 @@ export type PerformanceAppraisal = {
   reviewerUsername: string;
   reviewerName: string;
   comments: string;
+  identifiedGaps?: string[];
   createdAt: string;
 };
