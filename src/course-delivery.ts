@@ -457,7 +457,7 @@ const scripts = `
     fetch('/api/coaching/notifications')
       .then(r => r.json())
       .then(data => {
-        const notifications = (data.notifications || []).filter(n => !n.resolved);
+        const notifications = (data.notifications || []).filter(n => !n.resolved && n.escalationTier !== 'hr');
         const wrap = document.getElementById('coaching-notifications-wrap');
 
         if (notifications.length === 0) {

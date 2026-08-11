@@ -35,13 +35,15 @@ const bodyHtml = `
     </div>
   </div>
 
-  <div class="panel" style="margin-bottom: 20px;">
+  <div class="panel" id="hr-panel" style="margin-bottom: 20px; display: none;">
     <div class="panel-header">
       <div class="panel-title">Human Resources</div>
-      <div class="panel-sub">Coming soon</div>
+      <div class="panel-sub">Learners who failed again after facilitator coaching — escalated for HR-level coaching</div>
     </div>
     <div class="panel-body">
-      <div class="empty-state">HR tools will appear here in a future update.</div>
+      <div id="hr-coaching-wrap">
+        <div class="empty-state">Loading&hellip;</div>
+      </div>
     </div>
   </div>
 
@@ -116,8 +118,118 @@ const scripts = `
         document.getElementById('management-reporting-panel').style.display = 'block';
         loadCoachingReport();
       }
+      // HR escalations are one tier above facilitator coaching, so only
+      // Admin and Administrator handle them, not Instructor.
+      if (role === 'admin' || role === 'administrator') {
+        document.getElementById('hr-panel').style.display = 'block';
+        loadHrCoaching();
+      }
     })
     .catch(() => { /* leave hidden if we can't confirm role */ });
+
+  function escapeHtmlDash(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+
+  function loadHrCoaching() {
+    fetch('/api/coaching/notifications')
+      .then(r => r.json())
+      .then(data => {
+        const notifications = (data.notifications || []).filter(n => !n.resolved && n.escalationTier === 'hr');
+        const wrap = document.getElementById('hr-coaching-wrap');
+
+        if (notifications.length === 0) {
+          wrap.innerHTML = '<div class="empty-state">No learners currently escalated to HR.</div>';
+          return;
+        }
+
+        wrap.innerHTML = notifications.map(n => {
+          const attemptRows = n.attempts.map(a => \`
+            <tr>
+              <td>\${a.attemptNumber}</td>
+              <td>\${a.score} / \${a.maxScore}\${a.percentage != null ? ' (' + a.percentage + '%)' : ''}</td>
+              <td>\${new Date(a.submittedAt).toLocaleString()}</td>
+            </tr>
+          \`).join('');
+
+          return \`
+            <div class="panel" style="border-color: #6B4FA0; margin-bottom: 16px;">
+              <div class="panel-header">
+                <div class="panel-title">\${escapeHtmlDash(n.learnerName)}</div>
+                <div class="panel-sub">\${escapeHtmlDash(n.courseTitle)} — failed again after facilitator coaching, flagged \${new Date(n.createdAt).toLocaleString()}</div>
+              </div>
+              <div class="panel-body">
+                <table style="margin-bottom: 16px;">
+                  <thead><tr><th>Attempt</th><th>Score</th><th>Date</th></tr></thead>
+                  <tbody>\${attemptRows}</tbody>
+                </table>
+                <div class="stat-label" style="margin-bottom: 6px;">HR Coaching Session Date &amp; Time</div>
+                <div class="form-row" style="margin-bottom: 10px;">
+                  <input type="date" id="hr-date-\${n.id}" style="flex:1;" />
+                  <input type="time" id="hr-time-\${n.id}" style="flex:1;" />
+                </div>
+                <div class="stat-label" style="margin-bottom: 6px;">HR Coaching Notes</div>
+                <textarea id="hr-notes-\${n.id}" rows="3" placeholder="What was covered in the HR coaching session?" style="width:100%; background: var(--panel-alt); border: 1px solid var(--grid-line); color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13px; padding: 10px 12px; border-radius: 2px; margin-bottom: 10px;"></textarea>
+                <button class="btn hr-resolve-btn" data-notification-id="\${n.id}" disabled style="opacity:0.5; cursor:not-allowed; background:#6B4FA0; color:#fff;">Complete HR Coaching &amp; Reactivate Course</button>
+                <div class="hr-resolve-message-\${n.id}" style="margin-top: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
+              </div>
+            </div>
+          \`;
+        }).join('');
+
+        function refreshHrButtonState(notificationId) {
+          const dateEl = document.getElementById('hr-date-' + notificationId);
+          const timeEl = document.getElementById('hr-time-' + notificationId);
+          const notesEl = document.getElementById('hr-notes-' + notificationId);
+          const btn = document.querySelector('.hr-resolve-btn[data-notification-id="' + notificationId + '"]');
+          const ready = dateEl.value && timeEl.value && notesEl.value.trim();
+          btn.disabled = !ready;
+          btn.style.opacity = ready ? '1' : '0.5';
+          btn.style.cursor = ready ? 'pointer' : 'not-allowed';
+        }
+
+        notifications.forEach(n => {
+          ['hr-date-' + n.id, 'hr-time-' + n.id, 'hr-notes-' + n.id].forEach(id => {
+            document.getElementById(id).addEventListener('input', () => refreshHrButtonState(n.id));
+          });
+        });
+
+        document.querySelectorAll('.hr-resolve-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const notificationId = btn.dataset.notificationId;
+            const dateEl = document.getElementById('hr-date-' + notificationId);
+            const timeEl = document.getElementById('hr-time-' + notificationId);
+            const notesEl = document.getElementById('hr-notes-' + notificationId);
+            const msgEl = document.querySelector('.hr-resolve-message-' + notificationId);
+
+            fetch('/api/coaching/notifications/' + notificationId + '/resolve', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                notes: notesEl.value.trim(),
+                sessionDate: dateEl.value,
+                sessionTime: timeEl.value
+              })
+            })
+              .then(async (r) => {
+                const data = await r.json();
+                if (!r.ok) throw new Error(data.error || 'Failed to resolve');
+                return data;
+              })
+              .then(() => loadHrCoaching())
+              .catch((err) => {
+                msgEl.textContent = err.message;
+                msgEl.style.color = 'var(--risk)';
+              });
+          });
+        });
+      })
+      .catch(() => {
+        document.getElementById('hr-coaching-wrap').innerHTML = '<div class="empty-state">Could not load HR coaching escalations.</div>';
+      });
+  }
 
   function loadCoachingReport() {
     fetch('/api/coaching/sessions')
@@ -136,18 +248,34 @@ const scripts = `
         const byCourse = {};
         const byDept = {};
         sessions.forEach(s => {
-          byCourse[s.courseTitle] = (byCourse[s.courseTitle] || 0) + 1;
+          const tier = s.escalationTier === 'hr' ? 'hr' : 'facilitator';
+          if (!byCourse[s.courseTitle]) byCourse[s.courseTitle] = { facilitator: 0, hr: 0 };
+          byCourse[s.courseTitle][tier] += 1;
+
           const dept = s.department || 'Unassigned';
-          byDept[dept] = (byDept[dept] || 0) + 1;
+          if (!byDept[dept]) byDept[dept] = { facilitator: 0, hr: 0 };
+          byDept[dept][tier] += 1;
         });
 
         function renderCounts(counts) {
-          return Object.keys(counts).sort((a, b) => counts[b] - counts[a]).map(key => \`
-            <div class="content-block-row" style="align-items:center; cursor:default; margin-bottom:6px;">
-              <div style="flex:1; font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary);">\${key}</div>
-              <div style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--hazard); font-weight:600;">\${counts[key]} session\${counts[key] === 1 ? '' : 's'}</div>
-            </div>
-          \`).join('');
+          return Object.keys(counts)
+            .sort((a, b) => (counts[b].facilitator + counts[b].hr) - (counts[a].facilitator + counts[a].hr))
+            .map(key => {
+              const c = counts[key];
+              const facilitatorHtml = c.facilitator > 0
+                ? '<span style="color:var(--hazard); font-weight:600;">' + c.facilitator + ' facilitator</span>'
+                : '';
+              const hrHtml = c.hr > 0
+                ? '<span style="color:#6B4FA0; font-weight:600;">' + c.hr + ' HR</span>'
+                : '';
+              const separator = facilitatorHtml && hrHtml ? ' &nbsp;&middot;&nbsp; ' : '';
+              return \`
+                <div class="content-block-row" style="align-items:center; cursor:default; margin-bottom:6px;">
+                  <div style="flex:1; font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary);">\${key}</div>
+                  <div style="font-family:'IBM Plex Mono',monospace; font-size:13px;">\${facilitatorHtml}\${separator}\${hrHtml}</div>
+                </div>
+              \`;
+            }).join('');
         }
 
         courseWrap.innerHTML = renderCounts(byCourse);

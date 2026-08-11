@@ -23,6 +23,7 @@ export type CoachingNotification = {
   scheduledByUsername?: string;
   proposedBy?: 'facilitator' | 'learner';
   scheduleStatus?: 'proposed' | 'accepted';
+  escalationTier: 'facilitator' | 'hr';
 };
 
 export type CoachingScheduleEvent = {
@@ -51,5 +52,6 @@ export type CoachingSession = {
   sessionDate: string;
   sessionTime: string;
   department?: string;
+  escalationTier: 'facilitator' | 'hr';
   createdAt: string;
 };

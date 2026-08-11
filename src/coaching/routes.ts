@@ -300,6 +300,7 @@ coaching.post('/notifications/:id/resolve', async (c) => {
     sessionDate: body.sessionDate,
     sessionTime: body.sessionTime,
     department: learnerProfile?.department,
+    escalationTier: notification.escalationTier || 'facilitator',
     createdAt: new Date().toISOString(),
   };
   await kvPutJSON(c.env, `coaching:session:${coachingSession.id}`, coachingSession);

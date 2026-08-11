@@ -1,10 +1,10 @@
 import { Hono } from 'hono';
 import type { Env } from '../types';
-import { kvGetJSON, kvPutJSON } from '../lib/kv';
+import { kvGetJSON, kvPutJSON, kvListByPrefix } from '../lib/kv';
 import type { Test, Question, Attempt, QuestionResult } from './types';
 import { getSessionUser } from '../auth/session';
 import type { Course, Enrollment } from '../courses/types';
-import type { CoachingNotification, AttemptSnapshot } from '../coaching/types';
+import type { CoachingNotification, AttemptSnapshot, CoachingSession } from '../coaching/types';
 import type { User } from '../auth/types';
 
 const tests = new Hono<{ Bindings: Env }>();
@@ -259,6 +259,19 @@ tests.post('/:blockId/submit', async (c) => {
       submittedAt: a.submittedAt,
     }));
 
+    // If this learner already had a resolved coaching session for this
+    // course before, failing again means facilitator-level coaching wasn't
+    // enough — escalate straight to Human Resources instead.
+    const sessionList = await kvListByPrefix(c.env, 'coaching:session:');
+    let hasPriorSession = false;
+    for (const key of sessionList.keys) {
+      const s = await kvGetJSON<CoachingSession>(c.env, key.name);
+      if (s && s.username === session.username && s.courseId === body.courseId) {
+        hasPriorSession = true;
+        break;
+      }
+    }
+
     const notification: CoachingNotification = {
       id: crypto.randomUUID(),
       username: session.username,
@@ -269,6 +282,7 @@ tests.post('/:blockId/submit', async (c) => {
       attempts: attemptSnapshots,
       createdAt: new Date().toISOString(),
       resolved: false,
+      escalationTier: hasPriorSession ? 'hr' : 'facilitator',
     };
     await kvPutJSON(c.env, `coaching:notification:${notification.id}`, notification);
   }
