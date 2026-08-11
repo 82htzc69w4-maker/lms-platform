@@ -502,6 +502,9 @@ const scripts = `
                   <div class="book-coaching-message-\${n.id}" style="margin-top: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 12px;"></div>
                 </div>
 
+                <div class="stat-label" style="margin-bottom: 6px;">Scheduling History</div>
+                <div class="schedule-history-\${n.id}" style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); margin-bottom: 16px;">Loading&hellip;</div>
+
                 <div class="stat-label" style="margin-bottom: 6px;">Coaching Session Date &amp; Time</div>
                 <div class="form-row" style="margin-bottom: 10px;">
                   <input type="date" id="coaching-date-\${n.id}" style="flex:1;" />
@@ -515,6 +518,29 @@ const scripts = `
             </div>
           \`;
         }).join('');
+
+        notifications.forEach(n => {
+          fetch('/api/coaching/notifications/' + n.id + '/schedule-history')
+            .then(r => r.json())
+            .then(data => {
+              const events = data.events || [];
+              const histEl = document.querySelector('.schedule-history-' + n.id);
+              if (!histEl) return;
+              if (events.length === 0) {
+                histEl.textContent = 'No scheduling activity yet.';
+                return;
+              }
+              histEl.innerHTML = events.map(e => {
+                const who = e.actorRole === 'learner' ? escapeHtml(e.actorName) + ' (learner)' : escapeHtml(e.actorName) + ' (facilitator)';
+                const verb = e.action === 'accepted' ? 'accepted' : 'proposed';
+                return '<div style="margin-bottom:4px;">' + who + ' ' + verb + ' ' + new Date(e.scheduledDate + 'T' + e.scheduledTime).toLocaleString() + ' — <span style="opacity:0.7;">' + new Date(e.createdAt).toLocaleString() + '</span></div>';
+              }).join('');
+            })
+            .catch(() => {
+              const histEl = document.querySelector('.schedule-history-' + n.id);
+              if (histEl) histEl.textContent = 'Could not load history.';
+            });
+        });
 
         function escapeHtml(str) {
           const div = document.createElement('div');

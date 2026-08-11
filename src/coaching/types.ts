@@ -25,6 +25,20 @@ export type CoachingNotification = {
   scheduleStatus?: 'proposed' | 'accepted';
 };
 
+export type CoachingScheduleEvent = {
+  id: string;
+  notificationId: string;
+  username: string;
+  courseId: string;
+  courseTitle: string;
+  action: 'proposed' | 'accepted';
+  actorRole: 'facilitator' | 'learner';
+  actorName: string;
+  scheduledDate: string;
+  scheduledTime: string;
+  createdAt: string;
+};
+
 export type CoachingSession = {
   id: string;
   notificationId: string;

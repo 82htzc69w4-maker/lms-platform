@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { Env } from '../types';
 import { kvGetJSON, kvPutJSON, kvListByPrefix } from '../lib/kv';
-import type { CoachingNotification, CoachingSession } from './types';
+import type { CoachingNotification, CoachingSession, CoachingScheduleEvent } from './types';
 import { getSessionUser } from '../auth/session';
 import type { User } from '../auth/types';
 import type { Enrollment } from '../courses/types';
@@ -58,6 +58,55 @@ function isStaff(role: string): boolean {
   return role === 'instructor' || role === 'admin' || role === 'administrator';
 }
 
+async function logScheduleEvent(
+  env: Env,
+  notification: CoachingNotification,
+  action: 'proposed' | 'accepted',
+  actorRole: 'facilitator' | 'learner',
+  actorName: string,
+  scheduledDate: string,
+  scheduledTime: string
+): Promise<void> {
+  const event: CoachingScheduleEvent = {
+    id: crypto.randomUUID(),
+    notificationId: notification.id,
+    username: notification.username,
+    courseId: notification.courseId,
+    courseTitle: notification.courseTitle,
+    action,
+    actorRole,
+    actorName,
+    scheduledDate,
+    scheduledTime,
+    createdAt: new Date().toISOString(),
+  };
+  await kvPutJSON(env, `coaching:schedule-event:${event.id}`, event);
+}
+
+// GET /api/coaching/notifications/:id/schedule-history — every scheduling
+// change (proposed or accepted, by either side) for one coaching
+// notification. Accessible to the learner it belongs to, or any staff member.
+coaching.get('/notifications/:id/schedule-history', async (c) => {
+  const session = await getSessionUser(c);
+  if (!session) return c.json({ error: 'Not logged in' }, 401);
+
+  const notificationId = c.req.param('id');
+  const notification = await kvGetJSON<CoachingNotification>(c.env, `coaching:notification:${notificationId}`);
+  if (!notification) return c.json({ error: 'Notification not found' }, 404);
+  if (notification.username !== session.username && !isStaff(session.role)) {
+    return c.json({ error: 'Not authorized' }, 403);
+  }
+
+  const list = await kvListByPrefix(c.env, 'coaching:schedule-event:');
+  const events: CoachingScheduleEvent[] = [];
+  for (const key of list.keys) {
+    const e = await kvGetJSON<CoachingScheduleEvent>(c.env, key.name);
+    if (e && e.notificationId === notificationId) events.push(e);
+  }
+  events.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  return c.json({ events });
+});
+
 // POST /api/coaching/notifications/:id/schedule — the facilitator proposes
 // (or re-proposes) a date and time for an upcoming coaching session. This
 // doesn't resolve the notification or unblock the course — it just lets the
@@ -86,6 +135,15 @@ coaching.post('/notifications/:id/schedule', async (c) => {
   notification.proposedBy = 'facilitator';
   notification.scheduleStatus = 'proposed';
   await kvPutJSON(c.env, `coaching:notification:${notificationId}`, notification);
+  await logScheduleEvent(
+    c.env,
+    notification,
+    'proposed',
+    'facilitator',
+    coachUser?.name || coachSession.username,
+    body.scheduledDate,
+    body.scheduledTime
+  );
 
   return c.json({ ok: true, notification });
 });
@@ -106,6 +164,17 @@ coaching.post('/notifications/:id/accept-schedule', async (c) => {
   notification.scheduleStatus = 'accepted';
   await kvPutJSON(c.env, `coaching:notification:${notificationId}`, notification);
 
+  const coachUser = await kvGetJSON<User>(c.env, `auth:user:${coachSession.username}`);
+  await logScheduleEvent(
+    c.env,
+    notification,
+    'accepted',
+    'facilitator',
+    coachUser?.name || coachSession.username,
+    notification.scheduledDate,
+    notification.scheduledTime!
+  );
+
   return c.json({ ok: true, notification });
 });
 
@@ -124,11 +193,21 @@ coaching.post('/notifications/:id/learner-respond', async (c) => {
   }
 
   const body = await c.req.json<{ action: 'accept' | 'propose'; scheduledDate?: string; scheduledTime?: string }>();
+  const learnerUser = await kvGetJSON<User>(c.env, `auth:user:${learnerSession.username}`);
 
   if (body.action === 'accept') {
     if (!notification.scheduledDate) return c.json({ error: 'No session has been proposed yet' }, 400);
     notification.scheduleStatus = 'accepted';
     await kvPutJSON(c.env, `coaching:notification:${notificationId}`, notification);
+    await logScheduleEvent(
+      c.env,
+      notification,
+      'accepted',
+      'learner',
+      learnerUser?.name || learnerSession.username,
+      notification.scheduledDate,
+      notification.scheduledTime!
+    );
     return c.json({ ok: true, notification });
   }
 
@@ -141,6 +220,15 @@ coaching.post('/notifications/:id/learner-respond', async (c) => {
     notification.proposedBy = 'learner';
     notification.scheduleStatus = 'proposed';
     await kvPutJSON(c.env, `coaching:notification:${notificationId}`, notification);
+    await logScheduleEvent(
+      c.env,
+      notification,
+      'proposed',
+      'learner',
+      learnerUser?.name || learnerSession.username,
+      body.scheduledDate,
+      body.scheduledTime
+    );
 
     if (notification.scheduledByUsername) {
       await createNotification(

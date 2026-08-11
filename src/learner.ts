@@ -532,6 +532,8 @@ const scripts = `
             <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:4px;"><strong>\${n.courseTitle}</strong> is blocked</div>
             <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-muted);">Awaiting a coaching session — flagged \${new Date(n.createdAt).toLocaleDateString()}.</div>
             \${scheduleHtml}
+            <div class="stat-label" style="margin-top:12px; margin-bottom:6px;">Scheduling History</div>
+            <div class="schedule-history-\${n.id}" style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted);">Loading&hellip;</div>
           </div>
         \`;
         }).join('');
@@ -552,6 +554,29 @@ const scripts = `
       }
 
       wrap.innerHTML = html;
+
+      pending.forEach(n => {
+        fetch('/api/coaching/notifications/' + n.id + '/schedule-history')
+          .then(r => r.json())
+          .then(data => {
+            const events = data.events || [];
+            const histEl = document.querySelector('.schedule-history-' + n.id);
+            if (!histEl) return;
+            if (events.length === 0) {
+              histEl.textContent = 'No scheduling activity yet.';
+              return;
+            }
+            histEl.innerHTML = events.map(e => {
+              const who = e.actorRole === 'facilitator' ? escapeHtmlLearner(e.actorName) + ' (facilitator)' : 'You';
+              const verb = e.action === 'accepted' ? 'accepted' : 'proposed';
+              return '<div style="margin-bottom:4px;">' + who + ' ' + verb + ' ' + new Date(e.scheduledDate + 'T' + e.scheduledTime).toLocaleString() + ' — <span style="opacity:0.7;">' + new Date(e.createdAt).toLocaleString() + '</span></div>';
+            }).join('');
+          })
+          .catch(() => {
+            const histEl = document.querySelector('.schedule-history-' + n.id);
+            if (histEl) histEl.textContent = 'Could not load history.';
+          });
+      });
 
       wrap.querySelectorAll('.accept-session-btn').forEach(btn => {
         btn.addEventListener('click', () => {
