@@ -118,9 +118,8 @@ const scripts = `
         document.getElementById('management-reporting-panel').style.display = 'block';
         loadCoachingReport();
       }
-      // HR escalations are one tier above facilitator coaching, so only
-      // Admin and Administrator handle them, not Instructor.
-      if (role === 'admin' || role === 'administrator') {
+      // HR escalations are visible to all coaching-capable staff roles.
+      if (role === 'admin' || role === 'administrator' || role === 'instructor') {
         document.getElementById('hr-panel').style.display = 'block';
         loadHrCoaching();
       }
