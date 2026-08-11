@@ -17,6 +17,9 @@ export type CoachingNotification = {
   attempts: AttemptSnapshot[];
   createdAt: string;
   resolved: boolean;
+  scheduledDate?: string;
+  scheduledTime?: string;
+  scheduledByName?: string;
 };
 
 export type CoachingSession = {

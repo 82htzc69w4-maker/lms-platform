@@ -486,6 +486,18 @@ const scripts = `
                   <thead><tr><th>Attempt</th><th>Score</th><th>Sections Failed</th><th>Date</th></tr></thead>
                   <tbody>\${attemptRows}</tbody>
                 </table>
+
+                <div style="padding: 12px; background: var(--panel-alt); border-radius: 2px; margin-bottom: 16px;">
+                  <div class="stat-label" style="margin-bottom: 6px;">Book a Coaching Session</div>
+                  \${n.scheduledDate ? \`<div style="font-family:'Inter',sans-serif; font-size:13px; color:var(--competent); margin-bottom:8px;">Currently scheduled: \${new Date(n.scheduledDate + 'T' + n.scheduledTime).toLocaleString()} — booked by \${escapeHtml(n.scheduledByName || '')}</div>\` : ''}
+                  <div class="form-row" style="margin-bottom: 8px;">
+                    <input type="date" id="book-date-\${n.id}" style="flex:1;" />
+                    <input type="time" id="book-time-\${n.id}" style="flex:1;" />
+                  </div>
+                  <button class="btn book-coaching-btn" data-notification-id="\${n.id}" style="background:var(--panel); color:var(--text-primary); border:1px solid var(--grid-line);">\${n.scheduledDate ? 'Reschedule Session' : 'Book Session'}</button>
+                  <div class="book-coaching-message-\${n.id}" style="margin-top: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 12px;"></div>
+                </div>
+
                 <div class="stat-label" style="margin-bottom: 6px;">Coaching Session Date &amp; Time</div>
                 <div class="form-row" style="margin-bottom: 10px;">
                   <input type="date" id="coaching-date-\${n.id}" style="flex:1;" />
@@ -520,6 +532,42 @@ const scripts = `
         notifications.forEach(n => {
           ['coaching-date-' + n.id, 'coaching-time-' + n.id, 'coaching-notes-' + n.id].forEach(id => {
             document.getElementById(id).addEventListener('input', () => refreshResolveButtonState(n.id));
+          });
+        });
+
+        wrap.querySelectorAll('.book-coaching-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const notificationId = btn.dataset.notificationId;
+            const dateEl = document.getElementById('book-date-' + notificationId);
+            const timeEl = document.getElementById('book-time-' + notificationId);
+            const msgEl = document.querySelector('.book-coaching-message-' + notificationId);
+
+            if (!dateEl.value || !timeEl.value) {
+              msgEl.textContent = 'Please choose a date and time.';
+              msgEl.style.color = 'var(--risk)';
+              return;
+            }
+
+            btn.textContent = 'Booking…';
+            btn.disabled = true;
+
+            fetch('/api/coaching/notifications/' + notificationId + '/schedule', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ scheduledDate: dateEl.value, scheduledTime: timeEl.value })
+            })
+              .then(async (r) => {
+                const data = await r.json();
+                if (!r.ok) throw new Error(data.error || 'Failed to book session');
+                return data;
+              })
+              .then(() => loadCoachingNotifications())
+              .catch((err) => {
+                msgEl.textContent = err.message;
+                msgEl.style.color = 'var(--risk)';
+                btn.textContent = 'Book Session';
+                btn.disabled = false;
+              });
           });
         });
 

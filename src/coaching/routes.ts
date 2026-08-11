@@ -57,6 +57,35 @@ function isStaff(role: string): boolean {
   return role === 'instructor' || role === 'admin' || role === 'administrator';
 }
 
+// POST /api/coaching/notifications/:id/schedule — the facilitator books a
+// date and time for an upcoming coaching session. This doesn't resolve the
+// notification or unblock the course — it just lets the learner see when
+// their session is planned. Can be called again to reschedule.
+coaching.post('/notifications/:id/schedule', async (c) => {
+  const coachSession = await getSessionUser(c);
+  if (!coachSession || !isStaff(coachSession.role)) {
+    return c.json({ error: 'Not authorized' }, 403);
+  }
+
+  const notificationId = c.req.param('id');
+  const notification = await kvGetJSON<CoachingNotification>(c.env, `coaching:notification:${notificationId}`);
+  if (!notification) return c.json({ error: 'Notification not found' }, 404);
+
+  const body = await c.req.json<{ scheduledDate: string; scheduledTime: string }>();
+  if (!body.scheduledDate || !body.scheduledTime) {
+    return c.json({ error: 'scheduledDate and scheduledTime are required' }, 400);
+  }
+
+  const coachUser = await kvGetJSON<User>(c.env, `auth:user:${coachSession.username}`);
+
+  notification.scheduledDate = body.scheduledDate;
+  notification.scheduledTime = body.scheduledTime;
+  notification.scheduledByName = coachUser?.name || coachSession.username;
+  await kvPutJSON(c.env, `coaching:notification:${notificationId}`, notification);
+
+  return c.json({ ok: true, notification });
+});
+
 // GET /api/coaching/sessions — every coaching session ever logged, for
 // Management Reporting (Instructor/Admin/Administrator only)
 coaching.get('/sessions', async (c) => {

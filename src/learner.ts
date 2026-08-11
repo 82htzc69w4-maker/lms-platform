@@ -502,12 +502,18 @@ const scripts = `
       let html = '';
 
       if (pending.length > 0) {
-        html += pending.map(n => \`
+        html += pending.map(n => {
+          const scheduledHtml = n.scheduledDate
+            ? \`<div style="font-family:'Inter',sans-serif; font-size:13px; color:var(--competent); margin-top:6px;">Session scheduled: \${new Date(n.scheduledDate + 'T' + n.scheduledTime).toLocaleString()}</div>\`
+            : \`<div style="font-family:'Inter',sans-serif; font-size:13px; color:var(--text-muted); margin-top:6px;">No session booked yet.</div>\`;
+          return \`
           <div style="margin-bottom:12px; padding:14px; background:rgba(193,68,58,0.1); border-left:3px solid var(--risk); border-radius:2px;">
             <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:4px;"><strong>\${n.courseTitle}</strong> is blocked</div>
-            <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-muted);">Awaiting a coaching session — flagged \${new Date(n.createdAt).toLocaleDateString()}. A facilitator will be in touch.</div>
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-muted);">Awaiting a coaching session — flagged \${new Date(n.createdAt).toLocaleDateString()}.</div>
+            \${scheduledHtml}
           </div>
-        \`).join('');
+        \`;
+        }).join('');
       }
 
       if (sessions.length === 0 && pending.length === 0) {
