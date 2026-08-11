@@ -9,6 +9,7 @@ const bodyHtml = `
     <button class="tab-btn" data-tab="coaching">Coaching</button>
     <button class="tab-btn" data-tab="skills-matrix">Skills Matrix</button>
     <button class="tab-btn" data-tab="learning-pathway">Learning Pathway</button>
+    <button class="tab-btn" data-tab="ai-coach">AI Coach</button>
   </div>
 
   <div style="display:flex; flex-direction:column; align-items:center; padding: 20px 0; border-bottom: 1px dashed var(--grid-line); margin-bottom: 20px;">
@@ -101,6 +102,22 @@ const bodyHtml = `
       </div>
       <div id="learning-pathway-wrap">
         <div class="empty-state">Loading&hellip;</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" data-tab-panel="ai-coach">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">AI Coach</div>
+        <div class="panel-sub">Ask a question about how to do something — answers are grounded in your company's published training material only</div>
+      </div>
+      <div class="panel-body">
+        <div id="ai-coach-chat-wrap" style="margin-bottom: 16px;"></div>
+        <div class="form-row">
+          <input type="text" id="ai-coach-question" placeholder="e.g. How do I safely operate a belt sander?" style="flex:1;" />
+          <button class="btn" id="ai-coach-ask-btn">Ask</button>
+        </div>
       </div>
     </div>
   </div>
@@ -841,6 +858,67 @@ const scripts = `
   loadCertificates();
   loadCoachingSessions();
   loadSkillsMatrix();
+  function appendChatMessage(wrapId, role, text) {
+    const wrap = document.getElementById(wrapId);
+    const isUser = role === 'user';
+    const bubble = document.createElement('div');
+    bubble.style.cssText = 'margin-bottom:12px; padding:10px 14px; border-radius:4px; max-width:85%; font-family:\\'Inter\\',sans-serif; font-size:14px; line-height:1.5; white-space:pre-wrap;' +
+      (isUser
+        ? ' margin-left:auto; background:var(--hazard); color:#000;'
+        : ' background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line);');
+    bubble.textContent = text;
+    wrap.appendChild(bubble);
+    wrap.scrollTop = wrap.scrollHeight;
+  }
+
+  document.getElementById('ai-coach-ask-btn').addEventListener('click', () => {
+    const input = document.getElementById('ai-coach-question');
+    const question = input.value.trim();
+    if (!question) return;
+
+    appendChatMessage('ai-coach-chat-wrap', 'user', question);
+    input.value = '';
+    input.disabled = true;
+    document.getElementById('ai-coach-ask-btn').disabled = true;
+
+    const loadingId = 'ai-coach-loading-' + Date.now();
+    const wrap = document.getElementById('ai-coach-chat-wrap');
+    const loadingEl = document.createElement('div');
+    loadingEl.id = loadingId;
+    loadingEl.style.cssText = 'margin-bottom:12px; font-family:\\'IBM Plex Mono\\',monospace; font-size:12px; color:var(--text-muted);';
+    loadingEl.textContent = 'Thinking…';
+    wrap.appendChild(loadingEl);
+    wrap.scrollTop = wrap.scrollHeight;
+
+    fetch('/api/ai-coach/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question })
+    })
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'AI Coach request failed');
+        return data;
+      })
+      .then((data) => {
+        document.getElementById(loadingId).remove();
+        appendChatMessage('ai-coach-chat-wrap', 'assistant', data.answer);
+      })
+      .catch((err) => {
+        document.getElementById(loadingId).remove();
+        appendChatMessage('ai-coach-chat-wrap', 'assistant', 'Sorry, something went wrong: ' + err.message);
+      })
+      .finally(() => {
+        input.disabled = false;
+        document.getElementById('ai-coach-ask-btn').disabled = false;
+        input.focus();
+      });
+  });
+
+  document.getElementById('ai-coach-question').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('ai-coach-ask-btn').click();
+  });
+
   loadLearningPathway();
 `;
 

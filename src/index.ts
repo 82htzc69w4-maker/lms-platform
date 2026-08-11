@@ -40,6 +40,7 @@ import { enrolledLearnersHtml } from './enrolled-learners';
 import incidentReports from './incidentReports/routes';
 import productivityMetrics from './productivityMetrics/routes';
 import { employeePerformanceHtml } from './employee-performance';
+import aiCoach from './aiCoach/routes';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -84,5 +85,6 @@ app.route('/api/course-applications', courseApplications);
 app.route('/api/notifications', notifications);
 app.route('/api/incidents', incidentReports);
 app.route('/api/productivity-metrics', productivityMetrics);
+app.route('/api/ai-coach', aiCoach);
 
 export default app;
