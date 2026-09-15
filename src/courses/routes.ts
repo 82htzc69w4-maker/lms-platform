@@ -27,8 +27,22 @@ function canEditCourse(
   return !course.instructorUsername || course.instructorUsername === session.username;
 }
 
-// GET /api/courses — the full catalogue, every course registered on the platform
+// GET /api/courses — the full catalogue, every course registered on the platform.
+// This is hit by nearly every page (catalogue, dashboard tile, my courses
+// filtering), so it's cached at Cloudflare's edge for a short window using
+// the Cache API — separate from the KV quota entirely. This directly
+// addresses the KV list-operation exhaustion this app hit in production:
+// a burst of concurrent page loads now shares one cached response instead
+// of each triggering its own enrollment/course list scans. The 20-second
+// window is a deliberate tradeoff — short enough that a newly published
+// course or a fresh enrollment count shows up almost immediately, long
+// enough to absorb real traffic bursts.
 courses.get('/', async (c) => {
+  const cache = (caches as unknown as { default: Cache }).default;
+  const cacheKey = new Request(c.req.url, { method: 'GET' });
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
+
   const list = await kvListByPrefix(c.env, 'course:def:');
 
   // Count enrollments per course — and track which learners are already
@@ -57,7 +71,11 @@ courses.get('/', async (c) => {
       });
     }
   }
-  return c.json({ courses: result });
+
+  const response = c.json({ courses: result });
+  response.headers.set('Cache-Control', 'public, max-age=20');
+  c.executionCtx.waitUntil(cache.put(cacheKey, response.clone()));
+  return response;
 });
 
 // POST /api/courses — add a course to the catalogue (for an upcoming
@@ -338,21 +356,22 @@ function isStaff(role: string): boolean {
 // courses get caught the next time someone with visibility checks in,
 // rather than the instant the deadline passes. Each enrollment is only
 // flagged once (overdueFlagged), so re-running this is always safe.
-courses.post('/check-overdue', async (c) => {
-  const session = await getSessionUser(c);
-  if (!session || !isStaff(session.role)) {
-    return c.json({ error: 'Not authorized' }, 403);
-  }
-
-  const list = await kvListByPrefix(c.env, 'enrollment:');
+// Shared logic: scans every active enrollment against its course's
+// Completion Period and flags any that have run out of time. Exported so
+// it can be called both from the HTTP route below (opportunistic, staff-
+// triggered) AND from the real scheduled() cron handler in index.ts —
+// which now runs this automatically once a day, rather than only when a
+// staff member happens to load the Dashboard.
+export async function runOverdueCourseCheck(env: Env): Promise<{ newlyFlagged: number }> {
+  const list = await kvListByPrefix(env, 'enrollment:');
   const now = Date.now();
   let newlyFlagged = 0;
 
   for (const key of list.keys) {
-    const enrollment = await kvGetJSON<Enrollment>(c.env, key.name);
+    const enrollment = await kvGetJSON<Enrollment>(env, key.name);
     if (!enrollment || enrollment.status === 'completed' || enrollment.overdueFlagged) continue;
 
-    const course = await kvGetJSON<Course>(c.env, `course:def:${enrollment.courseId}`);
+    const course = await kvGetJSON<Course>(env, `course:def:${enrollment.courseId}`);
     if (!course || !course.completionPeriodDays) continue;
 
     const dueDate = new Date(enrollment.registeredAt);
@@ -360,9 +379,9 @@ courses.post('/check-overdue', async (c) => {
     if (dueDate.getTime() > now) continue;
 
     enrollment.overdueFlagged = true;
-    await kvPutJSON(c.env, key.name, enrollment);
+    await kvPutJSON(env, key.name, enrollment);
 
-    const learnerUser = await kvGetJSON<User>(c.env, `auth:user:${enrollment.username}`);
+    const learnerUser = await kvGetJSON<User>(env, `auth:user:${enrollment.username}`);
     const alert: OverdueCourseAlert = {
       id: crypto.randomUUID(),
       username: enrollment.username,
@@ -373,23 +392,33 @@ courses.post('/check-overdue', async (c) => {
       dueDate: dueDate.toISOString(),
       flaggedAt: new Date().toISOString(),
     };
-    await kvPutJSON(c.env, `overdue-alert:${alert.id}`, alert);
+    await kvPutJSON(env, `overdue-alert:${alert.id}`, alert);
 
     const message = `${alert.learnerName} has not completed "${course.title}" within the required ${course.completionPeriodDays}-day period.`;
     if (course.instructorUsername) {
-      await createNotification(c.env, course.instructorUsername, message, course.id);
+      await createNotification(env, course.instructorUsername, message, course.id);
     }
-    const userList = await kvListByPrefix(c.env, 'auth:user:');
+    const userList = await kvListByPrefix(env, 'auth:user:');
     for (const userKey of userList.keys) {
-      const u = await kvGetJSON<User>(c.env, userKey.name);
+      const u = await kvGetJSON<User>(env, userKey.name);
       if (u && (u.role === 'admin' || u.role === 'administrator')) {
-        await createNotification(c.env, u.username, message, course.id);
+        await createNotification(env, u.username, message, course.id);
       }
     }
 
     newlyFlagged += 1;
   }
 
+  return { newlyFlagged };
+}
+
+courses.post('/check-overdue', async (c) => {
+  const session = await getSessionUser(c);
+  if (!session || !isStaff(session.role)) {
+    return c.json({ error: 'Not authorized' }, 403);
+  }
+
+  const { newlyFlagged } = await runOverdueCourseCheck(c.env);
   return c.json({ ok: true, newlyFlagged });
 });
 

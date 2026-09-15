@@ -125,6 +125,17 @@ ${SHARED_STYLES}
 
     <div class="login-message" id="login-message"></div>
 
+    <div style="text-align: center; margin-top: 12px;">
+      <button type="button" id="forgot-password-link" style="background:none; border:none; color: var(--text-muted); font-family: 'IBM Plex Mono', monospace; font-size: 12px; text-decoration: underline; cursor: pointer; padding: 0;">Forgot Password?</button>
+    </div>
+
+    <div id="forgot-password-form" style="display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--grid-line);">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">Enter your username. An Administrator will set a new password for you and let you know separately — this system doesn't have email set up to send a reset link automatically.</div>
+      <input type="text" id="forgot-password-username" placeholder="Username" style="margin-bottom: 10px;" />
+      <button class="btn" id="forgot-password-submit-btn" style="width: 100%; background: var(--panel-alt); color: var(--text-primary); border: 1px solid var(--grid-line);">Submit Request</button>
+      <div id="forgot-password-message" style="margin-top: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 12px;"></div>
+    </div>
+
     <div class="login-hint">First time here? Enter any username and password to create the first admin account.</div>
   </div>
 
@@ -160,6 +171,37 @@ ${SHARED_STYLES}
   document.getElementById('login-btn').addEventListener('click', attemptLogin);
   document.getElementById('login-password').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') attemptLogin();
+  });
+
+  document.getElementById('forgot-password-link').addEventListener('click', () => {
+    const formEl = document.getElementById('forgot-password-form');
+    formEl.style.display = formEl.style.display === 'none' ? 'block' : 'none';
+  });
+
+  document.getElementById('forgot-password-submit-btn').addEventListener('click', () => {
+    const username = document.getElementById('forgot-password-username').value.trim();
+    const msgEl = document.getElementById('forgot-password-message');
+
+    if (!username) {
+      msgEl.textContent = 'Please enter your username.';
+      msgEl.style.color = 'var(--risk)';
+      return;
+    }
+
+    fetch('/api/password-reset-requests', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username })
+    })
+      .then(() => {
+        msgEl.textContent = 'Request submitted. An Administrator will be in touch with a new password.';
+        msgEl.style.color = 'var(--competent)';
+        document.getElementById('forgot-password-username').value = '';
+      })
+      .catch(() => {
+        msgEl.textContent = 'Could not submit the request — please try again.';
+        msgEl.style.color = 'var(--risk)';
+      });
   });
 </script>
 </body>

@@ -3,7 +3,7 @@ import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import type { Env } from '../types';
 import { kvGetJSON, kvPutJSON, kvListByPrefix } from '../lib/kv';
 import type { User, Session } from './types';
-import { hashPassword, generateSessionToken } from './crypto';
+import { hashPassword, verifyPassword, needsRehash, generateSessionToken } from './crypto';
 
 const auth = new Hono<{ Bindings: Env }>();
 
@@ -23,21 +23,28 @@ auth.post('/login', async (c) => {
   }
 
   const existingUsersList = await kvListByPrefix(c.env, 'auth:user:');
-  const passwordHash = await hashPassword(password);
 
   let user: User | null = null;
 
   if (existingUsersList.keys.length === 0) {
     // Bootstrap: first login creates the first account, as the top-level
     // Administrator role (full system control, including user management).
+    const passwordHash = await hashPassword(password);
     user = { username, passwordHash, name: username, firstName: username, surname: '', role: 'administrator' };
     await kvPutJSON(c.env, `auth:user:${username}`, user);
   } else {
     const stored = await kvGetJSON<User>(c.env, `auth:user:${username}`);
-    if (!stored || stored.passwordHash !== passwordHash) {
+    if (!stored || !(await verifyPassword(password, stored.passwordHash))) {
       return c.json({ error: 'Invalid username or password' }, 401);
     }
     user = stored;
+
+    // Transparently upgrade older, unsalted password hashes to the current
+    // salted format now that we know the plaintext password is correct.
+    if (needsRehash(stored.passwordHash)) {
+      user.passwordHash = await hashPassword(password);
+      await kvPutJSON(c.env, `auth:user:${username}`, user);
+    }
   }
 
   const token = generateSessionToken();

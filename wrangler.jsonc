@@ -9,19 +9,16 @@
 			"id": "c80956bd2bff4b82ab1be39ccfdf37b7",
 			"remote": true
 		}
-	]
+	],
+	"triggers": {
+		"crons": ["0 6 * * *"]
+	}
 	// "compatibility_flags": [
 	//   "nodejs_compat"
 	// ],
 	// "vars": {
 	//   "MY_VAR": "my-variable"
 	// },
-	// "kv_namespaces": [
-	//   {
-	//     "binding": "MY_KV_NAMESPACE",
-	//     "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-	//   }
-	// ],
 	// "r2_buckets": [
 	//   {
 	//     "binding": "MY_BUCKET",

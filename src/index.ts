@@ -19,7 +19,7 @@ import compliance from './modules/compliance/routes';
 import settings from './settings/routes';
 import auth from './auth/routes';
 import users from './users/routes';
-import courses from './courses/routes';
+import courses, { runOverdueCourseCheck } from './courses/routes';
 import certificates from './certificates/routes';
 import lookups from './lookups/routes';
 import tests from './tests/routes';
@@ -42,6 +42,7 @@ import productivityMetrics from './productivityMetrics/routes';
 import { employeePerformanceHtml } from './employee-performance';
 import performanceAppraisals from './performanceAppraisals/routes';
 import learningPlans from './learningPlans/routes';
+import passwordResetRequests from './passwordResetRequests/routes';
 import portfolioEvidence from './portfolioEvidence/routes';
 import workplaceObservations from './workplaceObservations/routes';
 
@@ -92,5 +93,14 @@ app.route('/api/portfolio-evidence', portfolioEvidence);
 app.route('/api/workplace-observations', workplaceObservations);
 app.route('/api/performance-appraisals', performanceAppraisals);
 app.route('/api/learning-plans', learningPlans);
+app.route('/api/password-reset-requests', passwordResetRequests);
 
-export default app;
+// Real scheduled job (Cloudflare Cron Trigger, configured in
+// wrangler.jsonc) — runs the overdue-completion check automatically once a
+// day, instead of only when a staff member happens to load the Dashboard.
+export default {
+  fetch: app.fetch,
+  scheduled: async (_event: ScheduledController, env: Env, ctx: ExecutionContext) => {
+    ctx.waitUntil(runOverdueCourseCheck(env));
+  },
+};

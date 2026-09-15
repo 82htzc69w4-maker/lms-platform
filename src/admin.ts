@@ -209,6 +209,16 @@ const bodyHtml = `
   </div>
 
   <div class="tab-panel" data-tab-panel="administrative">
+    <div class="panel" style="margin-bottom: 20px;">
+      <div class="panel-header">
+        <div class="panel-title">Password Reset Requests</div>
+        <div class="panel-sub">Learners who submitted "Forgot Password?" on the login page</div>
+      </div>
+      <div class="panel-body">
+        <div id="password-reset-requests-wrap"><div class="empty-state">Loading&hellip;</div></div>
+      </div>
+    </div>
+
     <div class="panel">
       <div class="panel-header">
         <div class="panel-title">Departments</div>
@@ -293,10 +303,77 @@ const scripts = `
       if (role !== 'admin' && role !== 'administrator') {
         window.location.href = '/';
       }
+      loadPasswordResetRequests();
     })
     .catch(() => {
       window.location.href = '/login';
     });
+
+  function escapeHtmlAdmin(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+
+  function loadPasswordResetRequests() {
+    fetch('/api/password-reset-requests')
+      .then(r => r.json())
+      .then(data => {
+        const requests = data.requests || [];
+        const wrap = document.getElementById('password-reset-requests-wrap');
+
+        if (requests.length === 0) {
+          wrap.innerHTML = '<div class="empty-state">No pending password reset requests.</div>';
+          return;
+        }
+
+        wrap.innerHTML = requests.map(r => \`
+          <div class="content-block-row" style="align-items:center; cursor:default; margin-bottom:8px;">
+            <div style="flex:1;">
+              <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary);">\${escapeHtmlAdmin(r.username)}</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted);">Requested \${new Date(r.requestedAt).toLocaleString()}</div>
+            </div>
+            <input type="password" id="reset-new-password-\${r.id}" placeholder="New password" style="flex:1; margin-right:8px;" />
+            <button class="btn resolve-reset-btn" data-request-id="\${r.id}">Set New Password</button>
+          </div>
+        \`).join('');
+
+        wrap.querySelectorAll('.resolve-reset-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const requestId = btn.dataset.requestId;
+            const newPassword = document.getElementById('reset-new-password-' + requestId).value;
+
+            if (!newPassword || newPassword.length < 6) {
+              alert('Password must be at least 6 characters.');
+              return;
+            }
+
+            btn.textContent = 'Saving…';
+            btn.disabled = true;
+
+            fetch('/api/password-reset-requests/' + requestId + '/resolve', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ newPassword })
+            })
+              .then(async (r) => {
+                const data = await r.json();
+                if (!r.ok) throw new Error(data.error || 'Failed to reset password');
+                return data;
+              })
+              .then(() => loadPasswordResetRequests())
+              .catch((err) => {
+                alert(err.message);
+                btn.textContent = 'Set New Password';
+                btn.disabled = false;
+              });
+          });
+        });
+      })
+      .catch(() => {
+        document.getElementById('password-reset-requests-wrap').innerHTML = '<div class="empty-state">Could not load password reset requests.</div>';
+      });
+  }
 
   // ---------- Tab switching ----------
   document.querySelectorAll('.tab-btn').forEach(btn => {
