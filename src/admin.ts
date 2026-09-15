@@ -238,7 +238,7 @@ const bodyHtml = `
     <div class="panel">
       <div class="panel-header">
         <div class="panel-title">Departments</div>
-        <div class="panel-sub">Used in Register User (Learner Assignment) and the Workforce Readiness heat map</div>
+        <div class="panel-sub">Used in Register User (Learner Assignment) and the Competence Risk Dashboard</div>
       </div>
       <div class="panel-body">
         <div class="form-row">

@@ -14,12 +14,7 @@ const bodyHtml = `
       </div>
 
       <div class="stat-label" style="margin-bottom: 12px;">External Certificates</div>
-      <div id="expired-external-certs-wrap" style="margin-bottom: 24px;">
-        <div class="empty-state">Loading&hellip;</div>
-      </div>
-
-      <div class="stat-label" style="margin-bottom: 12px;">Competency Certifications</div>
-      <div id="expired-competency-certs-wrap">
+      <div id="expired-external-certs-wrap">
         <div class="empty-state">Loading&hellip;</div>
       </div>
 
@@ -131,36 +126,8 @@ const scripts = `
       });
   }
 
-  function loadExpiredCompetencyCertifications() {
-    fetch('/api/competency/gaps')
-      .then(r => r.json())
-      .then(data => {
-        const list = (data.gaps || []).filter(g => g.status === 'expired');
-        const wrap = document.getElementById('expired-competency-certs-wrap');
-
-        if (list.length === 0) {
-          wrap.innerHTML = '<div class="empty-state">No expired competency certifications.</div>';
-          return;
-        }
-
-        wrap.innerHTML = list.map(g => \`
-          <div class="content-block-row" style="align-items:center; cursor:default; margin-bottom:8px;">
-            <div style="flex:1;">
-              <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:4px;">\${escapeHtml(g.employeeId)} — \${escapeHtml(g.competencyId)}</div>
-              <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--risk);">\${escapeHtml(g.department || 'Unassigned')}</div>
-            </div>
-          </div>
-        \`).join('');
-      })
-      .catch(() => {
-        document.getElementById('expired-competency-certs-wrap').innerHTML =
-          '<div class="empty-state">Could not reach /api/competency/gaps.</div>';
-      });
-  }
-
   loadExpiredCourseCertificates();
   loadExpiredExternalCertificates();
-  loadExpiredCompetencyCertifications();
 `;
 
 export const expiredCertificationsHtml = renderLayout({

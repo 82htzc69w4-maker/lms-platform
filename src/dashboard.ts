@@ -421,16 +421,14 @@ const scripts = `
 
   // ---------- Expired Certifications count ----------
   Promise.all([
-    fetch('/api/competency/gaps').then(r => r.json()),
     fetch('/api/certificate-uploads/expired').then(r => r.json()).catch(() => ({ expired: [] })),
     fetch('/api/issued-certificates/expired').then(r => r.json()).catch(() => ({ certificates: [] })),
   ])
-    .then(([gapData, certUploadData, issuedCertData]) => {
-      const gaps = gapData.gaps || [];
+    .then(([certUploadData, issuedCertData]) => {
       const expiredCertUploads = certUploadData.expired || [];
       const expiredIssuedCerts = issuedCertData.certificates || [];
 
-      const expiredCertCount = gaps.filter(g => g.status === 'expired').length + expiredCertUploads.length + expiredIssuedCerts.length;
+      const expiredCertCount = expiredCertUploads.length + expiredIssuedCerts.length;
 
       countUp(document.getElementById('stat-expired-certifications'), expiredCertCount);
     })
