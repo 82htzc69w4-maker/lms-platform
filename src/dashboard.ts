@@ -59,6 +59,7 @@ const bodyHtml = `
       <div class="panel-sub">Business risk per department — not training compliance. Based on expired certifications, failed assessments, incident history, skill gaps, and performance appraisals.</div>
     </div>
     <div class="panel-body">
+      <button class="btn" id="export-risk-btn" style="background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line); margin-bottom: 16px;">Export CSV</button>
       <div id="risk-dashboard-wrap">
         <div class="empty-state">Loading&hellip;</div>
       </div>
@@ -71,6 +72,7 @@ const bodyHtml = `
       <div class="panel-sub">Coaching sessions logged, by course and by department</div>
     </div>
     <div class="panel-body">
+      <button class="btn" id="export-coaching-btn" style="background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line); margin-bottom: 16px;">Export CSV</button>
       <div class="stat-label" style="margin-bottom: 12px;">By Course</div>
       <div id="coaching-by-course-wrap" style="margin-bottom: 24px;">
         <div class="empty-state">Loading&hellip;</div>
@@ -283,11 +285,14 @@ const scripts = `
       });
   }
 
+  let cachedRiskDepartments = [];
+
   function loadRiskDashboard() {
     fetch('/api/risk/departments')
       .then(r => r.json())
       .then(data => {
         const departments = data.departments || [];
+        cachedRiskDepartments = departments;
         const wrap = document.getElementById('risk-dashboard-wrap');
 
         if (departments.length === 0) {
@@ -332,11 +337,14 @@ const scripts = `
       });
   }
 
+  let cachedCoachingSessions = [];
+
   function loadCoachingReport() {
     fetch('/api/coaching/sessions')
       .then(r => r.json())
       .then(data => {
         const sessions = data.sessions || [];
+        cachedCoachingSessions = sessions;
         const courseWrap = document.getElementById('coaching-by-course-wrap');
         const deptWrap = document.getElementById('coaching-by-department-wrap');
 
@@ -429,6 +437,40 @@ const scripts = `
     .catch(() => {
       document.getElementById('stat-expired-certifications').textContent = '—';
     });
+  function downloadCSV(filename, headers, rows) {
+    function escapeCsvCell(value) {
+      const str = String(value == null ? '' : value);
+      if (str.includes(',') || str.includes('"') || str.includes('\\n')) {
+        return '"' + str.replace(/"/g, '""') + '"';
+      }
+      return str;
+    }
+    const lines = [headers.map(escapeCsvCell).join(',')];
+    rows.forEach(row => lines.push(row.map(escapeCsvCell).join(',')));
+    const csvContent = lines.join('\\r\\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  document.getElementById('export-risk-btn').addEventListener('click', () => {
+    const headers = ['Department', 'Risk Level', 'Expired Certifications', 'Failed Assessments', 'High/Critical Incidents', 'Skill Gaps', 'Poor Appraisals'];
+    const rows = cachedRiskDepartments.map(d => [d.department, d.riskLevel, d.expiredCertifications, d.failedAssessments, d.highSeverityIncidents, d.skillGaps, d.poorAppraisals]);
+    downloadCSV('competence-risk-dashboard.csv', headers, rows);
+  });
+
+  document.getElementById('export-coaching-btn').addEventListener('click', () => {
+    const headers = ['Course', 'Department', 'Coach', 'Learner', 'Escalation Tier', 'Session Date'];
+    const rows = cachedCoachingSessions.map(s => [s.courseTitle, s.department || '', s.coachName, s.username, s.escalationTier, s.sessionDate || '']);
+    downloadCSV('coaching-sessions.csv', headers, rows);
+  });
+
 `;
 
 export const dashboardHtml = renderLayout({
