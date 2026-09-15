@@ -1,4 +1,6 @@
-const PBKDF2_ITERATIONS = 150000;
+// Cloudflare Workers' PBKDF2 implementation has a hard cap of 100,000
+// iterations — exceeding it throws at runtime. 100,000 is the max allowed.
+const PBKDF2_ITERATIONS = 100000;
 
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes)
