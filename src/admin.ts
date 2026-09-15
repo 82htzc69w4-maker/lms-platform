@@ -150,10 +150,26 @@ const bodyHtml = `
   </div>
 
   <div class="tab-panel" data-tab-panel="users">
+    <div class="panel" style="margin-bottom: 20px;">
+      <div class="panel-header">
+        <div class="panel-title">Bulk Import Users (CSV)</div>
+        <div class="panel-sub">Columns, in order: username,password,role,firstName,surname,email,mobile,idNumber,currentOccupation,futureOccupations,languagePreference,department,jobTitle — role must be learner, instructor, admin, or administrator. Only username/password/role are required; the rest apply to learners.</div>
+      </div>
+      <div class="panel-body">
+        <input type="file" id="bulk-import-file" accept=".csv" style="margin-bottom: 10px;" />
+        <button class="btn" id="bulk-import-btn">Import CSV</button>
+        <div id="bulk-import-progress" style="margin-top: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;"></div>
+        <div id="bulk-import-results" style="margin-top: 10px;"></div>
+      </div>
+    </div>
+
     <div class="panel">
       <div class="panel-header">
         <div class="panel-title">Registered Users</div>
         <div class="panel-sub">Pulled from /api/users</div>
+      </div>
+      <div class="panel-body" style="padding-bottom: 0;">
+        <button class="btn" id="export-users-btn" style="background:var(--panel-alt); color:var(--text-primary); border:1px solid var(--grid-line); margin-bottom: 16px;">Export CSV</button>
       </div>
       <div id="user-list-wrap">
         <div class="empty-state">Loading users&hellip;</div>
@@ -656,11 +672,14 @@ const scripts = `
   document.getElementById('user-role').addEventListener('change', toggleRoleFields);
   toggleRoleFields();
 
+  let cachedUserList = [];
+
   function loadUsers() {
     fetch('/api/users')
       .then(r => r.json())
       .then(data => {
         const list = data.users || [];
+        cachedUserList = list;
         const wrap = document.getElementById('user-list-wrap');
 
         if (list.length === 0) {
@@ -858,6 +877,107 @@ const scripts = `
         msgEl.textContent = err.message;
         msgEl.style.color = 'var(--risk)';
       });
+  });
+
+  // ---------- CSV export ----------
+  function downloadCSV(filename, headers, rows) {
+    function escapeCsvCell(value) {
+      const str = String(value == null ? '' : value);
+      if (str.includes(',') || str.includes('"') || str.includes('\\n')) {
+        return '"' + str.replace(/"/g, '""') + '"';
+      }
+      return str;
+    }
+    const lines = [headers.map(escapeCsvCell).join(',')];
+    rows.forEach(row => lines.push(row.map(escapeCsvCell).join(',')));
+    const csvContent = lines.join('\\r\\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  document.getElementById('export-users-btn').addEventListener('click', () => {
+    const headers = ['Username', 'Name', 'Job Title', 'Occupation', 'Role', 'Department'];
+    const rows = cachedUserList.map(u => [u.username, u.name, u.jobTitle || '', u.currentOccupation || '', u.role, u.department || '']);
+    downloadCSV('registered-users.csv', headers, rows);
+  });
+
+  // ---------- Bulk CSV import ----------
+  function parseCsv(text) {
+    return text
+      .split(/\\r?\\n/)
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+      .map(line => line.split(',').map(cell => cell.trim()));
+  }
+
+  document.getElementById('bulk-import-btn').addEventListener('click', () => {
+    const fileInput = document.getElementById('bulk-import-file');
+    const file = fileInput.files[0];
+    const progressEl = document.getElementById('bulk-import-progress');
+    const resultsEl = document.getElementById('bulk-import-results');
+
+    if (!file) {
+      progressEl.textContent = 'Please choose a CSV file first.';
+      progressEl.style.color = 'var(--risk)';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const rows = parseCsv(reader.result);
+      if (rows.length === 0) {
+        progressEl.textContent = 'The file appears to be empty.';
+        progressEl.style.color = 'var(--risk)';
+        return;
+      }
+
+      const fields = ['username', 'password', 'role', 'firstName', 'surname', 'email', 'mobile', 'idNumber', 'currentOccupation', 'futureOccupations', 'languagePreference', 'department', 'jobTitle'];
+      const results = [];
+
+      for (let i = 0; i < rows.length; i++) {
+        progressEl.textContent = 'Importing row ' + (i + 1) + ' of ' + rows.length + '…';
+        const cells = rows[i];
+        const payload = {};
+        fields.forEach((field, idx) => {
+          if (cells[idx] !== undefined && cells[idx] !== '') payload[field] = cells[idx];
+        });
+
+        try {
+          const r = await fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await r.json();
+          if (!r.ok) throw new Error(data.error || 'Failed');
+          results.push({ username: payload.username || '(row ' + (i + 1) + ')', ok: true });
+        } catch (err) {
+          results.push({ username: payload.username || '(row ' + (i + 1) + ')', ok: false, error: err.message });
+        }
+      }
+
+      const succeeded = results.filter(r => r.ok).length;
+      progressEl.textContent = 'Done — ' + succeeded + ' of ' + results.length + ' imported successfully.';
+      progressEl.style.color = succeeded === results.length ? 'var(--competent)' : 'var(--refresher)';
+
+      resultsEl.innerHTML = results.map(r => \`
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:\${r.ok ? 'var(--competent)' : 'var(--risk)'}; margin-bottom:4px;">
+          \${r.ok ? '\\u2713' : '\\u2717'} \${r.username}\${r.error ? ' — ' + r.error : ''}
+        </div>
+      \`).join('');
+
+      fileInput.value = '';
+      loadUsers();
+      loadLookupOptionsForSelects();
+    };
+    reader.readAsText(file);
   });
 `;
 
