@@ -1032,7 +1032,7 @@ const scripts = `
               \${e.signOffNotes ? '<div style="font-family:\\'Inter\\',sans-serif; font-size:13px; color:var(--text-primary);">' + escapeHtmlLearner(e.signOffNotes) + '</div>' : ''}
             </div>
             <div style="text-align:right;">
-              <a href="\${e.fileDataUrl}" download="\${escapeHtmlLearner(e.fileName)}" class="btn" style="text-decoration:none; display:inline-block; margin-bottom:4px;">Open</a>
+              <a href="/api/portfolio-evidence/file/\${e.id}" class="btn" style="text-decoration:none; display:inline-block; margin-bottom:4px;">Open</a>
               <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:\${statusColors[e.status]}; font-weight:600;">\${statusLabels[e.status]}</div>
             </div>
           </div>
@@ -1054,47 +1054,44 @@ const scripts = `
       msgEl.style.color = 'var(--risk)';
       return;
     }
-    if (file.size > 8 * 1024 * 1024) {
-      msgEl.textContent = 'File is too large — please use one under 8MB.';
+    if (file.size > 100 * 1024 * 1024) {
+      msgEl.textContent = 'File is too large — please use one under 100MB.';
       msgEl.style.color = 'var(--risk)';
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      fetch('/api/portfolio-evidence', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: titleVal,
-          description: document.getElementById('evidence-description').value.trim(),
-          evidenceType: document.getElementById('evidence-type').value,
-          relatedSkill: document.getElementById('evidence-skill').value.trim(),
-          fileDataUrl: reader.result,
-          fileName: file.name,
-          fileMimeType: file.type
-        })
+    msgEl.textContent = 'Uploading…';
+    msgEl.style.color = 'var(--text-muted)';
+
+    const formData = new FormData();
+    formData.append('title', titleVal);
+    formData.append('description', document.getElementById('evidence-description').value.trim());
+    formData.append('evidenceType', document.getElementById('evidence-type').value);
+    formData.append('relatedSkill', document.getElementById('evidence-skill').value.trim());
+    formData.append('file', file);
+
+    fetch('/api/portfolio-evidence', {
+      method: 'POST',
+      body: formData
+    })
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'Failed to upload evidence');
+        return data;
       })
-        .then(async (r) => {
-          const data = await r.json();
-          if (!r.ok) throw new Error(data.error || 'Failed to upload evidence');
-          return data;
-        })
-        .then(() => {
-          document.getElementById('evidence-title').value = '';
-          document.getElementById('evidence-description').value = '';
-          document.getElementById('evidence-skill').value = '';
-          fileInput.value = '';
-          msgEl.textContent = 'Uploaded — awaiting supervisor review.';
-          msgEl.style.color = 'var(--competent)';
-          loadPassportEvidence();
-        })
-        .catch((err) => {
-          msgEl.textContent = err.message;
-          msgEl.style.color = 'var(--risk)';
-        });
-    };
-    reader.readAsDataURL(file);
+      .then(() => {
+        document.getElementById('evidence-title').value = '';
+        document.getElementById('evidence-description').value = '';
+        document.getElementById('evidence-skill').value = '';
+        fileInput.value = '';
+        msgEl.textContent = 'Uploaded — awaiting supervisor review.';
+        msgEl.style.color = 'var(--competent)';
+        loadPassportEvidence();
+      })
+      .catch((err) => {
+        msgEl.textContent = err.message;
+        msgEl.style.color = 'var(--risk)';
+      });
   });
 
   loadLearningPathway();

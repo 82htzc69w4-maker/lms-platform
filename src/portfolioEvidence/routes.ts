@@ -12,40 +12,60 @@ function isStaff(role: string): boolean {
   return role === 'instructor' || role === 'admin' || role === 'administrator';
 }
 
+// Reasonable ceiling to protect Worker memory/CPU while handling an
+// upload — well beyond the old 8MB KV-based cap, comfortably covering
+// short video clips, photos, and documents.
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+
 // POST /api/portfolio-evidence — a learner uploads a piece of evidence
 // (video, photo, or document) to their own portfolio, not tied to any
-// specific course.
+// specific course. The actual file goes to R2 object storage (not KV,
+// which has much smaller per-value limits) — only the R2 key and
+// metadata are stored in KV.
 portfolioEvidence.post('/', async (c) => {
   const session = await getSessionUser(c);
   if (!session) return c.json({ error: 'Not logged in' }, 401);
 
-  const body = await c.req.json<{
-    title: string;
-    description: string;
-    evidenceType: PortfolioEvidence['evidenceType'];
-    fileDataUrl: string;
-    fileName: string;
-    fileMimeType: string;
-    relatedSkill?: string;
-  }>();
+  const formData = await c.req.formData();
+  const title = formData.get('title');
+  const description = formData.get('description');
+  const evidenceType = formData.get('evidenceType');
+  const relatedSkill = formData.get('relatedSkill');
+  const file = formData.get('file');
 
-  if (!body.title?.trim() || !body.evidenceType || !body.fileDataUrl || !body.fileName) {
-    return c.json({ error: 'title, evidenceType, fileDataUrl, and fileName are required' }, 400);
+  if (typeof title !== 'string' || !title.trim()) {
+    return c.json({ error: 'title is required' }, 400);
+  }
+  if (evidenceType !== 'video' && evidenceType !== 'photo' && evidenceType !== 'document') {
+    return c.json({ error: 'evidenceType must be video, photo, or document' }, 400);
+  }
+  if (!(file instanceof File)) {
+    return c.json({ error: 'file is required' }, 400);
+  }
+  if (file.size > MAX_FILE_SIZE) {
+    return c.json({ error: 'File is too large — please use one under 100MB.' }, 400);
   }
 
   const user = await kvGetJSON<User>(c.env, `auth:user:${session.username}`);
+  const id = crypto.randomUUID();
+  const r2Key = `evidence/${session.username}/${id}/${file.name}`;
+
+  await c.env.LMS_EVIDENCE.put(r2Key, await file.arrayBuffer(), {
+    httpMetadata: { contentType: file.type || 'application/octet-stream' },
+  });
 
   const evidence: PortfolioEvidence = {
-    id: crypto.randomUUID(),
+    id,
     username: session.username,
     employeeName: user?.name || session.username,
-    title: body.title.trim(),
-    description: body.description?.trim() || '',
-    evidenceType: body.evidenceType,
-    fileDataUrl: body.fileDataUrl,
-    fileName: body.fileName,
-    fileMimeType: body.fileMimeType || '',
-    relatedSkill: body.relatedSkill?.trim() || undefined,
+    title: title.trim(),
+    description: typeof description === 'string' ? description.trim() : '',
+    evidenceType,
+    r2Key,
+    fileName: file.name,
+    fileMimeType: file.type || '',
+    fileSize: file.size,
+    relatedSkill: typeof relatedSkill === 'string' && relatedSkill.trim() ? relatedSkill.trim() : undefined,
     status: 'pending',
     uploadedAt: new Date().toISOString(),
   };
@@ -84,6 +104,28 @@ portfolioEvidence.get('/pending', async (c) => {
   }
   items.sort((a, b) => new Date(a.uploadedAt).getTime() - new Date(b.uploadedAt).getTime());
   return c.json({ evidence: items });
+});
+
+// GET /api/portfolio-evidence/file/:id — streams the actual file from R2.
+// Accessible to the learner who owns it, or any staff member.
+// Registered before /:username so "file" is never mistaken for a username.
+portfolioEvidence.get('/file/:id', async (c) => {
+  const session = await getSessionUser(c);
+  if (!session) return c.json({ error: 'Not logged in' }, 401);
+
+  const id = c.req.param('id');
+  const evidence = await kvGetJSON<PortfolioEvidence>(c.env, `portfolio-evidence:${id}`);
+  if (!evidence) return c.json({ error: 'Evidence not found' }, 404);
+  if (evidence.username !== session.username && !isStaff(session.role)) {
+    return c.json({ error: 'Not authorized' }, 403);
+  }
+
+  const object = await c.env.LMS_EVIDENCE.get(evidence.r2Key);
+  if (!object) return c.json({ error: 'File not found in storage' }, 404);
+
+  c.header('Content-Type', evidence.fileMimeType || 'application/octet-stream');
+  c.header('Content-Disposition', `attachment; filename="${evidence.fileName}"`);
+  return c.body(object.body);
 });
 
 // GET /api/portfolio-evidence/:username — every evidence item for one

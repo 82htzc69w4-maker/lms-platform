@@ -8,9 +8,10 @@ export type PortfolioEvidence = {
   title: string;
   description: string;
   evidenceType: EvidenceType;
-  fileDataUrl: string;
+  r2Key: string;
   fileName: string;
   fileMimeType: string;
+  fileSize: number;
   relatedSkill?: string;
   status: EvidenceStatus;
   signedOffByUsername?: string;

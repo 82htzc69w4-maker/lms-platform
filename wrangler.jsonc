@@ -12,19 +12,19 @@
 	],
 	"triggers": {
 		"crons": ["0 6 * * *"]
-	}
+	},
+	"r2_buckets": [
+		{
+			"binding": "LMS_EVIDENCE",
+			"bucket_name": "lms-evidence"
+		}
+	]
 	// "compatibility_flags": [
 	//   "nodejs_compat"
 	// ],
 	// "vars": {
 	//   "MY_VAR": "my-variable"
 	// },
-	// "r2_buckets": [
-	//   {
-	//     "binding": "MY_BUCKET",
-	//     "bucket_name": "my-bucket"
-	//   }
-	// ],
 	// "d1_databases": [
 	//   {
 	//     "binding": "MY_DB",

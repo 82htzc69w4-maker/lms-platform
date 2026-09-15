@@ -418,7 +418,7 @@ const scripts = `
               <div style="font-family:'Inter',sans-serif; font-size:14px; color:var(--text-primary); margin-bottom:2px;">\${escapeHtml(e.title)} <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); text-transform:uppercase;">(\${e.evidenceType})</span></div>
               <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-muted); margin-bottom:4px;">Uploaded \${new Date(e.uploadedAt).toLocaleDateString()}\${e.relatedSkill ? ' — ' + escapeHtml(e.relatedSkill) : ''}</div>
               \${e.description ? '<div style="font-family:\\'Inter\\',sans-serif; font-size:13px; color:var(--text-primary); margin-bottom:6px;">' + escapeHtml(e.description) + '</div>' : ''}
-              <a href="\${e.fileDataUrl}" download="\${escapeHtml(e.fileName)}" class="btn" style="text-decoration:none; display:inline-block;">Open</a>
+              <a href="/api/portfolio-evidence/file/\${e.id}" class="btn" style="text-decoration:none; display:inline-block;">Open</a>
               \${e.status === 'pending' ? \`
                 <div style="margin-top:8px;">
                   <input type="text" id="signoff-notes-\${e.id}" placeholder="Notes (optional)" style="width:100%; margin-bottom:6px;" />
