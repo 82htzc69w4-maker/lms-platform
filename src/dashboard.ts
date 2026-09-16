@@ -145,12 +145,11 @@ const scripts = `
         document.getElementById('hr-panel').style.display = 'block';
         loadHrCoaching();
 
-        // There's no real background/cron job checking completion
-        // deadlines — this opportunistically checks whenever a staff
-        // member loads the Dashboard, then loads whatever's on record.
-        fetch('/api/courses/check-overdue', { method: 'POST' })
-          .catch(() => { /* best-effort; still load whatever's already flagged */ })
-          .then(() => loadOverdueCourses());
+        // The overdue-completion check itself now runs once daily via a
+        // real Cloudflare Cron Trigger (see the scheduled() handler in
+        // index.ts) — this just loads whatever it already flagged,
+        // rather than also re-running the same enrollment scan here.
+        loadOverdueCourses();
       }
     })
     .catch(() => { /* leave hidden if we can't confirm role */ });

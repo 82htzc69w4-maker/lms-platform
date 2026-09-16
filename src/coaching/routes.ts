@@ -253,6 +253,13 @@ coaching.get('/sessions', async (c) => {
     return c.json({ error: 'Not authorized' }, 403);
   }
 
+  // The auth check above always runs first, so caching by URL alone here
+  // is safe — only staff who already passed it ever reach this point.
+  const cache = (caches as unknown as { default: Cache }).default;
+  const cacheKey = new Request(c.req.url, { method: 'GET' });
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
+
   const list = await kvListByPrefix(c.env, 'coaching:session:');
   const sessions: CoachingSession[] = [];
   for (const key of list.keys) {
@@ -260,7 +267,11 @@ coaching.get('/sessions', async (c) => {
     if (s) sessions.push(s);
   }
   sessions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  return c.json({ sessions });
+
+  const response = c.json({ sessions });
+  response.headers.set('Cache-Control', 'public, max-age=180');
+  c.executionCtx.waitUntil(cache.put(cacheKey, response.clone()));
+  return response;
 });
 
 // POST /api/coaching/notifications/:id/resolve — records what the coach did

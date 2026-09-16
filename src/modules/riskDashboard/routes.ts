@@ -48,6 +48,18 @@ riskDashboard.get('/departments', async (c) => {
     return c.json({ error: 'Not authorized' }, 403);
   }
 
+  // This runs 5 separate full KV list scans (profiles, certificates,
+  // uploads, attempts, incidents, appraisals) — expensive enough that it
+  // was a real contributor to the KV list-quota exhaustion this app hit
+  // in production. The auth check above always runs first, so caching
+  // by URL alone here is safe — only staff who already passed that check
+  // ever reach this point. A short cache window absorbs repeat Dashboard
+  // loads from multiple staff members without needing per-user cache keys.
+  const cache = (caches as unknown as { default: Cache }).default;
+  const cacheKey = new Request(c.req.url, { method: 'GET' });
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
+
   // Map every learner to their department, from real profile data.
   const profileList = await kvListByPrefix(c.env, 'learner:profile:');
   const departmentByUsername: Record<string, string> = {};
@@ -149,7 +161,10 @@ riskDashboard.get('/departments', async (c) => {
 
   results.sort((a, b) => b.riskScore - a.riskScore);
 
-  return c.json({ departments: results });
+  const response = c.json({ departments: results });
+  response.headers.set('Cache-Control', 'public, max-age=180');
+  c.executionCtx.waitUntil(cache.put(cacheKey, response.clone()));
+  return response;
 });
 
 export default riskDashboard;
