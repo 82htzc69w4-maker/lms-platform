@@ -42,6 +42,19 @@ const bodyHtml = `
 
     <div class="panel">
       <div class="panel-header">
+        <div class="panel-title">Import Moodle Course</div>
+        <div class="panel-sub">Upload a Moodle course backup (.mbz). Pages, file resources, and True/False or Multiple Choice quiz questions are imported; other activity types (forums, SCORM, etc.) are skipped and listed in the report below — nothing is silently dropped.</div>
+      </div>
+      <div class="panel-body">
+        <input type="file" id="moodle-import-file" accept=".mbz" style="margin-bottom: 10px;" />
+        <button class="btn" id="moodle-import-btn">Import</button>
+        <div id="moodle-import-progress" style="margin-top: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--text-muted);"></div>
+        <div id="moodle-import-report" style="margin-top: 12px;"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
         <div class="panel-title">Courses in Development</div>
         <div class="panel-sub">Draft courses not yet visible to learners</div>
       </div>
@@ -397,6 +410,482 @@ const scripts = `
         msgEl.style.color = 'var(--risk)';
       });
   });
+
+  // ============================================================
+  // Moodle Course Backup (.mbz) Importer
+  //
+  // Runs entirely in the browser: gzip decompression via the native
+  // DecompressionStream API, a hand-written TAR reader (the format is
+  // simple and stable, no library needed), and XML parsing via the
+  // native DOMParser. This keeps every server-side call an ordinary,
+  // small content-block write — the same calls Course Development
+  // already makes one at a time — so nothing here depends on the
+  // Worker's CPU-time budget, which is far too small (10ms on the free
+  // plan) to parse an archive like this.
+  //
+  // Supported Moodle activity types: page, resource, quiz (truefalse
+  // and multichoice questions only). Everything else is reported as
+  // skipped, never silently dropped or faked.
+  // ============================================================
+
+  function moodleSlugify(str) {
+    return str
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40);
+  }
+
+  function moodleNullSafe(value) {
+    if (value === null || value === undefined) return '';
+    if (value === '$@NULL@$') return '';
+    return value;
+  }
+
+  // ---------- TAR parsing ----------
+  function parseTar(arrayBuffer) {
+    const bytes = new Uint8Array(arrayBuffer);
+    const files = new Map();
+    let offset = 0;
+
+    function readString(start, length) {
+      let end = start;
+      while (end < start + length && bytes[end] !== 0) end++;
+      return new TextDecoder().decode(bytes.slice(start, end));
+    }
+
+    function readOctal(start, length) {
+      const str = readString(start, length).trim();
+      return str ? parseInt(str, 8) : 0;
+    }
+
+    while (offset + 512 <= bytes.length) {
+      const header = bytes.slice(offset, offset + 512);
+      let isEmpty = true;
+      for (let i = 0; i < 512; i++) {
+        if (header[i] !== 0) { isEmpty = false; break; }
+      }
+      if (isEmpty) break;
+
+      const name = readString(offset, 100);
+      const size = readOctal(offset + 124, 12);
+      const typeflag = readString(offset + 156, 1);
+      const prefix = readString(offset + 345, 155);
+      const fullPath = prefix ? (prefix + '/' + name) : name;
+
+      offset += 512;
+
+      if (typeflag === '0' || typeflag === '') {
+        const content = bytes.slice(offset, offset + size);
+        files.set(fullPath, content);
+      }
+
+      const paddedSize = Math.ceil(size / 512) * 512;
+      offset += paddedSize;
+    }
+
+    return files;
+  }
+
+  // ---------- XML helpers ----------
+  function parseXmlBytes(files, path) {
+    const bytes = files.get(path);
+    if (!bytes) return null;
+    const text = new TextDecoder('utf-8').decode(bytes);
+    return new DOMParser().parseFromString(text, 'text/xml');
+  }
+
+  function childText(el, tagName) {
+    if (!el) return '';
+    const found = el.getElementsByTagName(tagName);
+    if (found.length === 0) return '';
+    return moodleNullSafe(found[0].textContent);
+  }
+
+  // ---------- files.xml index: (contextid|component|filename) -> contenthash ----------
+  function buildFileIndex(filesDoc) {
+    const index = new Map();
+    if (!filesDoc) return index;
+    const fileEls = filesDoc.getElementsByTagName('file');
+    for (let i = 0; i < fileEls.length; i++) {
+      const el = fileEls[i];
+      const contextid = childText(el, 'contextid');
+      const component = childText(el, 'component');
+      const filename = childText(el, 'filename');
+      const contenthash = childText(el, 'contenthash');
+      const mimetype = childText(el, 'mimetype');
+      if (!contextid || !filename || filename === '.') continue;
+      const key = contextid + '|' + component + '|' + filename;
+      index.set(key, { contenthash, mimetype });
+    }
+    return index;
+  }
+
+  function resolveFileDataUrl(files, fileIndex, contextid, component, filename) {
+    const key = contextid + '|' + component + '|' + filename;
+    const entry = fileIndex.get(key);
+    if (!entry || !entry.contenthash) return null;
+    const hash = entry.contenthash;
+    const path = 'files/' + hash.slice(0, 2) + '/' + hash;
+    const bytes = files.get(path);
+    if (!bytes) return null;
+
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    const base64 = btoa(binary);
+    const mime = entry.mimetype || 'application/octet-stream';
+    return { dataUrl: 'data:' + mime + ';base64,' + base64, mimeType: mime };
+  }
+
+  // Rewrites @@PLUGINFILE@@/filename references in HTML content to
+  // inline data URLs, resolved against this activity's own contextid.
+  function resolvePluginFileReferences(html, files, fileIndex, contextid, component) {
+    return html.replace(/@@PLUGINFILE@@\\/([^"'\\s)]+)/g, function (match, filename) {
+      const decoded = decodeURIComponent(filename);
+      const resolved = resolveFileDataUrl(files, fileIndex, contextid, component, decoded);
+      return resolved ? resolved.dataUrl : match;
+    });
+  }
+
+  // ---------- questions.xml: build a map of questionbankentryid -> parsed question ----------
+  function parseQuestionBank(questionsDoc) {
+    const bank = new Map();
+    if (!questionsDoc) return bank;
+
+    const entryEls = questionsDoc.getElementsByTagName('question_bank_entry');
+    for (let i = 0; i < entryEls.length; i++) {
+      const entryEl = entryEls[i];
+      const entryId = entryEl.getAttribute('id');
+      const questionEls = entryEl.getElementsByTagName('question');
+      if (questionEls.length === 0) continue;
+      // Use the last (most recent) <question> found under this entry
+      const qEl = questionEls[questionEls.length - 1];
+
+      const qtype = childText(qEl, 'qtype');
+      const text = childText(qEl, 'questiontext');
+      const defaultmark = parseFloat(childText(qEl, 'defaultmark')) || 1;
+
+      if (qtype === 'truefalse') {
+        const answerEls = qEl.getElementsByTagName('answer');
+        let correctBoolean = true;
+        for (let a = 0; a < answerEls.length; a++) {
+          const fraction = parseFloat(childText(answerEls[a], 'fraction'));
+          const answertext = childText(answerEls[a], 'answertext');
+          if (fraction === 1) {
+            correctBoolean = answertext.toLowerCase() === 'true';
+          }
+        }
+        bank.set(entryId, { type: 'trueFalse', text: text, marks: defaultmark, correctBoolean: correctBoolean });
+      } else if (qtype === 'multichoice') {
+        const answerEls = qEl.getElementsByTagName('answer');
+        const options = [];
+        for (let a = 0; a < answerEls.length; a++) {
+          const fraction = parseFloat(childText(answerEls[a], 'fraction'));
+          const answertext = childText(answerEls[a], 'answertext');
+          options.push({ id: crypto.randomUUID(), text: answertext, isCorrect: fraction > 0 });
+        }
+        bank.set(entryId, { type: 'multipleChoice', text: text, marks: defaultmark, options: options });
+      } else {
+        bank.set(entryId, { type: 'unsupported', qtype: qtype, text: text });
+      }
+    }
+
+    return bank;
+  }
+
+  // ---------- Section/activity ordering from moodle_backup.xml ----------
+  function parseActivityList(backupDoc) {
+    const activities = [];
+    const activityEls = backupDoc.getElementsByTagName('activity');
+    for (let i = 0; i < activityEls.length; i++) {
+      const el = activityEls[i];
+      // Only top-level <activity> elements under <contents><activities>,
+      // not nested elements that happen to share the tag name.
+      if (el.parentNode && el.parentNode.tagName !== 'activities') continue;
+      activities.push({
+        moduleid: childText(el, 'moduleid'),
+        sectionid: childText(el, 'sectionid'),
+        modulename: childText(el, 'modulename'),
+        title: childText(el, 'title'),
+        directory: childText(el, 'directory'),
+      });
+    }
+    return activities;
+  }
+
+  function parseSectionOrder(backupDoc) {
+    const sections = [];
+    const sectionEls = backupDoc.getElementsByTagName('section');
+    for (let i = 0; i < sectionEls.length; i++) {
+      const el = sectionEls[i];
+      if (el.parentNode && el.parentNode.tagName !== 'sections') continue;
+      sections.push({
+        sectionid: childText(el, 'sectionid'),
+        title: childText(el, 'title'),
+      });
+    }
+    return sections;
+  }
+
+  // Returns activities in true course order: by section order, then by
+  // each section's own <sequence> of module IDs.
+  function orderActivities(backupDoc, files) {
+    const activities = parseActivityList(backupDoc);
+    const sections = parseSectionOrder(backupDoc);
+    const activityByModuleId = new Map(activities.map(function (a) { return [a.moduleid, a]; }));
+
+    const ordered = [];
+    for (const section of sections) {
+      const sectionXmlPath = 'sections/section_' + section.sectionid + '/section.xml';
+      const sectionDoc = parseXmlBytes(files, sectionXmlPath);
+      const sequence = sectionDoc ? childText(sectionDoc.documentElement, 'sequence') : '';
+      if (!sequence) continue;
+      const moduleIds = sequence.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+      for (const moduleId of moduleIds) {
+        const activity = activityByModuleId.get(moduleId);
+        if (activity) ordered.push(activity);
+      }
+    }
+    return ordered;
+  }
+
+  // ---------- Main import entry point ----------
+  async function importMoodleBackup(file, onProgress) {
+    onProgress('Decompressing archive…');
+    const decompressedStream = file.stream().pipeThrough(new DecompressionStream('gzip'));
+    const tarBuffer = await new Response(decompressedStream).arrayBuffer();
+
+    onProgress('Reading archive contents…');
+    const files = parseTar(tarBuffer);
+
+    const backupDoc = parseXmlBytes(files, 'moodle_backup.xml');
+    if (!backupDoc) throw new Error('This does not look like a valid Moodle backup — moodle_backup.xml was not found.');
+
+    const infoEls = backupDoc.getElementsByTagName('information');
+    const courseFullName = infoEls.length > 0 ? childText(infoEls[0], 'original_course_fullname') : 'Imported Moodle Course';
+
+    const filesDoc = parseXmlBytes(files, 'files.xml');
+    const fileIndex = buildFileIndex(filesDoc);
+
+    const questionsDoc = parseXmlBytes(files, 'questions.xml');
+    const questionBank = parseQuestionBank(questionsDoc);
+
+    onProgress('Determining course structure…');
+    const orderedActivities = orderActivities(backupDoc, files);
+
+    const courseId = 'moodle-' + moodleSlugify(courseFullName) + '-' + Date.now().toString(36);
+
+    onProgress('Creating course "' + courseFullName + '"…');
+    const createResp = await fetch('/api/courses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: courseId,
+        title: courseFullName,
+        description: 'Imported from a Moodle course backup.',
+        status: 'draft'
+      })
+    });
+    const createData = await createResp.json();
+    if (!createResp.ok) throw new Error(createData.error || 'Failed to create course');
+
+    const report = { imported: [], skipped: [] };
+
+    for (const activity of orderedActivities) {
+      onProgress('Importing "' + activity.title + '"…');
+
+      if (activity.modulename === 'page') {
+        const pageDoc = parseXmlBytes(files, activity.directory + '/page.xml');
+        if (!pageDoc) { report.skipped.push({ title: activity.title, reason: 'page.xml missing' }); continue; }
+        const activityEl = pageDoc.documentElement;
+        const contextid = activityEl.getAttribute('contextid');
+        const pageEls = pageDoc.getElementsByTagName('page');
+        const rawContent = pageEls.length > 0 ? childText(pageEls[0], 'content') : '';
+        const resolvedContent = resolvePluginFileReferences(rawContent, files, fileIndex, contextid, 'mod_page');
+
+        const blockResp = await fetch('/api/courses/' + courseId + '/content', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'text', title: resolvedContent })
+        });
+        const blockData = await blockResp.json();
+        if (blockResp.ok) {
+          report.imported.push({ title: activity.title, type: 'Text' });
+        } else {
+          report.skipped.push({ title: activity.title, reason: blockData.error || 'failed to create block' });
+        }
+      } else if (activity.modulename === 'resource') {
+        const resourceDoc = parseXmlBytes(files, activity.directory + '/resource.xml');
+        if (!resourceDoc) { report.skipped.push({ title: activity.title, reason: 'resource.xml missing' }); continue; }
+        const activityEl = resourceDoc.documentElement;
+        const contextid = activityEl.getAttribute('contextid');
+
+        // Find the first file indexed under this activity's context for mod_resource.
+        let resolvedFile = null;
+        let resolvedFilename = '';
+        for (const [key, entry] of fileIndex) {
+          const parts = key.split('|');
+          if (parts[0] === contextid && parts[1] === 'mod_resource') {
+            resolvedFilename = parts[2];
+            resolvedFile = resolveFileDataUrl(files, fileIndex, contextid, 'mod_resource', resolvedFilename);
+            if (resolvedFile) break;
+          }
+        }
+
+        if (!resolvedFile) {
+          report.skipped.push({ title: activity.title, reason: 'attached file could not be located' });
+          continue;
+        }
+
+        const createBlockResp = await fetch('/api/courses/' + courseId + '/content', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'document', title: activity.title })
+        });
+        const createBlockData = await createBlockResp.json();
+        if (!createBlockResp.ok) {
+          report.skipped.push({ title: activity.title, reason: createBlockData.error || 'failed to create block' });
+          continue;
+        }
+        const newBlockId = createBlockData.blocks[createBlockData.blocks.length - 1].id;
+
+        const updateResp = await fetch('/api/courses/' + courseId + '/content/' + newBlockId, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            settings: {
+              fileDataUrl: resolvedFile.dataUrl,
+              fileName: resolvedFilename,
+              fileMimeType: resolvedFile.mimeType
+            }
+          })
+        });
+        if (updateResp.ok) {
+          report.imported.push({ title: activity.title, type: 'Document' });
+        } else {
+          report.skipped.push({ title: activity.title, reason: 'file attached but settings update failed' });
+        }
+      } else if (activity.modulename === 'quiz') {
+        const quizDoc = parseXmlBytes(files, activity.directory + '/quiz.xml');
+        if (!quizDoc) { report.skipped.push({ title: activity.title, reason: 'quiz.xml missing' }); continue; }
+
+        const instanceEls = quizDoc.getElementsByTagName('question_instance');
+        const questionsToAdd = [];
+        const unsupportedTypes = [];
+
+        for (let i = 0; i < instanceEls.length; i++) {
+          const refEls = instanceEls[i].getElementsByTagName('question_reference');
+          if (refEls.length === 0) continue;
+          const entryId = childText(refEls[0], 'questionbankentryid');
+          const parsedQuestion = questionBank.get(entryId);
+          if (!parsedQuestion) continue;
+          if (parsedQuestion.type === 'unsupported') {
+            unsupportedTypes.push(parsedQuestion.qtype || 'unknown');
+            continue;
+          }
+          questionsToAdd.push(parsedQuestion);
+        }
+
+        if (questionsToAdd.length === 0) {
+          report.skipped.push({
+            title: activity.title,
+            reason: unsupportedTypes.length > 0
+              ? 'no supported question types (found: ' + unsupportedTypes.join(', ') + ')'
+              : 'no questions found'
+          });
+          continue;
+        }
+
+        const createBlockResp = await fetch('/api/courses/' + courseId + '/content', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'test', title: activity.title })
+        });
+        const createBlockData = await createBlockResp.json();
+        if (!createBlockResp.ok) {
+          report.skipped.push({ title: activity.title, reason: createBlockData.error || 'failed to create block' });
+          continue;
+        }
+        const newBlockId = createBlockData.blocks[createBlockData.blocks.length - 1].id;
+
+        let addedCount = 0;
+        for (const q of questionsToAdd) {
+          const questionResp = await fetch('/api/tests/' + newBlockId + '/questions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(q)
+          });
+          if (questionResp.ok) addedCount++;
+        }
+
+        let importNote = 'Test (' + addedCount + ' question' + (addedCount === 1 ? '' : 's') + ')';
+        if (unsupportedTypes.length > 0) {
+          importNote += ' — ' + unsupportedTypes.length + ' question(s) skipped (' + unsupportedTypes.join(', ') + ')';
+        }
+        report.imported.push({ title: activity.title, type: importNote });
+      } else {
+        report.skipped.push({ title: activity.title, reason: 'activity type "' + activity.modulename + '" is not supported' });
+      }
+    }
+
+    return { courseId: courseId, courseTitle: courseFullName, report: report };
+  }
+
+  function moodleEscapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+
+  document.getElementById('moodle-import-btn').addEventListener('click', function () {
+    const fileInput = document.getElementById('moodle-import-file');
+    const progressEl = document.getElementById('moodle-import-progress');
+    const reportEl = document.getElementById('moodle-import-report');
+    const file = fileInput.files[0];
+
+    if (!file) {
+      progressEl.textContent = 'Please choose a .mbz file first.';
+      progressEl.style.color = 'var(--risk)';
+      return;
+    }
+
+    reportEl.innerHTML = '';
+    progressEl.style.color = 'var(--text-muted)';
+
+    importMoodleBackup(file, function (message) {
+      progressEl.textContent = message;
+    }).then(function (result) {
+      progressEl.textContent = 'Done — "' + result.courseTitle + '" created as a draft.';
+      progressEl.style.color = 'var(--competent)';
+
+      const importedRows = result.report.imported.map(function (item) {
+        return '<div class="content-block-row" style="align-items:center; cursor:default; margin-bottom:6px;">'
+          + '<div style="flex:1; font-family:\\'Inter\\',sans-serif; font-size:14px; color:var(--text-primary);">' + moodleEscapeHtml(item.title) + '</div>'
+          + '<div style="font-family:\\'IBM Plex Mono\\',monospace; font-size:12px; color:var(--competent);">' + moodleEscapeHtml(item.type) + '</div>'
+          + '</div>';
+      }).join('');
+
+      const skippedRows = result.report.skipped.map(function (item) {
+        return '<div class="content-block-row" style="align-items:center; cursor:default; margin-bottom:6px; border-color: var(--risk); background: rgba(193,68,58,0.06);">'
+          + '<div style="flex:1; font-family:\\'Inter\\',sans-serif; font-size:14px; color:var(--text-primary);">' + moodleEscapeHtml(item.title) + '</div>'
+          + '<div style="font-family:\\'IBM Plex Mono\\',monospace; font-size:12px; color:var(--risk);">' + moodleEscapeHtml(item.reason) + '</div>'
+          + '</div>';
+      }).join('');
+
+      reportEl.innerHTML =
+        '<div class="stat-label" style="margin-bottom: 8px; margin-top: 8px;">Imported (' + result.report.imported.length + ')</div>'
+        + (importedRows || '<div class="empty-state">Nothing was imported.</div>')
+        + '<div class="stat-label" style="margin-bottom: 8px; margin-top: 16px;">Skipped (' + result.report.skipped.length + ')</div>'
+        + (skippedRows || '<div class="empty-state">Nothing was skipped.</div>');
+
+      fileInput.value = '';
+      loadDevelopment();
+    }).catch(function (err) {
+      progressEl.textContent = 'Import failed: ' + err.message;
+      progressEl.style.color = 'var(--risk)';
+    });
+  });
+
 
   // ---------- Pending Coaching Notifications ----------
   // ---------- Applications for Enrollment ----------
